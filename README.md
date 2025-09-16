@@ -21,9 +21,9 @@ Antes de empezar, asegúrate de tener instalado:
 1. Abre el repositorio con github desktop o manualmente con git clone.
 2. Crea y activa el entorno virtual con:
    
-     python -m venv venv
+     Crear (solo una vez): python -m venv venv
    
-     venv/Scripts/activate
+     Donde se crea, activar con: venv/Scripts/activate
    
 4. Instala las dependencias con:
    
