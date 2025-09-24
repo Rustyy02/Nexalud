@@ -1,11 +1,11 @@
-# Nexalud 🏥
+# Nexalud
 
 Proyecto de ficha única de salud desarrollado con **Django + React + PostgreSQL**.  
 Este repositorio contiene el backend en Django (API REST) y el frontend en React.
 
 ---
 
-## 🚀 Requisitos previos
+## Requisitos previos
 
 Antes de empezar, asegúrate de tener instalado:
 
@@ -16,7 +16,7 @@ Antes de empezar, asegúrate de tener instalado:
 
 ---
 
-## ⚙️ Configuración del Backend (Django)
+## Configuración del Backend (Django)
 
 1. Abre el repositorio con github desktop o manualmente con git clone.
 2. Crea y activa el entorno virtual con:
