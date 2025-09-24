@@ -30,6 +30,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders', # Para React
     'channels' # Para el websocket
+    'pacientes',
+    'rutas_clinicas',
+    'boxes',
+    'atenciones',
+    'integraciones',
+    'dashboard',
+]
+
 ]
 
 MIDDLEWARE = [
