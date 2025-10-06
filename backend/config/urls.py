@@ -1,22 +1,25 @@
-"""
-URL configuration for config project.
+"URLs principales para el proyecto"
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework import permissions
+from rest_framework.documentation import include_docs_urls
 
 urlpatterns = [
+    # Admin de Django
     path('admin/', admin.site.urls),
+    
+    # API URLs
+    path('api/', include('pacientes.urls')),
+    path('api/', include('rutas_clinicas.urls')),
+    path('api/', include('boxes.urls')),
+    path('api/', include('atenciones.urls')),
+    
+    # Autenticación (Django REST Framework)
+    path('api-auth/', include('rest_framework.urls')),
 ]
+
+# Configuración del admin
+admin.site.site_header = "Nexalud Admin"
+admin.site.site_title = "Nexalud"
+admin.site.index_title = "Panel de Administración"
