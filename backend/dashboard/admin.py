@@ -7,7 +7,7 @@ from django.db.models import Count, Avg, Sum, Q
 from pacientes.models import Paciente
 from boxes.models import Box
 from atenciones.models import Atencion, Medico
-from rutas_clinicas.models import RutaClinica, EtapaRuta
+from rutas_clinicas.models import RutaClinica
 
 
 class DashboardAdmin(admin.AdminSite):

@@ -1,123 +1,35 @@
+# backend/rutas_clinicas/serializers.py
 from rest_framework import serializers
-from .models import RutaClinica, EtapaRuta
+from .models import RutaClinica
 from pacientes.serializers import PacienteListSerializer
 
 
-class EtapaRutaSerializer(serializers.ModelSerializer):
-    """
-    Serializer completo para EtapaRuta.
-    Incluye información calculada del progreso y estado.
-    """
-    tipo_etapa_display = serializers.CharField(
-        source='get_tipo_etapa_display',
-        read_only=True
-    )
-    estado_display = serializers.CharField(
-        source='get_estado_display',
-        read_only=True
-    )
-    tiempo_transcurrido = serializers.SerializerMethodField()
-    porcentaje_avance = serializers.SerializerMethodField()
-    tiene_retraso = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = EtapaRuta
-        fields = [
-            'id',
-            'ruta_clinica',
-            'nombre',
-            'tipo_etapa',
-            'tipo_etapa_display',
-            'orden',
-            'fecha_inicio',
-            'fecha_fin',
-            'duracion_estimada',
-            'duracion_real',
-            'estado',
-            'estado_display',
-            'es_estatico',
-            'motivo_pausa',
-            'descripcion',
-            'configuracion_etapa',
-            'fecha_actualizacion',
-            'tiempo_transcurrido',
-            'porcentaje_avance',
-            'tiene_retraso',
-        ]
-        read_only_fields = ['id', 'duracion_real', 'fecha_actualizacion']
-    
-    def get_tiempo_transcurrido(self, obj):
-        """Retorna el tiempo transcurrido de la etapa"""
-        tiempo = obj.calcular_tiempo_transcurrido()
-        if tiempo:
-            return int(tiempo.total_seconds() / 60)  # En minutos
-        return None
-    
-    def get_porcentaje_avance(self, obj):
-        """Retorna el porcentaje de avance de la etapa"""
-        return round(obj.obtener_porcentaje_avance(), 2)
-    
-    def get_tiene_retraso(self, obj):
-        """Indica si la etapa tiene retraso"""
-        return obj.detectar_retraso()
-
-
-class EtapaRutaListSerializer(serializers.ModelSerializer):
-    """
-    Serializer simplificado para listar etapas.
-    Usado en el timeline horizontal.
-    """
-    estado_display = serializers.CharField(
-        source='get_estado_display',
-        read_only=True
-    )
-    tipo_etapa_display = serializers.CharField(
-        source='get_tipo_etapa_display',
-        read_only=True
-    )
-    porcentaje_avance = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = EtapaRuta
-        fields = [
-            'id',
-            'nombre',
-            'orden',
-            'tipo_etapa',
-            'tipo_etapa_display',
-            'estado',
-            'estado_display',
-            'es_estatico',
-            'duracion_estimada',
-            'duracion_real',
-            'porcentaje_avance',
-        ]
-    
-    def get_porcentaje_avance(self, obj):
-        return round(obj.obtener_porcentaje_avance(), 2)
-
-
 class RutaClinicaSerializer(serializers.ModelSerializer):
-    """
-    Serializer completo para RutaClinica.
-    Incluye las etapas anidadas para el timeline.
-    """
+    """Serializer completo para RutaClinica"""
     paciente = PacienteListSerializer(read_only=True)
     paciente_id = serializers.PrimaryKeyRelatedField(
         queryset=__import__('pacientes.models', fromlist=['Paciente']).Paciente.objects.all(),
         source='paciente',
         write_only=True
     )
-    estado_display = serializers.CharField(
-        source='get_estado_display',
-        read_only=True
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    etapa_actual_display = serializers.CharField(source='get_etapa_actual_display', read_only=True)
+    
+    # Campo de selección múltiple para etapas
+    etapas_seleccionadas = serializers.MultipleChoiceField(
+        choices=RutaClinica.ETAPAS_CHOICES,
+        help_text="Seleccione las etapas del proceso clínico"
     )
-    etapas = EtapaRutaListSerializer(many=True, read_only=True)
+    
+    # Información calculada
     tiempo_total_real = serializers.SerializerMethodField()
-    tiempo_total_estimado = serializers.SerializerMethodField()
-    etapa_actual = serializers.SerializerMethodField()
-    proxima_etapa = serializers.SerializerMethodField()
-    tiene_retrasos = serializers.SerializerMethodField()
+    timeline = serializers.SerializerMethodField()
+    etapa_siguiente = serializers.SerializerMethodField()
+    total_etapas = serializers.SerializerMethodField()
+    etapas_restantes = serializers.SerializerMethodField()
+    
+    # Choices disponibles para el frontend
+    etapas_disponibles = serializers.SerializerMethodField()
     
     class Meta:
         model = RutaClinica
@@ -125,120 +37,192 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
             'id',
             'paciente',
             'paciente_id',
+            'etapas_seleccionadas',
+            'etapas_disponibles',
+            'etapa_actual',
+            'etapa_actual_display',
+            'indice_etapa_actual',
+            'etapas_completadas',
+            'timestamps_etapas',
             'fecha_inicio',
             'fecha_estimada_fin',
             'fecha_fin_real',
             'porcentaje_completado',
             'estado',
             'estado_display',
+            'esta_pausado',
+            'motivo_pausa',
             'metadatos_adicionales',
             'fecha_actualizacion',
-            'etapas',
             'tiempo_total_real',
-            'tiempo_total_estimado',
-            'etapa_actual',
-            'proxima_etapa',
-            'tiene_retrasos',
+            'timeline',
+            'etapa_siguiente',
+            'total_etapas',
+            'etapas_restantes',
         ]
         read_only_fields = [
             'id',
+            'etapa_actual',
+            'indice_etapa_actual',
+            'etapas_completadas',
+            'timestamps_etapas',
             'porcentaje_completado',
             'fecha_actualizacion',
-            'fecha_fin_real'
+            'fecha_fin_real',
+            'esta_pausado',
+        ]
+    
+    def get_etapas_disponibles(self, obj):
+        """Retorna las opciones de etapas disponibles"""
+        return [
+            {'key': key, 'label': label}
+            for key, label in RutaClinica.ETAPAS_CHOICES
         ]
     
     def get_tiempo_total_real(self, obj):
-        """Retorna el tiempo real transcurrido en minutos"""
+        """Retorna el tiempo real transcurrido"""
         tiempo = obj.obtener_tiempo_total_real()
-        return int(tiempo.total_seconds() / 60)
+        minutos = int(tiempo.total_seconds() / 60)
+        horas = int(tiempo.total_seconds() / 3600)
+        return {
+            'minutos': minutos,
+            'horas': horas,
+            'formateado': f"{horas}h {minutos % 60}m"
+        }
     
-    def get_tiempo_total_estimado(self, obj):
-        """Retorna el tiempo estimado total en minutos"""
-        tiempo = obj.obtener_tiempo_total_estimado()
-        return int(tiempo.total_seconds() / 60)
+    def get_timeline(self, obj):
+        """Retorna el timeline estructurado"""
+        return obj.obtener_info_timeline()
     
-    def get_etapa_actual(self, obj):
-        """Retorna la etapa actualmente en proceso"""
-        etapa = obj.obtener_etapa_actual()
-        if etapa:
-            return EtapaRutaListSerializer(etapa).data
+    def get_etapa_siguiente(self, obj):
+        """Retorna la siguiente etapa"""
+        siguiente = obj.obtener_etapa_siguiente()
+        if siguiente:
+            label = dict(RutaClinica.ETAPAS_CHOICES).get(siguiente, siguiente)
+            return {
+                'key': siguiente,
+                'label': label
+            }
         return None
     
-    def get_proxima_etapa(self, obj):
-        """Retorna la próxima etapa pendiente"""
-        etapa = obj.obtener_proxima_etapa()
-        if etapa:
-            return EtapaRutaListSerializer(etapa).data
-        return None
+    def get_total_etapas(self, obj):
+        """Total de etapas seleccionadas"""
+        return len(obj.etapas_seleccionadas)
     
-    def get_tiene_retrasos(self, obj):
-        """Indica si hay etapas retrasadas"""
-        return len(obj.detectar_retrasos()) > 0
+    def get_etapas_restantes(self, obj):
+        """Cantidad de etapas restantes"""
+        return len(obj.etapas_seleccionadas) - len(obj.etapas_completadas)
 
 
 class RutaClinicaListSerializer(serializers.ModelSerializer):
-    """
-    Serializer simplificado para listar rutas clínicas.
-    """
-    paciente_hash = serializers.CharField(
-        source='paciente.identificador_hash',
-        read_only=True
-    )
-    estado_display = serializers.CharField(
-        source='get_estado_display',
-        read_only=True
-    )
+    """Serializer simplificado para listar rutas"""
+    paciente_hash = serializers.CharField(source='paciente.identificador_hash', read_only=True)
+    paciente_edad = serializers.IntegerField(source='paciente.edad', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    etapa_actual_display = serializers.CharField(source='get_etapa_actual_display', read_only=True)
+    progreso_info = serializers.SerializerMethodField()
     
     class Meta:
         model = RutaClinica
         fields = [
             'id',
             'paciente_hash',
+            'paciente_edad',
+            'etapa_actual',
+            'etapa_actual_display',
             'fecha_inicio',
             'porcentaje_completado',
             'estado',
             'estado_display',
+            'esta_pausado',
+            'progreso_info',
         ]
+    
+    def get_progreso_info(self, obj):
+        """Información resumida del progreso"""
+        return {
+            'total': len(obj.etapas_seleccionadas),
+            'completadas': len(obj.etapas_completadas),
+            'porcentaje': obj.porcentaje_completado,
+        }
 
 
 class RutaClinicaCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer para crear una ruta clínica con sus etapas.
-    """
-    etapas = EtapaRutaSerializer(many=True, write_only=True)
+    """Serializer para crear una ruta clínica"""
+    
+    # Campo personalizado para selección múltiple
+    etapas_seleccionadas = serializers.MultipleChoiceField(
+        choices=RutaClinica.ETAPAS_CHOICES,
+        help_text="Seleccione las etapas del proceso clínico"
+    )
     
     class Meta:
         model = RutaClinica
         fields = [
             'paciente',
+            'etapas_seleccionadas',
             'fecha_estimada_fin',
-            'etapas',
+            'metadatos_adicionales',
         ]
     
+    def validate_etapas_seleccionadas(self, value):
+        """Valida que se hayan seleccionado etapas válidas"""
+        if not value or len(value) == 0:
+            raise serializers.ValidationError("Debe seleccionar al menos una etapa.")
+        
+        # Convertir a lista si no lo es
+        if not isinstance(value, list):
+            value = list(value)
+        
+        return value
+    
     def create(self, validated_data):
-        """Crea la ruta clínica con sus etapas"""
-        etapas_data = validated_data.pop('etapas', [])
+        """Crea la ruta clínica"""
         ruta = RutaClinica.objects.create(**validated_data)
-        
-        # Crear las etapas
-        for etapa_data in etapas_data:
-            EtapaRuta.objects.create(ruta_clinica=ruta, **etapa_data)
-        
         # Calcular progreso inicial
         ruta.calcular_progreso()
-        
         return ruta
 
 
 class TimelineSerializer(serializers.Serializer):
-    """
-    Serializer especializado para el timeline del paciente.
-    Optimizado para la visualización del timeline horizontal.
-    """
-    paciente = PacienteListSerializer(read_only=True)
-    ruta_clinica = RutaClinicaSerializer(read_only=True)
-    progreso_general = serializers.FloatField(read_only=True)
-    etapas_completadas = serializers.IntegerField(read_only=True)
-    etapas_totales = serializers.IntegerField(read_only=True)
-    tiempo_transcurrido_minutos = serializers.IntegerField(read_only=True)
-    estado_actual = serializers.CharField(read_only=True)
+    """Serializer especializado para el timeline horizontal"""
+    paciente = serializers.SerializerMethodField()
+    ruta_clinica = serializers.SerializerMethodField()
+    timeline = serializers.ListField()
+    progreso_general = serializers.FloatField()
+    etapas_completadas = serializers.IntegerField()
+    etapas_totales = serializers.IntegerField()
+    tiempo_transcurrido_minutos = serializers.IntegerField()
+    estado_actual = serializers.CharField()
+    esta_pausado = serializers.BooleanField()
+    alertas = serializers.ListField()
+    
+    def get_paciente(self, obj):
+        """Información del paciente"""
+        return {
+            'id': str(obj['paciente'].id),
+            'identificador_hash': obj['paciente'].identificador_hash,
+            'edad': obj['paciente'].edad,
+            'genero': obj['paciente'].get_genero_display(),
+            'estado_actual': obj['paciente'].get_estado_actual_display(),
+            'nivel_urgencia': obj['paciente'].get_nivel_urgencia_display(),
+        }
+    
+    def get_ruta_clinica(self, obj):
+        """Información de la ruta"""
+        return {
+            'id': str(obj['ruta_clinica'].id),
+            'estado': obj['ruta_clinica'].estado,
+            'estado_display': obj['ruta_clinica'].get_estado_display(),
+            'porcentaje_completado': obj['ruta_clinica'].porcentaje_completado,
+            'fecha_inicio': obj['ruta_clinica'].fecha_inicio,
+            'fecha_estimada_fin': obj['ruta_clinica'].fecha_estimada_fin,
+            'fecha_fin_real': obj['ruta_clinica'].fecha_fin_real,
+            'etapa_actual': obj['ruta_clinica'].etapa_actual,
+            'etapa_actual_display': obj['ruta_clinica'].get_etapa_actual_display(),
+        }
+
+
+class RutaAccionSerializer(serializers.Serializer):
+    """Serializer para acciones sobre la ruta (pausar, reanudar, etc)"""
+    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)

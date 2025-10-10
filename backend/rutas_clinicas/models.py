@@ -1,13 +1,15 @@
+# backend/rutas_clinicas/models.py
 import uuid
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from pacientes.models import Paciente
 
+
 class RutaClinica(models.Model):
     """
     Modelo para gestionar las rutas clínicas de los pacientes.
-    Representa el timeline completo del proceso de atención.
+    Las etapas son un campo de múltiple selección dentro del mismo modelo.
     """
     
     ESTADO_CHOICES = [
@@ -18,6 +20,16 @@ class RutaClinica(models.Model):
         ('CANCELADA', 'Cancelada'),
     ]
     
+    # Etapas predefinidas del proceso clínico
+    ETAPAS_CHOICES = [
+        ('CONSULTA_MEDICA', 'Consulta Médica'),
+        ('PROCESO_EXAMEN', 'Proceso del Examen'),
+        ('REVISION_EXAMEN', 'Revisión del Examen'),
+        ('HOSPITALIZACION', 'Hospitalización'),
+        ('OPERACION', 'Operado'),
+        ('ALTA', 'Alta'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     paciente = models.ForeignKey(
         Paciente, 
@@ -25,6 +37,41 @@ class RutaClinica(models.Model):
         related_name='rutas_clinicas'
     )
     
+    # Etapas seleccionadas (campo JSON con array de strings)
+    etapas_seleccionadas = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de etapas seleccionadas en orden: ['CONSULTA_MEDICA', 'PROCESO_EXAMEN', ...]"
+    )
+    
+    # Etapa actual en el proceso
+    etapa_actual = models.CharField(
+        max_length=30,
+        choices=ETAPAS_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Etapa actual en la que se encuentra el paciente"
+    )
+    
+    # Índice de la etapa actual (posición en el array)
+    indice_etapa_actual = models.PositiveIntegerField(
+        default=0,
+        help_text="Índice de la etapa actual en la lista de etapas"
+    )
+    
+    # Etapas completadas (para tracking)
+    etapas_completadas = models.JSONField(
+        default=list,
+        help_text="Lista de etapas ya completadas"
+    )
+    
+    # Timestamps de cada etapa
+    timestamps_etapas = models.JSONField(
+        default=dict,
+        help_text="Diccionario con fecha_inicio y fecha_fin de cada etapa"
+    )
+    
+    # Campos de control temporal
     fecha_inicio = models.DateTimeField(default=timezone.now)
     fecha_estimada_fin = models.DateTimeField(
         null=True, 
@@ -49,7 +96,17 @@ class RutaClinica(models.Model):
         default='INICIADA'
     )
     
-    # Metadatos adicionales para flexibilidad
+    # Estado de pausa
+    esta_pausado = models.BooleanField(
+        default=False,
+        help_text="Indica si la ruta está actualmente pausada"
+    )
+    motivo_pausa = models.TextField(
+        blank=True,
+        help_text="Motivo por el cual está pausada la ruta"
+    )
+    
+    # Metadatos adicionales
     metadatos_adicionales = models.JSONField(
         default=dict, 
         blank=True,
@@ -68,299 +125,165 @@ class RutaClinica(models.Model):
             models.Index(fields=['estado']),
             models.Index(fields=['fecha_inicio']),
             models.Index(fields=['porcentaje_completado']),
+            models.Index(fields=['etapa_actual']),
         ]
     
     def __str__(self):
-        return f"Ruta {self.paciente} - {self.porcentaje_completado:.1f}%"
+        return f"Ruta {self.paciente} - {self.porcentaje_completado:.1f}% - {self.get_etapa_actual_display() or 'No iniciada'}"
+    
+    def iniciar_ruta(self):
+        """Inicia la ruta clínica con la primera etapa"""
+        if not self.etapas_seleccionadas:
+            return False
+        
+        self.estado = 'EN_PROGRESO'
+        self.indice_etapa_actual = 0
+        self.etapa_actual = self.etapas_seleccionadas[0]
+        
+        # Registrar timestamp de inicio de la primera etapa
+        self.timestamps_etapas[self.etapa_actual] = {
+            'fecha_inicio': timezone.now().isoformat(),
+            'fecha_fin': None
+        }
+        
+        self.save()
+        return True
+    
+    def avanzar_etapa(self):
+        """Avanza a la siguiente etapa del proceso"""
+        if not self.etapas_seleccionadas:
+            return False
+        
+        # Marcar etapa actual como completada
+        if self.etapa_actual and self.etapa_actual not in self.etapas_completadas:
+            self.etapas_completadas.append(self.etapa_actual)
+            
+            # Registrar fecha de fin
+            if self.etapa_actual in self.timestamps_etapas:
+                self.timestamps_etapas[self.etapa_actual]['fecha_fin'] = timezone.now().isoformat()
+        
+        # Verificar si hay más etapas
+        if self.indice_etapa_actual + 1 >= len(self.etapas_seleccionadas):
+            # No hay más etapas, completar ruta
+            self.estado = 'COMPLETADA'
+            self.etapa_actual = None
+            self.fecha_fin_real = timezone.now()
+            self.porcentaje_completado = 100.0
+            self.save()
+            return True
+        
+        # Avanzar a siguiente etapa
+        self.indice_etapa_actual += 1
+        self.etapa_actual = self.etapas_seleccionadas[self.indice_etapa_actual]
+        
+        # Registrar timestamp de inicio de nueva etapa
+        self.timestamps_etapas[self.etapa_actual] = {
+            'fecha_inicio': timezone.now().isoformat(),
+            'fecha_fin': None
+        }
+        
+        # Calcular progreso
+        self.calcular_progreso()
+        self.save()
+        return True
+    
+    def retroceder_etapa(self):
+        """Retrocede a la etapa anterior (por si hay error)"""
+        if self.indice_etapa_actual <= 0:
+            return False
+        
+        # Remover de completadas si existe
+        if self.etapa_actual in self.etapas_completadas:
+            self.etapas_completadas.remove(self.etapa_actual)
+        
+        # Retroceder índice
+        self.indice_etapa_actual -= 1
+        self.etapa_actual = self.etapas_seleccionadas[self.indice_etapa_actual]
+        
+        # Calcular progreso
+        self.calcular_progreso()
+        self.save()
+        return True
     
     def calcular_progreso(self):
-        """
-        Calcula el porcentaje de progreso basado en las etapas completadas.
-        """
-        etapas_totales = self.etapas.count()
-        if etapas_totales == 0:
+        """Calcula el porcentaje de progreso basado en etapas completadas"""
+        if not self.etapas_seleccionadas:
+            self.porcentaje_completado = 0.0
             return 0.0
         
-        etapas_completadas = self.etapas.filter(estado='COMPLETADA').count()
-        progreso = (etapas_completadas / etapas_totales) * 100
+        total_etapas = len(self.etapas_seleccionadas)
+        etapas_completadas = len(self.etapas_completadas)
         
-        # Actualizar el porcentaje en la base de datos
+        progreso = (etapas_completadas / total_etapas) * 100
         self.porcentaje_completado = progreso
-        self.save(update_fields=['porcentaje_completado'])
+        
+        if not self._state.adding:  # Solo save si no es creación
+            self.save(update_fields=['porcentaje_completado'])
         
         return progreso
     
-    def obtener_proxima_etapa(self):
-        """
-        Retorna la próxima etapa a ejecutar en la ruta.
-        """
-        return self.etapas.filter(
-            estado__in=['PENDIENTE', 'EN_PROCESO']
-        ).order_by('orden').first()
+    def pausar_ruta(self, motivo=""):
+        """Pausa toda la ruta clínica"""
+        self.estado = 'PAUSADA'
+        self.esta_pausado = True
+        self.motivo_pausa = motivo
+        self.metadatos_adicionales['fecha_pausa'] = timezone.now().isoformat()
+        self.save()
     
-    def obtener_etapa_actual(self):
-        """
-        Retorna la etapa que está actualmente en proceso.
-        """
-        return self.etapas.filter(estado='EN_PROCESO').first()
-    
-    def marcar_etapa_completada(self, etapa_id):
-        """
-        Marca una etapa específica como completada y recalcula el progreso.
-        """
-        try:
-            etapa = self.etapas.get(id=etapa_id)
-            etapa.finalizar_etapa()
-            self.calcular_progreso()
-            
-            # Si todas las etapas están completadas, marcar ruta como completada
-            if self.porcentaje_completado >= 100.0:
-                self.estado = 'COMPLETADA'
-                self.fecha_fin_real = timezone.now()
-                self.save()
-            
+    def reanudar_ruta(self):
+        """Reanuda la ruta clínica pausada"""
+        if self.estado == 'PAUSADA':
+            self.estado = 'EN_PROGRESO'
+            self.esta_pausado = False
+            self.motivo_pausa = ""
+            self.metadatos_adicionales['fecha_reanudacion'] = timezone.now().isoformat()
+            self.save()
             return True
-        except:
-            return False
+        return False
     
-    def detectar_retrasos(self):
-        """
-        Detecta etapas que están retrasadas respecto a su tiempo estimado.
-        """
-        etapas_retrasadas = []
-        for etapa in self.etapas.all():
-            if etapa.detectar_retraso():
-                etapas_retrasadas.append(etapa)
-        return etapas_retrasadas
-    
-    def obtener_tiempo_total_estimado(self):
-        """
-        Calcula el tiempo total estimado sumando todas las etapas.
-        """
-        total_minutos = self.etapas.aggregate(
-            total=models.Sum('duracion_estimada')
-        )['total'] or 0
-        return timezone.timedelta(minutes=total_minutos)
+    def obtener_etapa_siguiente(self):
+        """Retorna la siguiente etapa en el proceso"""
+        if not self.etapas_seleccionadas:
+            return None
+        
+        siguiente_indice = self.indice_etapa_actual + 1
+        if siguiente_indice < len(self.etapas_seleccionadas):
+            return self.etapas_seleccionadas[siguiente_indice]
+        return None
     
     def obtener_tiempo_total_real(self):
-        """
-        Calcula el tiempo real transcurrido hasta ahora.
-        """
+        """Calcula el tiempo real transcurrido"""
         if self.fecha_fin_real:
             return self.fecha_fin_real - self.fecha_inicio
         return timezone.now() - self.fecha_inicio
     
-    def pausar_ruta(self, motivo=""):
-        """
-        Pausa toda la ruta clínica.
-        """
-        self.estado = 'PAUSADA'
-        self.metadatos_adicionales['motivo_pausa'] = motivo
-        self.metadatos_adicionales['fecha_pausa'] = timezone.now().isoformat()
-        self.save()
+    def obtener_info_timeline(self):
+        """Retorna información estructurada para el timeline"""
+        timeline = []
         
-        # Pausar la etapa activa
-        etapa_activa = self.obtener_etapa_actual()
-        if etapa_activa:
-            etapa_activa.pausar_etapa(motivo)
-    
-    def reanudar_ruta(self):
-        """
-        Reanuda la ruta clínica pausada.
-        """
-        if self.estado == 'PAUSADA':
-            self.estado = 'EN_PROGRESO'
-            self.metadatos_adicionales['fecha_reanudacion'] = timezone.now().isoformat()
-            self.save()
+        for i, etapa_key in enumerate(self.etapas_seleccionadas):
+            # Obtener el label legible
+            etapa_label = dict(self.ETAPAS_CHOICES).get(etapa_key, etapa_key)
             
-            # Reanudar etapas pausadas
-            for etapa in self.etapas.filter(estado='PAUSADA'):
-                etapa.reanudar_etapa()
-
-class EtapaRuta(models.Model):
-    """
-    Modelo para las etapas individuales dentro de una ruta clínica.
-    Representa cada nodo del timeline horizontal.
-    """
-    
-    ESTADO_CHOICES = [
-        ('PENDIENTE', 'Pendiente'),
-        ('EN_PROCESO', 'En Proceso'),
-        ('COMPLETADA', 'Completada'),
-        ('PAUSADA', 'Pausada'),
-        ('CANCELADA', 'Cancelada'),
-    ]
-    
-    TIPO_ETAPA_CHOICES = [
-        ('CHECK_IN', 'Check-in'),
-        ('ESPERA_CONSULTA', 'Espera Consulta'),
-        ('CONSULTA', 'Consulta Médica'),
-        ('DERIVACION', 'Derivación'),
-        ('ESPERA_EXAMEN', 'Espera Examen'),
-        ('EXAMEN', 'Examen/Procedimiento'),
-        ('RESULTADOS', 'Espera Resultados'),
-        ('CONTROL', 'Control/Segunda Consulta'),
-        ('ALTA', 'Alta Médica'),
-        ('ADMINISTRATIVO', 'Proceso Administrativo'),
-    ]
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ruta_clinica = models.ForeignKey(
-        RutaClinica, 
-        on_delete=models.CASCADE,
-        related_name='etapas'
-    )
-    
-    nombre = models.CharField(max_length=100)
-    tipo_etapa = models.CharField(
-        max_length=20,
-        choices=TIPO_ETAPA_CHOICES,
-        default='CONSULTA'
-    )
-    orden = models.PositiveIntegerField(
-        help_text="Orden de la etapa en la secuencia (1, 2, 3...)"
-    )
-    
-    fecha_inicio = models.DateTimeField(null=True, blank=True)
-    fecha_fin = models.DateTimeField(null=True, blank=True)
-    
-    duracion_estimada = models.PositiveIntegerField(
-        help_text="Duración estimada en minutos"
-    )
-    duracion_real = models.PositiveIntegerField(
-        null=True, 
-        blank=True,
-        help_text="Duración real en minutos"
-    )
-    
-    estado = models.CharField(
-        max_length=15, 
-        choices=ESTADO_CHOICES,
-        default='PENDIENTE'
-    )
-    
-    # Campos para nodo estático
-    es_estatico = models.BooleanField(
-        default=False,
-        help_text="True si la etapa está en espera de proceso externo"
-    )
-    motivo_pausa = models.TextField(
-        blank=True,
-        help_text="Motivo por el cual la etapa está pausada o es estática"
-    )
-    
-    descripcion = models.TextField(
-        blank=True,
-        help_text="Descripción detallada de la etapa"
-    )
-    
-    # Configuración específica de la etapa
-    configuracion_etapa = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Configuraciones específicas de la etapa"
-    )
-    
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'etapas_ruta'
-        verbose_name = 'Etapa de Ruta'
-        verbose_name_plural = 'Etapas de Ruta'
-        ordering = ['ruta_clinica', 'orden']
-        unique_together = ['ruta_clinica', 'orden']
-        indexes = [
-            models.Index(fields=['ruta_clinica', 'orden']),
-            models.Index(fields=['estado']),
-            models.Index(fields=['tipo_etapa']),
-            models.Index(fields=['es_estatico']),
-        ]
-    
-    def __str__(self):
-        return f"{self.ruta_clinica.paciente} - Etapa {self.orden}: {self.nombre}"
-    
-    def iniciar_etapa(self):
-        """
-        Inicia la etapa marcando fecha de inicio.
-        """
-        if self.estado == 'PENDIENTE':
-            self.estado = 'EN_PROCESO'
-            self.fecha_inicio = timezone.now()
-            self.save()
-            return True
-        return False
-    
-    def finalizar_etapa(self):
-        """
-        Finaliza la etapa calculando duración real.
-        """
-        if self.estado == 'EN_PROCESO':
-            self.estado = 'COMPLETADA'
-            self.fecha_fin = timezone.now()
+            # Determinar estado
+            if etapa_key in self.etapas_completadas:
+                estado = 'COMPLETADA'
+            elif etapa_key == self.etapa_actual:
+                estado = 'EN_PROCESO'
+            else:
+                estado = 'PENDIENTE'
             
-            # Calcular duración real
-            if self.fecha_inicio:
-                duracion = self.fecha_fin - self.fecha_inicio
-                self.duracion_real = int(duracion.total_seconds() / 60)  # En minutos
+            # Obtener timestamps
+            timestamps = self.timestamps_etapas.get(etapa_key, {})
             
-            self.save()
-            return True
-        return False
-    
-    def pausar_etapa(self, motivo=""):
-        """
-        Pausa la etapa (nodo estático).
-        """
-        if self.estado == 'EN_PROCESO':
-            self.estado = 'PAUSADA'
-            self.es_estatico = True
-            self.motivo_pausa = motivo
-            self.save()
-            return True
-        return False
-    
-    def reanudar_etapa(self):
-        """
-        Reanuda la etapa pausada.
-        """
-        if self.estado == 'PAUSADA':
-            self.estado = 'EN_PROCESO'
-            self.es_estatico = False
-            self.motivo_pausa = ""
-            self.save()
-            return True
-        return False
-    
-    def calcular_tiempo_transcurrido(self):
-        """
-        Calcula el tiempo transcurrido desde el inicio de la etapa.
-        """
-        if self.fecha_inicio:
-            fin = self.fecha_fin or timezone.now()
-            return fin - self.fecha_inicio
-        return None
-    
-    def detectar_retraso(self):
-        """
-        Detecta si la etapa está retrasada respecto al tiempo estimado.
-        """
-        if self.estado == 'EN_PROCESO' and self.fecha_inicio:
-            tiempo_transcurrido = self.calcular_tiempo_transcurrido()
-            if tiempo_transcurrido:
-                minutos_transcurridos = tiempo_transcurrido.total_seconds() / 60
-                return minutos_transcurridos > self.duracion_estimada
-        return False
-    
-    def obtener_porcentaje_avance(self):
-        """
-        Calcula el porcentaje de avance de la etapa.
-        """
-        if self.estado == 'COMPLETADA':
-            return 100.0
-        elif self.estado == 'EN_PROCESO' and self.fecha_inicio:
-            tiempo_transcurrido = self.calcular_tiempo_transcurrido()
-            if tiempo_transcurrido:
-                minutos_transcurridos = tiempo_transcurrido.total_seconds() / 60
-                porcentaje = min((minutos_transcurridos / self.duracion_estimada) * 100, 100)
-                return porcentaje
-        return 0.0
+            timeline.append({
+                'orden': i + 1,
+                'etapa_key': etapa_key,
+                'etapa_label': etapa_label,
+                'estado': estado,
+                'fecha_inicio': timestamps.get('fecha_inicio'),
+                'fecha_fin': timestamps.get('fecha_fin'),
+                'es_actual': etapa_key == self.etapa_actual,
+            })
+        
+        return timeline

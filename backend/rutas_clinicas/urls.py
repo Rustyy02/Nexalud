@@ -4,7 +4,6 @@ from .viewsets import RutaClinicaViewSet, EtapaRutaViewSet
 
 router = DefaultRouter()
 router.register(r'rutas-clinicas', RutaClinicaViewSet, basename='ruta-clinica')
-router.register(r'etapas', EtapaRutaViewSet, basename='etapa')
 
 # URLs generadas automáticamente:
 # 
