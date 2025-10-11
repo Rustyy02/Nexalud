@@ -1,6 +1,10 @@
 from rest_framework import serializers
 from .models import Medico, Atencion
+from pacientes.serializers import PacienteListSerializer
+from boxes.serializers import BoxListSerializer
 
+
+# ==================== SERIALIZERS DE MÉDICO ====================
 
 class MedicoSerializer(serializers.ModelSerializer):
     """Serializer completo para Medico"""
@@ -9,53 +13,317 @@ class MedicoSerializer(serializers.ModelSerializer):
         read_only=True
     )
     nombre_completo = serializers.CharField(read_only=True)
-    tiempo_promedio = serializers.SerializerMethodField()
+    tiempo_promedio_atencion = serializers.SerializerMethodField()
+    eficiencia = serializers.SerializerMethodField()
+    atenciones_hoy_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Medico
-        fields = '__all__'
+        fields = [
+            'id',
+            'codigo_medico',
+            'nombre',
+            'apellido',
+            'nombre_completo',
+            'especialidad_principal',
+            'especialidad_principal_display',
+            'especialidades_secundarias',
+            'horarios_atencion',
+            'activo',
+            'fecha_ingreso',
+            'configuraciones_personales',
+            'tiempo_promedio_atencion',
+            'eficiencia',
+            'atenciones_hoy_count',
+        ]
+        read_only_fields = ['id', 'fecha_ingreso']
     
-    def get_tiempo_promedio(self, obj):
+    def get_tiempo_promedio_atencion(self, obj):
+        """Tiempo promedio de atención en minutos"""
         return round(obj.calcular_tiempo_promedio_atencion(), 2)
+    
+    def get_eficiencia(self, obj):
+        """Métricas de eficiencia del médico"""
+        return obj.obtener_eficiencia()
+    
+    def get_atenciones_hoy_count(self, obj):
+        """Cantidad de atenciones del día"""
+        return obj.obtener_atenciones_dia().count()
 
+
+class MedicoListSerializer(serializers.ModelSerializer):
+    """Serializer simplificado para listar médicos"""
+    especialidad_principal_display = serializers.CharField(
+        source='get_especialidad_principal_display',
+        read_only=True
+    )
+    nombre_completo = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = Medico
+        fields = [
+            'id',
+            'codigo_medico',
+            'nombre_completo',
+            'especialidad_principal',
+            'especialidad_principal_display',
+            'activo',
+        ]
+
+
+class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer para crear y actualizar médicos"""
+    
+    class Meta:
+        model = Medico
+        fields = [
+            'codigo_medico',
+            'nombre',
+            'apellido',
+            'especialidad_principal',
+            'especialidades_secundarias',
+            'horarios_atencion',
+            'activo',
+            'configuraciones_personales',
+        ]
+    
+    def validate_codigo_medico(self, value):
+        """Valida que el código no esté vacío"""
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El código del médico no puede estar vacío.")
+        return value.strip().upper()
+    
+    def validate_especialidades_secundarias(self, value):
+        """Valida que especialidades_secundarias sea una lista"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Las especialidades secundarias deben ser una lista.")
+        return value
+
+
+# ==================== SERIALIZERS DE ATENCIÓN ====================
 
 class AtencionSerializer(serializers.ModelSerializer):
     """Serializer completo para Atencion"""
-    tipo_atencion_display = serializers.CharField(source='get_tipo_atencion_display', read_only=True)
-    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
-    retraso = serializers.SerializerMethodField()
-    tiempo_transcurrido = serializers.SerializerMethodField()
+    # Campos display
+    tipo_atencion_display = serializers.CharField(
+        source='get_tipo_atencion_display',
+        read_only=True
+    )
+    estado_display = serializers.CharField(
+        source='get_estado_display',
+        read_only=True
+    )
+    
+    # Relaciones anidadas (solo lectura)
+    paciente_info = PacienteListSerializer(source='paciente', read_only=True)
+    medico_info = MedicoListSerializer(source='medico', read_only=True)
+    box_info = BoxListSerializer(source='box', read_only=True)
+    
+    # IDs para escritura
+    paciente_id = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('pacientes.models', fromlist=['Paciente']).Paciente.objects.all(),
+        source='paciente',
+        write_only=True,
+        required=False
+    )
+    medico_id = serializers.PrimaryKeyRelatedField(
+        queryset=Medico.objects.all(),
+        source='medico',
+        write_only=True,
+        required=False
+    )
+    box_id = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('boxes.models', fromlist=['Box']).Box.objects.all(),
+        source='box',
+        write_only=True,
+        required=False
+    )
+    
+    # Campos calculados
+    retraso_minutos = serializers.SerializerMethodField()
+    tiempo_transcurrido_minutos = serializers.SerializerMethodField()
     esta_retrasada = serializers.SerializerMethodField()
+    diferencia_duracion = serializers.SerializerMethodField()
+    metricas = serializers.SerializerMethodField()
     
     class Meta:
         model = Atencion
-        fields = '__all__'
-        read_only_fields = ['duracion_real', 'inicio_cronometro', 'fin_cronometro']
+        fields = [
+            'id',
+            'paciente',
+            'paciente_id',
+            'paciente_info',
+            'medico',
+            'medico_id',
+            'medico_info',
+            'box',
+            'box_id',
+            'box_info',
+            'fecha_hora_inicio',
+            'fecha_hora_fin',
+            'inicio_cronometro',
+            'fin_cronometro',
+            'duracion_planificada',
+            'duracion_real',
+            'tipo_atencion',
+            'tipo_atencion_display',
+            'estado',
+            'estado_display',
+            'observaciones',
+            'fecha_creacion',
+            'fecha_actualizacion',
+            'retraso_minutos',
+            'tiempo_transcurrido_minutos',
+            'esta_retrasada',
+            'diferencia_duracion',
+            'metricas',
+        ]
+        read_only_fields = [
+            'id',
+            'duracion_real',
+            'inicio_cronometro',
+            'fin_cronometro',
+            'fecha_creacion',
+            'fecha_actualizacion'
+        ]
     
-    def get_retraso(self, obj):
+    def get_retraso_minutos(self, obj):
+        """Retraso en minutos respecto a la hora programada"""
         return obj.calcular_retraso()
     
-    def get_tiempo_transcurrido(self, obj):
+    def get_tiempo_transcurrido_minutos(self, obj):
+        """Tiempo transcurrido desde el inicio en minutos"""
         tiempo = obj.obtener_tiempo_transcurrido()
         if tiempo:
             return int(tiempo.total_seconds() / 60)
         return None
     
     def get_esta_retrasada(self, obj):
+        """Indica si la atención está retrasada"""
         return obj.is_retrasada()
+    
+    def get_diferencia_duracion(self, obj):
+        """Diferencia entre duración planificada y real"""
+        return obj.calcular_diferencia_duracion()
+    
+    def get_metricas(self, obj):
+        """Métricas completas de la atención"""
+        return obj.generar_metricas()
 
 
 class AtencionListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listar atenciones"""
-    paciente_hash = serializers.CharField(source='paciente.identificador_hash', read_only=True)
-    medico_nombre = serializers.CharField(source='medico.nombre_completo', read_only=True)
-    box_numero = serializers.CharField(source='box.numero', read_only=True)
-    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    paciente_hash = serializers.CharField(
+        source='paciente.identificador_hash',
+        read_only=True
+    )
+    medico_nombre = serializers.CharField(
+        source='medico.nombre_completo',
+        read_only=True
+    )
+    box_numero = serializers.CharField(
+        source='box.numero',
+        read_only=True
+    )
+    tipo_atencion_display = serializers.CharField(
+        source='get_tipo_atencion_display',
+        read_only=True
+    )
+    estado_display = serializers.CharField(
+        source='get_estado_display',
+        read_only=True
+    )
+    esta_retrasada = serializers.SerializerMethodField()
     
     class Meta:
         model = Atencion
         fields = [
-            'id', 'paciente_hash', 'medico_nombre', 'box_numero',
-            'fecha_hora_inicio', 'tipo_atencion', 'estado', 'estado_display',
-            'duracion_planificada', 'duracion_real'
+            'id',
+            'paciente_hash',
+            'medico_nombre',
+            'box_numero',
+            'fecha_hora_inicio',
+            'tipo_atencion',
+            'tipo_atencion_display',
+            'estado',
+            'estado_display',
+            'duracion_planificada',
+            'duracion_real',
+            'esta_retrasada',
         ]
+    
+    def get_esta_retrasada(self, obj):
+        return obj.is_retrasada()
+
+
+class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer para crear y actualizar atenciones"""
+    
+    class Meta:
+        model = Atencion
+        fields = [
+            'paciente',
+            'medico',
+            'box',
+            'fecha_hora_inicio',
+            'fecha_hora_fin',
+            'duracion_planificada',
+            'tipo_atencion',
+            'estado',
+            'observaciones',
+        ]
+    
+    def validate_duracion_planificada(self, value):
+        """Valida que la duración sea mayor a 0"""
+        if value <= 0:
+            raise serializers.ValidationError("La duración planificada debe ser mayor a 0 minutos.")
+        return value
+    
+    def validate(self, data):
+        """Validaciones cruzadas"""
+        # Validar que fecha_fin sea posterior a fecha_inicio
+        if data.get('fecha_hora_fin') and data.get('fecha_hora_inicio'):
+            if data['fecha_hora_fin'] <= data['fecha_hora_inicio']:
+                raise serializers.ValidationError({
+                    'fecha_hora_fin': 'La fecha de fin debe ser posterior a la fecha de inicio.'
+                })
+        
+        # Validar disponibilidad del box
+        box = data.get('box')
+        if box and box.estado == 'OCUPADO':
+            raise serializers.ValidationError({
+                'box': f'El box {box.numero} está actualmente ocupado.'
+            })
+        
+        return data
+
+
+class AtencionCronometroSerializer(serializers.Serializer):
+    """Serializer para acciones de cronómetro"""
+    timestamp = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class AtencionCancelarSerializer(serializers.Serializer):
+    """Serializer para cancelar atención"""
+    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
+class AtencionReagendarSerializer(serializers.Serializer):
+    """Serializer para reagendar atención"""
+    nueva_fecha = serializers.DateTimeField(required=True)
+    nuevo_box = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('boxes.models', fromlist=['Box']).Box.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
+
+class AtencionEstadisticasSerializer(serializers.Serializer):
+    """Serializer para estadísticas de atenciones"""
+    total = serializers.IntegerField()
+    por_estado = serializers.DictField()
+    por_tipo = serializers.DictField()
+    promedio_duracion_real = serializers.FloatField()
+    promedio_duracion_planificada = serializers.FloatField()
+    tasa_cumplimiento_horario = serializers.FloatField()
+    atenciones_retrasadas = serializers.IntegerField()
