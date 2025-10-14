@@ -7,9 +7,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Componentes
 import Login from './components/Login';
+import Home from './components/Home';
 import EstadoBoxes from './components/EstadoBoxes';
-// import ListaPacientes from './components/ListaPacientes';
-// import DetallePaciente from './components/DetallePaciente';
+import DetallePaciente from './components/DetallePaciente';
 
 // Tema personalizado de Material UI
 const theme = createTheme({
@@ -32,6 +32,7 @@ const theme = createTheme({
     },
     success: {
       main: '#4caf50',
+      light: '#c8e6c9',
     },
     background: {
       default: '#f5f5f5',
@@ -80,20 +81,6 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// Componente temporal para rutas que aún no existen
-const ComingSoon = ({ title }) => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '100vh',
-    flexDirection: 'column',
-  }}>
-    <h1>{title}</h1>
-    <p>Este componente está en desarrollo</p>
-  </div>
-);
-
 function AppContent() {
   return (
     <Router>
@@ -103,11 +90,19 @@ function AppContent() {
 
         {/* Rutas protegidas */}
         <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
           path="/pacientes"
           element={
             <ProtectedRoute>
-              <ComingSoon title="Lista de Pacientes" />
-              {/* <ListaPacientes /> */}
+              <Home />
             </ProtectedRoute>
           }
         />
@@ -116,8 +111,7 @@ function AppContent() {
           path="/pacientes/:id"
           element={
             <ProtectedRoute>
-              <ComingSoon title="Detalle del Paciente" />
-              {/* <DetallePaciente /> */}
+              <DetallePaciente />
             </ProtectedRoute>
           }
         />
@@ -132,7 +126,6 @@ function AppContent() {
         />
 
         {/* Redirección por defecto */}
-        <Route path="/" element={<Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
