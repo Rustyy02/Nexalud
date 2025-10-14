@@ -1,3 +1,4 @@
+// frontend/src/services/api.js
 import axios from 'axios';
 
 // Configuración base de axios
@@ -6,7 +7,6 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Para enviar cookies de sesión
 });
 
 // Interceptor para agregar token si existe
@@ -35,6 +35,109 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ============================================
+// SERVICIOS DE BOXES
+// ============================================
+
+export const boxesService = {
+  // Obtener todos los boxes
+  getAll: (params = {}) => api.get('/boxes/', { params }),
+  
+  // Obtener box por ID
+  getById: (id) => api.get(`/boxes/${id}/`),
+  
+  // Crear box
+  create: (data) => api.post('/boxes/', data),
+  
+  // Actualizar box
+  update: (id, data) => api.patch(`/boxes/${id}/`, data),
+  
+  // Ocupar box
+  ocupar: (id, timestamp = null) => 
+    api.post(`/boxes/${id}/ocupar/`, timestamp ? { timestamp } : {}),
+  
+  // Liberar box
+  liberar: (id, timestamp = null) => 
+    api.post(`/boxes/${id}/liberar/`, timestamp ? { timestamp } : {}),
+  
+  // Obtener boxes disponibles
+  getDisponibles: (especialidad = null) => {
+    const params = especialidad ? { especialidad } : {};
+    return api.get('/boxes/disponibles/', { params });
+  },
+  
+  // Obtener boxes ocupados
+  getOcupados: () => api.get('/boxes/ocupados/'),
+  
+  // Obtener estadísticas de boxes
+  getEstadisticas: () => api.get('/boxes/estadisticas/'),
+  
+  // Agrupar por especialidad
+  getPorEspecialidad: () => api.get('/boxes/por_especialidad/'),
+  
+  // Marcar en mantenimiento
+  marcarMantenimiento: (id, motivo) => 
+    api.post(`/boxes/${id}/mantenimiento/`, { motivo }),
+  
+  // Activar/Desactivar
+  activar: (id) => api.post(`/boxes/${id}/activar/`),
+  desactivar: (id) => api.post(`/boxes/${id}/desactivar/`),
+  
+  // Historial de ocupación
+  getHistorialOcupacion: (id) => 
+    api.get(`/boxes/${id}/historial_ocupacion/`),
+};
+
+// ============================================
+// SERVICIOS DE ATENCIONES
+// ============================================
+
+export const atencionesService = {
+  // Obtener todas las atenciones
+  getAll: (params = {}) => api.get('/atenciones/', { params }),
+  
+  // Obtener atención por ID
+  getById: (id) => api.get(`/atenciones/${id}/`),
+  
+  // Crear atención
+  create: (data) => api.post('/atenciones/', data),
+  
+  // Iniciar cronómetro
+  iniciarCronometro: (id) => 
+    api.post(`/atenciones/${id}/iniciar_cronometro/`),
+  
+  // Finalizar cronómetro
+  finalizarCronometro: (id) => 
+    api.post(`/atenciones/${id}/finalizar_cronometro/`),
+  
+  // Cancelar atención
+  cancelar: (id, motivo) => 
+    api.post(`/atenciones/${id}/cancelar/`, { motivo }),
+  
+  // Reagendar atención
+  reagendar: (id, nueva_fecha, nuevo_box = null) => 
+    api.post(`/atenciones/${id}/reagendar/`, { nueva_fecha, nuevo_box }),
+  
+  // Obtener atenciones en curso
+  getEnCurso: () => api.get('/atenciones/en_curso/'),
+  
+  // Obtener atenciones de hoy
+  getHoy: () => api.get('/atenciones/hoy/'),
+  
+  // Obtener atenciones pendientes
+  getPendientes: () => api.get('/atenciones/pendientes/'),
+  
+  // Obtener atenciones retrasadas (IMPORTANTE para el componente)
+  getRetrasadas: () => api.get('/atenciones/retrasadas/'),
+  
+  // Obtener estadísticas
+  getEstadisticas: (params = {}) => 
+    api.get('/atenciones/estadisticas/', { params }),
+  
+  // Obtener métricas de una atención
+  getMetricas: (id) => api.get(`/atenciones/${id}/metricas/`),
+};
 
 // ============================================
 // SERVICIOS DE PACIENTES
@@ -90,6 +193,15 @@ export const rutasClinicasService = {
   // IMPORTANTE: Obtener timeline completo del paciente
   getTimeline: (id) => api.get(`/rutas-clinicas/${id}/timeline/`),
   
+  // Iniciar ruta
+  iniciar: (id) => api.post(`/rutas-clinicas/${id}/iniciar/`),
+  
+  // Avanzar etapa
+  avanzar: (id) => api.post(`/rutas-clinicas/${id}/avanzar/`),
+  
+  // Retroceder etapa
+  retroceder: (id) => api.post(`/rutas-clinicas/${id}/retroceder/`),
+  
   // Recalcular progreso
   recalcularProgreso: (id) => 
     api.post(`/rutas-clinicas/${id}/recalcular_progreso/`),
@@ -101,95 +213,21 @@ export const rutasClinicasService = {
   // Reanudar ruta
   reanudar: (id) => api.post(`/rutas-clinicas/${id}/reanudar/`),
   
-  // Obtener retrasos
-  getRetrasos: (id) => api.get(`/rutas-clinicas/${id}/retrasos/`),
-};
-
-// ============================================
-// SERVICIOS DE ETAPAS (NODOS DEL TIMELINE)
-// ============================================
-
-export const etapasService = {
-  // Obtener todas las etapas
-  getAll: (params = {}) => api.get('/etapas/', { params }),
+  // Completar ruta
+  completar: (id) => api.post(`/rutas-clinicas/${id}/completar/`),
   
-  // Obtener etapa por ID
-  getById: (id) => api.get(`/etapas/${id}/`),
+  // Obtener etapas disponibles
+  getEtapasDisponibles: () => 
+    api.get('/rutas-clinicas/etapas-disponibles/'),
   
-  // IMPORTANTE: Iniciar etapa (cambiar estado en timeline)
-  iniciar: (id) => api.post(`/etapas/${id}/iniciar/`),
+  // Obtener rutas activas
+  getActivas: () => api.get('/rutas-clinicas/activas/'),
   
-  // IMPORTANTE: Finalizar etapa
-  finalizar: (id) => api.post(`/etapas/${id}/finalizar/`),
+  // Obtener rutas pausadas
+  getPausadas: () => api.get('/rutas-clinicas/pausadas/'),
   
-  // IMPORTANTE: Pausar etapa (nodo estático)
-  pausar: (id, motivo) => 
-    api.post(`/etapas/${id}/pausar/`, { motivo }),
-  
-  // Reanudar etapa pausada
-  reanudar: (id) => api.post(`/etapas/${id}/reanudar/`),
-  
-  // Obtener progreso de la etapa
-  getProgreso: (id) => api.get(`/etapas/${id}/progreso/`),
-};
-
-// ============================================
-// SERVICIOS DE BOXES
-// ============================================
-
-export const boxesService = {
-  // Obtener todos los boxes
-  getAll: (params = {}) => api.get('/boxes/', { params }),
-  
-  // Obtener box por ID
-  getById: (id) => api.get(`/boxes/${id}/`),
-  
-  // Crear box
-  create: (data) => api.post('/boxes/', data),
-  
-  // Actualizar box
-  update: (id, data) => api.patch(`/boxes/${id}/`, data),
-  
-  // Ocupar box
-  ocupar: (id) => api.post(`/boxes/${id}/ocupar/`),
-  
-  // Liberar box
-  liberar: (id) => api.post(`/boxes/${id}/liberar/`),
-  
-  // Obtener boxes disponibles
-  getDisponibles: () => api.get('/boxes/disponibles/'),
-  
-  // Obtener estadísticas de boxes
-  getEstadisticas: () => api.get('/boxes/estadisticas/'),
-};
-
-// ============================================
-// SERVICIOS DE ATENCIONES
-// ============================================
-
-export const atencionesService = {
-  // Obtener todas las atenciones
-  getAll: (params = {}) => api.get('/atenciones/', { params }),
-  
-  // Obtener atención por ID
-  getById: (id) => api.get(`/atenciones/${id}/`),
-  
-  // Crear atención
-  create: (data) => api.post('/atenciones/', data),
-  
-  // Iniciar cronómetro
-  iniciarCronometro: (id) => 
-    api.post(`/atenciones/${id}/iniciar_cronometro/`),
-  
-  // Finalizar cronómetro
-  finalizarCronometro: (id) => 
-    api.post(`/atenciones/${id}/finalizar_cronometro/`),
-  
-  // Obtener atenciones en curso
-  getEnCurso: () => api.get('/atenciones/en_curso/'),
-  
-  // Obtener atenciones de hoy
-  getHoy: () => api.get('/atenciones/hoy/'),
+  // Obtener estadísticas
+  getEstadisticas: () => api.get('/rutas-clinicas/estadisticas/'),
 };
 
 // ============================================
@@ -203,27 +241,60 @@ export const medicosService = {
   // Obtener médico por ID
   getById: (id) => api.get(`/medicos/${id}/`),
   
+  // Crear médico
+  create: (data) => api.post('/medicos/', data),
+  
+  // Actualizar médico
+  update: (id, data) => api.patch(`/medicos/${id}/`, data),
+  
   // Obtener atenciones del médico hoy
   getAtencionesHoy: (id) => api.get(`/medicos/${id}/atenciones_hoy/`),
+  
+  // Obtener agenda semanal
+  getAgendaSemanal: (id) => api.get(`/medicos/${id}/agenda_semanal/`),
+  
+  // Obtener métricas del médico
+  getMetricas: (id) => api.get(`/medicos/${id}/metricas/`),
+  
+  // Obtener médicos activos
+  getActivos: () => api.get('/medicos/activos/'),
+  
+  // Agrupar por especialidad
+  getPorEspecialidad: () => api.get('/medicos/por_especialidad/'),
+  
+  // Obtener estadísticas
+  getEstadisticas: () => api.get('/medicos/estadisticas/'),
+  
+  // Activar/Desactivar
+  activar: (id) => api.post(`/medicos/${id}/activar/`),
+  desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
 };
 
 // ============================================
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
-
 export const authService = {
-  // Login (usando autenticación de Django)
+  // Login
   login: async (username, password) => {
-    const response = await api.post('/api-auth/login/', {
-      username,
-      password,
-    });
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
+    try {
+      // Usar el endpoint correcto de autenticación por token
+      const response = await axios.post('http://127.0.0.1:8000/api-token-auth/', {
+        username,
+        password,
+      });
+      
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        return { success: true, data: response.data };
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      return { 
+        success: false, 
+        error: 'Usuario o contraseña incorrectos' 
+      };
     }
-    return response;
   },
-  
   // Logout
   logout: () => {
     localStorage.removeItem('token');

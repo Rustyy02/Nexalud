@@ -1,0 +1,284 @@
+// frontend/src/components/EstadoBoxes.jsx
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Grid,
+  Chip,
+  Alert,
+  CircularProgress,
+  Container,
+  Paper,
+} from '@mui/material';
+import {
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Schedule as ScheduleIcon,
+} from '@mui/icons-material';
+import { boxesService } from '../services/api';
+
+const EstadoBoxes = () => {
+  const [boxes, setBoxes] = useState([]);
+  const [atrasosEnHoras, setAtrasosEnHoras] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Cargar boxes al montar el componente
+  useEffect(() => {
+    cargarBoxes();
+    // Actualizar cada 30 segundos
+    const interval = setInterval(cargarBoxes, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const cargarBoxes = async () => {
+    try {
+      const response = await boxesService.getAll();
+      setBoxes(response.data);
+      setLoading(false);
+      
+      // Simular atrasos (esto vendría de la API de atenciones)
+      // TODO: Integrar con atencionesService.getRetrasadas()
+      setAtrasosEnHoras([
+        {
+          id: 1,
+          paciente: 'Maria Gomez',
+          box: 'Box 4',
+          atrasoMinutos: 20,
+        }
+      ]);
+    } catch (err) {
+      setError('Error al cargar los boxes');
+      setLoading(false);
+      console.error(err);
+    }
+  };
+
+  const cambiarEstadoBox = async (boxId, nuevoEstado) => {
+    try {
+      setError('');
+      
+      if (nuevoEstado === 'OCUPADO') {
+        await boxesService.ocupar(boxId);
+        setSuccessMessage('Box marcado como ocupado');
+      } else {
+        await boxesService.liberar(boxId);
+        setSuccessMessage('Box marcado como libre');
+      }
+      
+      // Recargar boxes
+      await cargarBoxes();
+      
+      // Limpiar mensaje después de 3 segundos
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError('Error al cambiar el estado del box');
+      console.error(err);
+    }
+  };
+
+  const getEstadoColor = (estado) => {
+    const colores = {
+      DISPONIBLE: 'success',
+      OCUPADO: 'warning',
+      MANTENIMIENTO: 'error',
+      FUERA_SERVICIO: 'default',
+    };
+    return colores[estado] || 'default';
+  };
+
+  const getEstadoIcon = (estado) => {
+    if (estado === 'DISPONIBLE') {
+      return <CheckCircleIcon />;
+    } else if (estado === 'OCUPADO') {
+      return <WarningIcon />;
+    }
+    return <ScheduleIcon />;
+  };
+
+  const formatearHoraAtencion = (box) => {
+    if (box.ultima_ocupacion) {
+      const fecha = new Date(box.ultima_ocupacion);
+      const hora = fecha.toLocaleTimeString('es-CL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const fechaFin = new Date(fecha.getTime() + 60 * 60 * 1000); // +1 hora (ejemplo)
+      const horaFin = fechaFin.toLocaleTimeString('es-CL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${hora} - ${horaFin}`;
+    }
+    return '';
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          Nexalud
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Estado de Boxes en Tiempo Real
+        </Typography>
+      </Box>
+
+      {/* Mensajes */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+          {successMessage}
+        </Alert>
+      )}
+
+      {/* Sección de Boxes */}
+      <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h5" fontWeight="600" gutterBottom>
+          Box's
+        </Typography>
+
+        <Grid container spacing={3} sx={{ mt: 2 }}>
+          {boxes.map((box) => (
+            <Grid item xs={12} sm={6} md={3} key={box.id}>
+              <Card
+                elevation={3}
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderRadius: 2,
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1 }}>
+                  {/* Nombre y Estado del Box */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" fontWeight="600">
+                      {box.numero}
+                    </Typography>
+                    <Chip
+                      icon={getEstadoIcon(box.estado)}
+                      label={box.estado_display}
+                      color={getEstadoColor(box.estado)}
+                      size="small"
+                      sx={{ fontWeight: 500 }}
+                    />
+                  </Box>
+
+                  {/* Hora de Atención */}
+                  {box.estado === 'OCUPADO' && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Hora de Atención: {formatearHoraAtencion(box)}
+                    </Typography>
+                  )}
+                  {box.estado === 'DISPONIBLE' && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Hora de Atención:
+                    </Typography>
+                  )}
+
+                  {/* Botón de Acción */}
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="large"
+                    onClick={() =>
+                      cambiarEstadoBox(
+                        box.id,
+                        box.estado === 'DISPONIBLE' ? 'OCUPADO' : 'DISPONIBLE'
+                      )
+                    }
+                    disabled={box.estado === 'MANTENIMIENTO' || box.estado === 'FUERA_SERVICIO'}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      backgroundColor:
+                        box.estado === 'DISPONIBLE' ? 'primary.main' : 'success.main',
+                      '&:hover': {
+                        backgroundColor:
+                          box.estado === 'DISPONIBLE' ? 'primary.dark' : 'success.dark',
+                      },
+                    }}
+                  >
+                    {box.estado === 'DISPONIBLE' ? 'Marcar como Ocupado' : 'Marcar como Libre'}
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
+
+      {/* Sección de Atrasos */}
+      <Paper elevation={2} sx={{ p: 3 }}>
+        <Typography variant="h5" fontWeight="600" gutterBottom>
+          Atrasos en Horas
+        </Typography>
+
+        {atrasosEnHoras.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            No hay atrasos registrados
+          </Typography>
+        ) : (
+          <Box sx={{ mt: 2 }}>
+            {atrasosEnHoras.map((atraso) => (
+              <Card key={atraso.id} elevation={1} sx={{ mb: 2, p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="600">
+                      {atraso.paciente}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Atraso en Atención: {atraso.atrasoMinutos} minutos
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={atraso.box}
+                    color="success"
+                    size="small"
+                    sx={{ fontWeight: 500 }}
+                  />
+                </Box>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  sx={{
+                    mt: 2,
+                    textTransform: 'none',
+                    fontWeight: 500,
+                  }}
+                >
+                  Notificar a Profesional
+                </Button>
+              </Card>
+            ))}
+          </Box>
+        )}
+      </Paper>
+    </Container>
+  );
+};
+
+export default EstadoBoxes;
