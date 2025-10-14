@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -6,9 +7,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Componentes
 import Login from './components/Login';
+import EstadoBoxes from './components/EstadoBoxes';
 // import ListaPacientes from './components/ListaPacientes';
 // import DetallePaciente from './components/DetallePaciente';
-// import EstadoBoxes from './components/EstadoBoxes';
 
 // Tema personalizado de Material UI
 const theme = createTheme({
@@ -28,6 +29,9 @@ const theme = createTheme({
     },
     warning: {
       main: '#ff9800',
+    },
+    success: {
+      main: '#4caf50',
     },
     background: {
       default: '#f5f5f5',
@@ -122,8 +126,7 @@ function AppContent() {
           path="/boxes"
           element={
             <ProtectedRoute>
-              <ComingSoon title="Estado de Box's" />
-              {/* <EstadoBoxes /> */}
+              <EstadoBoxes />
             </ProtectedRoute>
           }
         />
