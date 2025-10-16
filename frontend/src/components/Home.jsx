@@ -186,7 +186,6 @@ const Home = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Urgencia</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600 }}></TableCell>
-                  
                 </TableRow>
               </TableHead>
               <TableBody>

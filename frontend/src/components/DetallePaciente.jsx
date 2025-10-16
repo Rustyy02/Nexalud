@@ -14,13 +14,19 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  LinearProgress,
+  Stack,
 } from '@mui/material';
 import {
   Person as PersonIcon,
   Phone as PhoneIcon,
   Home as HomeIcon,
   Security as SecurityIcon,
-  MedicalServices as MedicalIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as PendingIcon,
+  PlayArrow as InProgressIcon,
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
@@ -33,6 +39,8 @@ const DetallePaciente = () => {
   const [rutaClinica, setRutaClinica] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -66,11 +74,21 @@ const DetallePaciente = () => {
     if (!rutaClinica || !rutaClinica.ruta_clinica) return;
 
     try {
-      await rutasClinicasService.avanzar(rutaClinica.ruta_clinica.id);
-      await cargarDatos();
+      setActionLoading(true);
+      setError('');
+      setSuccess('');
+      
+      const response = await rutasClinicasService.avanzar(rutaClinica.ruta_clinica.id);
+      
+      if (response.data.success) {
+        setSuccess(response.data.mensaje);
+        await cargarDatos();
+      }
     } catch (err) {
-      setError('Error al avanzar la etapa');
+      setError(err.response?.data?.mensaje || 'Error al avanzar la etapa');
       console.error(err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -78,11 +96,21 @@ const DetallePaciente = () => {
     if (!rutaClinica || !rutaClinica.ruta_clinica) return;
 
     try {
-      await rutasClinicasService.retroceder(rutaClinica.ruta_clinica.id);
-      await cargarDatos();
+      setActionLoading(true);
+      setError('');
+      setSuccess('');
+      
+      const response = await rutasClinicasService.retroceder(rutaClinica.ruta_clinica.id);
+      
+      if (response.data.success) {
+        setSuccess(response.data.mensaje);
+        await cargarDatos();
+      }
     } catch (err) {
-      setError('Error al retroceder la etapa');
+      setError(err.response?.data?.mensaje || 'Error al retroceder la etapa');
       console.error(err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -96,16 +124,40 @@ const DetallePaciente = () => {
     return colores[urgencia] || 'default';
   };
 
+  const getEtapaColor = (estado) => {
+    if (estado === 'COMPLETADA') return { bg: '#4caf50', color: 'white' }; // Verde
+    if (estado === 'EN_PROCESO') return { bg: '#2196f3', color: 'white' }; // Azul
+    return { bg: '#e0e0e0', color: '#666' }; // Gris
+  };
+
+  const getEtapaIcon = (estado) => {
+    if (estado === 'COMPLETADA') return <CheckCircleIcon sx={{ fontSize: 32 }} />;
+    if (estado === 'EN_PROCESO') return <InProgressIcon sx={{ fontSize: 32 }} />;
+    return <PendingIcon sx={{ fontSize: 32 }} />;
+  };
+
   const obtenerDatosPaciente = (paciente) => {
     return {
-      nombre: paciente.metadatos_adicionales?.nombre || `Ana Torres`,
-      rut: paciente.identificador_hash.substring(0, 12),
+      nombre: paciente.metadatos_adicionales?.nombre || `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
+      rut: paciente.metadatos_adicionales?.rut || paciente.identificador_hash.substring(0, 12),
       edad: paciente.edad,
-      tipoSangre: paciente.metadatos_adicionales?.tipo_sangre || 'O+',
-      contacto: paciente.metadatos_adicionales?.contacto || '+56 9 7846 1789',
-      direccion: paciente.metadatos_adicionales?.direccion || 'Cocalan 160, Llay-Llay, Valparaiso',
-      seguro: paciente.metadatos_adicionales?.seguro || 'Sura',
+      tipoSangre: paciente.metadatos_adicionales?.tipo_sangre || 'N/A',
+      contacto: paciente.metadatos_adicionales?.contacto || 'N/A',
+      direccion: paciente.metadatos_adicionales?.direccion || 'N/A',
+      seguro: paciente.metadatos_adicionales?.seguro || 'N/A',
     };
+  };
+
+  const puedeAvanzar = () => {
+    if (!rutaClinica || !rutaClinica.ruta_clinica) return false;
+    // Puede avanzar si NO está completada
+    return rutaClinica.ruta_clinica.estado !== 'COMPLETADA';
+  };
+
+  const puedeRetroceder = () => {
+    if (!rutaClinica || !rutaClinica.ruta_clinica) return false;
+    // Puede retroceder si tiene al menos 1 etapa completada y no está completada
+    return rutaClinica.etapas_completadas > 0;
   };
 
   if (loading) {
@@ -142,6 +194,12 @@ const DetallePaciente = () => {
           </Alert>
         )}
 
+        {success && (
+          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+            {success}
+          </Alert>
+        )}
+
         {/* Card Principal del Paciente */}
         <Card elevation={3} sx={{ mb: 3 }}>
           <CardContent>
@@ -159,11 +217,16 @@ const DetallePaciente = () => {
                     <strong>Rut:</strong> {datos.rut}
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
-                    <strong>Edad:</strong> {datos.edad}
+                    <strong>Edad:</strong> {datos.edad} años
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
                     <strong>Tipo de Sangre:</strong> {datos.tipoSangre}
                   </Typography>
+                  <Chip
+                    label={paciente.nivel_urgencia_display}
+                    color={getColorUrgencia(paciente.nivel_urgencia)}
+                    size="small"
+                  />
                 </Box>
               </Box>
             </Box>
@@ -171,63 +234,158 @@ const DetallePaciente = () => {
             <Divider sx={{ my: 3 }} />
 
             {/* Proceso de Atención - Etapas */}
-            {rutaClinica && (
+            {rutaClinica && rutaClinica.timeline && (
               <Box sx={{ mb: 4 }}>
-                <Grid container spacing={2}>
-                  {rutaClinica.timeline.map((etapa) => (
-                    <Grid item xs={6} sm={4} md={2} key={etapa.orden}>
-                      <Card
-                        variant="outlined"
-                        sx={{
-                          bgcolor: etapa.estado === 'COMPLETADA' ? 'success.main' : 
-                                  etapa.es_actual ? 'primary.main' : 'grey.300',
-                          color: etapa.estado !== 'PENDIENTE' ? 'white' : 'text.primary',
-                          borderWidth: etapa.es_actual ? 3 : 1,
-                          borderColor: etapa.es_actual ? 'primary.dark' : 'divider',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: 3,
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ p: 2, textAlign: 'center', '&:last-child': { pb: 2 } }}>
-                          <MedicalIcon sx={{ fontSize: 32, mb: 1 }} />
-                          <Typography variant="body2" fontWeight="600">
-                            {etapa.etapa_label}
-                          </Typography>
-                          {etapa.fecha_inicio && (
-                            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                              {new Date(etapa.fecha_inicio).toLocaleTimeString('es-CL', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </Typography>
-                          )}
-                          {etapa.es_actual && (
-                            <Chip
-                              label="En curso"
-                              size="small"
-                              sx={{ 
-                                mt: 1, 
-                                bgcolor: 'white', 
-                                color: 'primary.main',
-                                fontWeight: 600,
-                                fontSize: '0.7rem'
-                              }}
-                            />
-                          )}
-                          {etapa.estado === 'PENDIENTE' && (
-                            <Typography variant="caption" display="block" sx={{ mt: 0.5, color: 'text.secondary' }}>
-                              Pendiente
-                            </Typography>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" fontWeight="600">
+                    Proceso de Atención
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Progreso: {Math.round(rutaClinica.progreso_general)}%
+                    </Typography>
+                    <Box sx={{ width: 150 }}>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={rutaClinica.progreso_general} 
+                        sx={{ height: 8, borderRadius: 1 }}
+                      />
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Grid de etapas con diseño uniforme */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {rutaClinica.timeline.map((etapa) => {
+                    const colors = getEtapaColor(etapa.estado);
+                    return (
+                      <Grid item xs={6} sm={4} md={2} key={etapa.orden}>
+                        <Card
+                          variant="outlined"
+                          sx={{
+                            bgcolor: colors.bg,
+                            color: colors.color,
+                            borderWidth: etapa.es_actual ? 3 : 1,
+                            borderColor: etapa.es_actual ? 'primary.dark' : 'divider',
+                            transition: 'all 0.3s',
+                            height: '100%',
+                            minHeight: '200px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: 3,
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ 
+                            p: 2, 
+                            textAlign: 'center', 
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            '&:last-child': { pb: 2 } 
+                          }}>
+                            {/* Icono */}
+                            <Box sx={{ mb: 1 }}>
+                              {getEtapaIcon(etapa.estado)}
+                            </Box>
+                            
+                            {/* Nombre de etapa - ocupa el espacio central */}
+                            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Typography 
+                                variant="body2" 
+                                fontWeight="600" 
+                                sx={{ 
+                                  textAlign: 'center',
+                                  wordBreak: 'break-word',
+                                  px: 1,
+                                }}
+                              >
+                                {etapa.etapa_label}
+                              </Typography>
+                            </Box>
+                            
+                            {/* Información inferior */}
+                            <Box sx={{ width: '100%', mt: 1 }}>
+                              {etapa.fecha_inicio && (
+                                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                  {new Date(etapa.fecha_inicio).toLocaleTimeString('es-CL', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </Typography>
+                              )}
+                              {etapa.es_actual && (
+                                <Chip
+                                  label="En curso"
+                                  size="small"
+                                  sx={{ 
+                                    mt: 1, 
+                                    bgcolor: 'white', 
+                                    color: 'primary.main',
+                                    fontWeight: 600,
+                                    fontSize: '0.65rem',
+                                    height: '20px',
+                                  }}
+                                />
+                              )}
+                              {etapa.estado === 'COMPLETADA' && etapa.fecha_fin && (
+                                <Typography variant="caption" display="block" sx={{ mt: 0.5, fontSize: '0.7rem' }}>
+                                  ✓ Completada
+                                </Typography>
+                              )}
+                              {etapa.estado === 'PENDIENTE' && (
+                                <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.7, fontSize: '0.7rem' }}>
+                                  Pendiente
+                                </Typography>
+                              )}
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
                 </Grid>
+
+                {/* Botones de control */}
+                <Stack direction="row" spacing={2} justifyContent="center">
+                  <Button
+                    variant="outlined"
+                    startIcon={<ArrowBackIcon />}
+                    onClick={handleRetrocederEtapa}
+                    disabled={!puedeRetroceder() || actionLoading}
+                    sx={{ minWidth: 150 }}
+                  >
+                    Retroceder
+                  </Button>
+                  <Button
+                    variant="contained"
+                    endIcon={<ArrowForwardIcon />}
+                    onClick={handleAvanzarEtapa}
+                    disabled={!puedeAvanzar() || actionLoading}
+                    sx={{ minWidth: 150 }}
+                  >
+                    {actionLoading ? 'Procesando...' : 'Avanzar Etapa'}
+                  </Button>
+                </Stack>
+
+                {/* Información adicional */}
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Etapas completadas:</strong> {rutaClinica.etapas_completadas} de {rutaClinica.etapas_totales}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Tiempo transcurrido:</strong> {Math.floor(rutaClinica.tiempo_transcurrido_minutos / 60)}h {rutaClinica.tiempo_transcurrido_minutos % 60}m
+                  </Typography>
+                  <Chip
+                    label={rutaClinica.ruta_clinica.estado_display}
+                    color={rutaClinica.ruta_clinica.estado === 'COMPLETADA' ? 'success' : 'primary'}
+                    size="small"
+                  />
+                </Box>
               </Box>
             )}
 
