@@ -1,7 +1,6 @@
-// frontend/src/services/api.js
+// frontend/src/services/api.js - VERSIÓN MEJORADA
 import axios from 'axios';
 
-// Configuración base de axios
 const api = axios.create({
   baseURL: 'http://127.0.0.1:8000/api',
   headers: {
@@ -9,7 +8,7 @@ const api = axios.create({
   },
 });
 
-// Interceptor para agregar token si existe
+// Interceptors
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,17 +17,13 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores de respuesta
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token inválido o expirado
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -37,106 +32,72 @@ api.interceptors.response.use(
 );
 
 // ============================================
-// SERVICIOS DE BOXES
+// SERVICIOS DE RUTAS CLÍNICAS - MEJORADOS
 // ============================================
 
-export const boxesService = {
-  // Obtener todos los boxes
-  getAll: (params = {}) => api.get('/boxes/', { params }),
+export const rutasClinicasService = {
+  // Básicos
+  getAll: (params = {}) => api.get('/rutas-clinicas/', { params }),
+  getById: (id) => api.get(`/rutas-clinicas/${id}/`),
+  create: (data) => api.post('/rutas-clinicas/', data),
   
-  // Obtener box por ID
-  getById: (id) => api.get(`/boxes/${id}/`),
+  // ============================================
+  // NUEVO: Timeline completo con retrasos
+  // ============================================
+  getTimeline: (id) => api.get(`/rutas-clinicas/${id}/timeline/`),
   
-  // Crear box
-  create: (data) => api.post('/boxes/', data),
+  // ============================================
+  // MEJORADO: Avanzar con observaciones
+  // ============================================
+  avanzar: (id, data = {}) => 
+    api.post(`/rutas-clinicas/${id}/avanzar/`, data),
+  // Ejemplo de uso:
+  // avanzar(rutaId, { observaciones: "Paciente derivado a laboratorio" })
   
-  // Actualizar box
-  update: (id, data) => api.patch(`/boxes/${id}/`, data),
+  // ============================================
+  // MEJORADO: Retroceder con motivo
+  // ============================================
+  retroceder: (id, data = {}) => 
+    api.post(`/rutas-clinicas/${id}/retroceder/`, data),
+  // Ejemplo de uso:
+  // retroceder(rutaId, { motivo: "Error en el registro" })
   
-  // Ocupar box
-  ocupar: (id, timestamp = null) => 
-    api.post(`/boxes/${id}/ocupar/`, timestamp ? { timestamp } : {}),
+  // Control de ruta
+  iniciar: (id) => api.post(`/rutas-clinicas/${id}/iniciar/`),
+  pausar: (id, motivo) => api.post(`/rutas-clinicas/${id}/pausar/`, { motivo }),
+  reanudar: (id) => api.post(`/rutas-clinicas/${id}/reanudar/`),
+  completar: (id) => api.post(`/rutas-clinicas/${id}/completar/`),
   
-  // Liberar box
-  liberar: (id, timestamp = null) => 
-    api.post(`/boxes/${id}/liberar/`, timestamp ? { timestamp } : {}),
+  // ============================================
+  // NUEVO: Observaciones
+  // ============================================
+  agregarObservacion: (id, observaciones) => 
+    api.post(`/rutas-clinicas/${id}/agregar_observacion/`, { observaciones }),
   
-  // Obtener boxes disponibles
-  getDisponibles: (especialidad = null) => {
-    const params = especialidad ? { especialidad } : {};
-    return api.get('/boxes/disponibles/', { params });
-  },
+  // ============================================
+  // NUEVO: Historial completo
+  // ============================================
+  getHistorial: (id) => api.get(`/rutas-clinicas/${id}/historial/`),
   
-  // Obtener boxes ocupados
-  getOcupados: () => api.get('/boxes/ocupados/'),
+  // ============================================
+  // NUEVO: Detección de retrasos
+  // ============================================
+  getRetrasos: (id) => api.get(`/rutas-clinicas/${id}/retrasos/`),
   
-  // Obtener estadísticas de boxes
-  getEstadisticas: () => api.get('/boxes/estadisticas/'),
+  // ============================================
+  // NUEVO: Listar rutas con retrasos
+  // ============================================
+  getConRetrasos: () => api.get('/rutas-clinicas/con_retrasos/'),
   
-  // Agrupar por especialidad
-  getPorEspecialidad: () => api.get('/boxes/por_especialidad/'),
+  // Listas
+  getActivas: () => api.get('/rutas-clinicas/activas/'),
+  getPausadas: () => api.get('/rutas-clinicas/pausadas/'),
   
-  // Marcar en mantenimiento
-  marcarMantenimiento: (id, motivo) => 
-    api.post(`/boxes/${id}/mantenimiento/`, { motivo }),
-  
-  // Activar/Desactivar
-  activar: (id) => api.post(`/boxes/${id}/activar/`),
-  desactivar: (id) => api.post(`/boxes/${id}/desactivar/`),
-  
-  // Historial de ocupación
-  getHistorialOcupacion: (id) => 
-    api.get(`/boxes/${id}/historial_ocupacion/`),
-};
-
-// ============================================
-// SERVICIOS DE ATENCIONES
-// ============================================
-
-export const atencionesService = {
-  // Obtener todas las atenciones
-  getAll: (params = {}) => api.get('/atenciones/', { params }),
-  
-  // Obtener atención por ID
-  getById: (id) => api.get(`/atenciones/${id}/`),
-  
-  // Crear atención
-  create: (data) => api.post('/atenciones/', data),
-  
-  // Iniciar cronómetro
-  iniciarCronometro: (id) => 
-    api.post(`/atenciones/${id}/iniciar_cronometro/`),
-  
-  // Finalizar cronómetro
-  finalizarCronometro: (id) => 
-    api.post(`/atenciones/${id}/finalizar_cronometro/`),
-  
-  // Cancelar atención
-  cancelar: (id, motivo) => 
-    api.post(`/atenciones/${id}/cancelar/`, { motivo }),
-  
-  // Reagendar atención
-  reagendar: (id, nueva_fecha, nuevo_box = null) => 
-    api.post(`/atenciones/${id}/reagendar/`, { nueva_fecha, nuevo_box }),
-  
-  // Obtener atenciones en curso
-  getEnCurso: () => api.get('/atenciones/en_curso/'),
-  
-  // Obtener atenciones de hoy
-  getHoy: () => api.get('/atenciones/hoy/'),
-  
-  // Obtener atenciones pendientes
-  getPendientes: () => api.get('/atenciones/pendientes/'),
-  
-  // Obtener atenciones retrasadas (IMPORTANTE para el componente)
-  getRetrasadas: () => api.get('/atenciones/retrasadas/'),
-  
-  // Obtener estadísticas
-  getEstadisticas: (params = {}) => 
-    api.get('/atenciones/estadisticas/', { params }),
-  
-  // Obtener métricas de una atención
-  getMetricas: (id) => api.get(`/atenciones/${id}/metricas/`),
+  // Información
+  getEtapasDisponibles: () => api.get('/rutas-clinicas/etapas-disponibles/'),
+  getEstadisticas: () => api.get('/rutas-clinicas/estadisticas/'),
+  recalcularProgreso: (id) => api.post(`/rutas-clinicas/${id}/recalcular_progreso/`),
+  getInfoEtapaActual: (id) => api.get(`/rutas-clinicas/${id}/info_etapa_actual/`),
 };
 
 // ============================================
@@ -144,90 +105,65 @@ export const atencionesService = {
 // ============================================
 
 export const pacientesService = {
-  // Obtener todos los pacientes
   getAll: (params = {}) => api.get('/pacientes/', { params }),
-  
-  // Obtener un paciente por ID
   getById: (id) => api.get(`/pacientes/${id}/`),
-  
-  // Crear nuevo paciente
   create: (data) => api.post('/pacientes/', data),
-  
-  // Actualizar paciente
   update: (id, data) => api.patch(`/pacientes/${id}/`, data),
-  
-  // Cambiar estado del paciente
   cambiarEstado: (id, estado) => 
     api.post(`/pacientes/${id}/cambiar_estado/`, { estado_actual: estado }),
-  
-  // Obtener pacientes activos
   getActivos: () => api.get('/pacientes/activos/'),
-  
-  // Obtener pacientes en espera
   getEnEspera: () => api.get('/pacientes/en_espera/'),
-  
-  // Obtener estadísticas
   getEstadisticas: () => api.get('/pacientes/estadisticas/'),
-  
-  // Obtener rutas clínicas del paciente
   getRutasClinicas: (id) => api.get(`/pacientes/${id}/rutas_clinicas/`),
-  
-  // Obtener atenciones del paciente
   getAtenciones: (id) => api.get(`/pacientes/${id}/atenciones/`),
 };
 
 // ============================================
-// SERVICIOS DE RUTAS CLÍNICAS (TIMELINE)
+// SERVICIOS DE BOXES
 // ============================================
 
-export const rutasClinicasService = {
-  // Obtener todas las rutas
-  getAll: (params = {}) => api.get('/rutas-clinicas/', { params }),
-  
-  // Obtener una ruta por ID
-  getById: (id) => api.get(`/rutas-clinicas/${id}/`),
-  
-  // Crear nueva ruta clínica
-  create: (data) => api.post('/rutas-clinicas/', data),
-  
-  // IMPORTANTE: Obtener timeline completo del paciente
-  getTimeline: (id) => api.get(`/rutas-clinicas/${id}/timeline/`),
-  
-  // Iniciar ruta
-  iniciar: (id) => api.post(`/rutas-clinicas/${id}/iniciar/`),
-  
-  // Avanzar etapa
-  avanzar: (id) => api.post(`/rutas-clinicas/${id}/avanzar/`),
-  
-  // Retroceder etapa
-  retroceder: (id) => api.post(`/rutas-clinicas/${id}/retroceder/`),
-  
-  // Recalcular progreso
-  recalcularProgreso: (id) => 
-    api.post(`/rutas-clinicas/${id}/recalcular_progreso/`),
-  
-  // Pausar ruta
-  pausar: (id, motivo) => 
-    api.post(`/rutas-clinicas/${id}/pausar/`, { motivo }),
-  
-  // Reanudar ruta
-  reanudar: (id) => api.post(`/rutas-clinicas/${id}/reanudar/`),
-  
-  // Completar ruta
-  completar: (id) => api.post(`/rutas-clinicas/${id}/completar/`),
-  
-  // Obtener etapas disponibles
-  getEtapasDisponibles: () => 
-    api.get('/rutas-clinicas/etapas-disponibles/'),
-  
-  // Obtener rutas activas
-  getActivas: () => api.get('/rutas-clinicas/activas/'),
-  
-  // Obtener rutas pausadas
-  getPausadas: () => api.get('/rutas-clinicas/pausadas/'),
-  
-  // Obtener estadísticas
-  getEstadisticas: () => api.get('/rutas-clinicas/estadisticas/'),
+export const boxesService = {
+  getAll: (params = {}) => api.get('/boxes/', { params }),
+  getById: (id) => api.get(`/boxes/${id}/`),
+  create: (data) => api.post('/boxes/', data),
+  update: (id, data) => api.patch(`/boxes/${id}/`, data),
+  ocupar: (id, timestamp = null) => 
+    api.post(`/boxes/${id}/ocupar/`, timestamp ? { timestamp } : {}),
+  liberar: (id, timestamp = null) => 
+    api.post(`/boxes/${id}/liberar/`, timestamp ? { timestamp } : {}),
+  getDisponibles: (especialidad = null) => {
+    const params = especialidad ? { especialidad } : {};
+    return api.get('/boxes/disponibles/', { params });
+  },
+  getOcupados: () => api.get('/boxes/ocupados/'),
+  getEstadisticas: () => api.get('/boxes/estadisticas/'),
+  getPorEspecialidad: () => api.get('/boxes/por_especialidad/'),
+  marcarMantenimiento: (id, motivo) => 
+    api.post(`/boxes/${id}/mantenimiento/`, { motivo }),
+  activar: (id) => api.post(`/boxes/${id}/activar/`),
+  desactivar: (id) => api.post(`/boxes/${id}/desactivar/`),
+  getHistorialOcupacion: (id) => api.get(`/boxes/${id}/historial_ocupacion/`),
+};
+
+// ============================================
+// SERVICIOS DE ATENCIONES
+// ============================================
+
+export const atencionesService = {
+  getAll: (params = {}) => api.get('/atenciones/', { params }),
+  getById: (id) => api.get(`/atenciones/${id}/`),
+  create: (data) => api.post('/atenciones/', data),
+  iniciarCronometro: (id) => api.post(`/atenciones/${id}/iniciar_cronometro/`),
+  finalizarCronometro: (id) => api.post(`/atenciones/${id}/finalizar_cronometro/`),
+  cancelar: (id, motivo) => api.post(`/atenciones/${id}/cancelar/`, { motivo }),
+  reagendar: (id, nueva_fecha, nuevo_box = null) => 
+    api.post(`/atenciones/${id}/reagendar/`, { nueva_fecha, nuevo_box }),
+  getEnCurso: () => api.get('/atenciones/en_curso/'),
+  getHoy: () => api.get('/atenciones/hoy/'),
+  getPendientes: () => api.get('/atenciones/pendientes/'),
+  getRetrasadas: () => api.get('/atenciones/retrasadas/'),
+  getEstadisticas: (params = {}) => api.get('/atenciones/estadisticas/', { params }),
+  getMetricas: (id) => api.get(`/atenciones/${id}/metricas/`),
 };
 
 // ============================================
@@ -235,37 +171,16 @@ export const rutasClinicasService = {
 // ============================================
 
 export const medicosService = {
-  // Obtener todos los médicos
   getAll: (params = {}) => api.get('/medicos/', { params }),
-  
-  // Obtener médico por ID
   getById: (id) => api.get(`/medicos/${id}/`),
-  
-  // Crear médico
   create: (data) => api.post('/medicos/', data),
-  
-  // Actualizar médico
   update: (id, data) => api.patch(`/medicos/${id}/`, data),
-  
-  // Obtener atenciones del médico hoy
   getAtencionesHoy: (id) => api.get(`/medicos/${id}/atenciones_hoy/`),
-  
-  // Obtener agenda semanal
   getAgendaSemanal: (id) => api.get(`/medicos/${id}/agenda_semanal/`),
-  
-  // Obtener métricas del médico
   getMetricas: (id) => api.get(`/medicos/${id}/metricas/`),
-  
-  // Obtener médicos activos
   getActivos: () => api.get('/medicos/activos/'),
-  
-  // Agrupar por especialidad
   getPorEspecialidad: () => api.get('/medicos/por_especialidad/'),
-  
-  // Obtener estadísticas
   getEstadisticas: () => api.get('/medicos/estadisticas/'),
-  
-  // Activar/Desactivar
   activar: (id) => api.post(`/medicos/${id}/activar/`),
   desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
 };
@@ -273,11 +188,10 @@ export const medicosService = {
 // ============================================
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
+
 export const authService = {
-  // Login
   login: async (username, password) => {
     try {
-      // Usar el endpoint correcto de autenticación por token
       const response = await axios.post('http://127.0.0.1:8000/api-token-auth/', {
         username,
         password,
@@ -295,13 +209,10 @@ export const authService = {
       };
     }
   },
-  // Logout
   logout: () => {
     localStorage.removeItem('token');
     window.location.href = '/login';
   },
-  
-  // Verificar si está autenticado
   isAuthenticated: () => {
     return !!localStorage.getItem('token');
   },

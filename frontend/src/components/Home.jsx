@@ -23,6 +23,8 @@ import {
   TableHead,
   TableRow,
   LinearProgress,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -33,6 +35,8 @@ import {
   Badge as BadgeIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService, boxesService } from '../services/api';
@@ -49,6 +53,7 @@ const Home = () => {
   const [loadingRuta, setLoadingRuta] = useState(false);
   const [error, setError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [terminoBusqueda, setTerminoBusqueda] = useState('');
 
   useEffect(() => {
     cargarDatos();
@@ -103,6 +108,10 @@ const Home = () => {
     setRutaClinica(null);
   };
 
+  const handleLimpiarBusqueda = () => {
+    setTerminoBusqueda('');
+  };
+
   const getColorEstado = (estado) => {
     const colores = {
       'EN_ESPERA': 'warning',
@@ -143,6 +152,26 @@ const Home = () => {
     };
   };
 
+  // Filtrar pacientes según el término de búsqueda
+  const pacientesFiltrados = pacientes.filter((paciente) => {
+    if (!terminoBusqueda.trim()) return true;
+    
+    const termino = terminoBusqueda.toLowerCase().trim();
+    const datos = obtenerDatosPaciente(paciente);
+    
+    // Buscar en identificador_hash completo
+    if (paciente.identificador_hash.toLowerCase().includes(termino)) {
+      return true;
+    }
+    
+    // Buscar en el nombre del paciente
+    if (datos.nombre.toLowerCase().includes(termino)) {
+      return true;
+    }
+    
+    return false;
+  });
+
   if (loading) {
     return (
       <>
@@ -171,8 +200,41 @@ const Home = () => {
               Lista de Pacientes
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.9 }}>
-              {pacientes.length} pacientes activos
+              {pacientesFiltrados.length} de {pacientes.length} pacientes activos
             </Typography>
+          </Box>
+
+          {/* Campo de búsqueda */}
+          <Box sx={{ p: 3, pb: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Buscar por RUT o identificador..."
+              value={terminoBusqueda}
+              onChange={(e) => setTerminoBusqueda(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: terminoBusqueda && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={handleLimpiarBusqueda}
+                      edge="end"
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'background.paper',
+                },
+              }}
+            />
           </Box>
 
           <TableContainer>
@@ -185,81 +247,91 @@ const Home = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Contacto</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Urgencia</TableCell>
-                  
+                  <TableCell align="center" sx={{ fontWeight: 600 }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {pacientes.map((paciente) => {
-                  const datos = obtenerDatosPaciente(paciente);
-                  return (
-                    <TableRow
-                      key={paciente.id}
-                      hover
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                        },
-                      }}
-                      onClick={() => handleSeleccionarPaciente(paciente)}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <BadgeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                          {datos.rut}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                            <PersonIcon sx={{ fontSize: 18 }} />
-                          </Avatar>
-                          <Typography variant="body2" fontWeight="500">
-                            {datos.nombre}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                          {datos.correo}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                          {datos.contacto}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={paciente.estado_actual_display}
-                          size="small"
-                          color={getColorEstado(paciente.estado_actual)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={paciente.nivel_urgencia_display}
-                          size="small"
-                          color={getColorUrgencia(paciente.nivel_urgencia)}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSeleccionarPaciente(paciente);
-                          }}
-                        >
-                          Ver Detalle
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {pacientesFiltrados.length > 0 ? (
+                  pacientesFiltrados.map((paciente) => {
+                    const datos = obtenerDatosPaciente(paciente);
+                    return (
+                      <TableRow
+                        key={paciente.id}
+                        hover
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: 'action.hover',
+                          },
+                        }}
+                        onClick={() => handleSeleccionarPaciente(paciente)}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <BadgeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                            {datos.rut}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                              <PersonIcon sx={{ fontSize: 18 }} />
+                            </Avatar>
+                            <Typography variant="body2" fontWeight="500">
+                              {datos.nombre}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                            {datos.correo}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                            {datos.contacto}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={paciente.estado_actual_display}
+                            size="small"
+                            color={getColorEstado(paciente.estado_actual)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={paciente.nivel_urgencia_display}
+                            size="small"
+                            color={getColorUrgencia(paciente.nivel_urgencia)}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSeleccionarPaciente(paciente);
+                            }}
+                          >
+                            Ver Detalle
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <Typography color="text.secondary">
+                        No se encontraron pacientes que coincidan con la búsqueda
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>

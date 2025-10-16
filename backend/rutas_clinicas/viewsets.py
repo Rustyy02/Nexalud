@@ -1,4 +1,4 @@
-# backend/rutas_clinicas/viewsets.py
+# backend/rutas_clinicas/viewsets.py - VERSIÓN MEJORADA
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,35 +17,19 @@ from .serializers import (
 
 class RutaClinicaViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar rutas clínicas simplificadas.
+    ViewSet mejorado para gestionar rutas clínicas.
     
-    Las etapas son campos dentro del modelo, no una clase separada.
-    
-    Endpoints disponibles:
-    - GET /api/rutas-clinicas/ - Lista todas las rutas
-    - POST /api/rutas-clinicas/ - Crea una nueva ruta
-    - GET /api/rutas-clinicas/{id}/ - Detalle de una ruta
-    - PUT /api/rutas-clinicas/{id}/ - Actualiza una ruta
-    - PATCH /api/rutas-clinicas/{id}/ - Actualiza parcialmente
-    - DELETE /api/rutas-clinicas/{id}/ - Elimina una ruta
-    
-    Acciones personalizadas:
-    - POST /api/rutas-clinicas/{id}/iniciar/ - Inicia la ruta
-    - POST /api/rutas-clinicas/{id}/avanzar/ - Avanza a siguiente etapa
-    - POST /api/rutas-clinicas/{id}/retroceder/ - Retrocede una etapa
-    - POST /api/rutas-clinicas/{id}/pausar/ - Pausa la ruta
-    - POST /api/rutas-clinicas/{id}/reanudar/ - Reanuda la ruta
-    - POST /api/rutas-clinicas/{id}/completar/ - Completa la ruta
-    - GET /api/rutas-clinicas/{id}/timeline/ - Timeline completo
-    - GET /api/rutas-clinicas/activas/ - Lista rutas activas
-    - GET /api/rutas-clinicas/estadisticas/ - Estadísticas
-    - GET /api/rutas-clinicas/etapas-disponibles/ - Lista de etapas disponibles
+    Nuevas características:
+    - Sincronización automática con estado del paciente
+    - Detección de retrasos
+    - Historial de cambios completo
+    - Observaciones por etapa
+    - Validaciones de transición
     """
     queryset = RutaClinica.objects.all()
     permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        """Retorna el serializer apropiado según la acción"""
         if self.action == 'list':
             return RutaClinicaListSerializer
         elif self.action == 'create':
@@ -57,53 +41,53 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         return RutaClinicaSerializer
     
     def get_queryset(self):
-        """Filtra el queryset basado en parámetros de query"""
         queryset = RutaClinica.objects.select_related('paciente')
         
-        # Filtros opcionales
-        estado = self.request.query_params.get('estado', None)
-        paciente_id = self.request.query_params.get('paciente', None)
-        etapa_actual = self.request.query_params.get('etapa', None)
-        pausado = self.request.query_params.get('pausado', None)
-        fecha_desde = self.request.query_params.get('fecha_desde', None)
-        fecha_hasta = self.request.query_params.get('fecha_hasta', None)
+        # Filtros
+        estado = self.request.query_params.get('estado')
+        paciente_id = self.request.query_params.get('paciente')
+        etapa_actual = self.request.query_params.get('etapa')
+        pausado = self.request.query_params.get('pausado')
+        con_retraso = self.request.query_params.get('con_retraso')
         
         if estado:
             queryset = queryset.filter(estado=estado)
-        
         if paciente_id:
             queryset = queryset.filter(paciente_id=paciente_id)
-        
         if etapa_actual:
             queryset = queryset.filter(etapa_actual=etapa_actual)
-        
         if pausado is not None:
             pausado_bool = pausado.lower() in ['true', '1', 'yes']
             queryset = queryset.filter(esta_pausado=pausado_bool)
         
-        if fecha_desde:
-            queryset = queryset.filter(fecha_inicio__gte=fecha_desde)
-        
-        if fecha_hasta:
-            queryset = queryset.filter(fecha_inicio__lte=fecha_hasta)
+        # Filtro de rutas con retraso
+        if con_retraso and con_retraso.lower() in ['true', '1', 'yes']:
+            # Obtener rutas activas y filtrar las que tienen retrasos
+            rutas_con_retraso = []
+            for ruta in queryset.filter(estado='EN_PROGRESO'):
+                if ruta.detectar_retrasos():
+                    rutas_con_retraso.append(ruta.id)
+            queryset = queryset.filter(id__in=rutas_con_retraso)
         
         return queryset.order_by('-fecha_inicio')
     
+    # ============================================
+    # ACCIONES PRINCIPALES
+    # ============================================
+    
     @action(detail=True, methods=['post'])
     def iniciar(self, request, pk=None):
-        """
-        Inicia la ruta clínica (comienza la primera etapa).
-        
-        POST /api/rutas-clinicas/{id}/iniciar/
-        """
+        """Inicia la ruta clínica"""
         ruta = self.get_object()
+        usuario = request.user
         
-        if ruta.iniciar_ruta():
+        if ruta.iniciar_ruta(usuario=usuario):
             return Response({
                 'success': True,
                 'mensaje': 'Ruta iniciada correctamente',
                 'estado': ruta.estado,
                 'etapa_actual': ruta.get_etapa_actual_display(),
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
                 'porcentaje_completado': ruta.porcentaje_completado
             })
         
@@ -115,19 +99,21 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def avanzar(self, request, pk=None):
         """
-        Avanza a la siguiente etapa del proceso.
-        
-        POST /api/rutas-clinicas/{id}/avanzar/
+        Avanza a la siguiente etapa.
+        Body opcional: {"observaciones": "texto"}
         """
         ruta = self.get_object()
+        usuario = request.user
+        observaciones = request.data.get('observaciones', '')
         
-        if ruta.avanzar_etapa():
+        if ruta.avanzar_etapa(observaciones=observaciones, usuario=usuario):
             return Response({
                 'success': True,
                 'mensaje': 'Etapa avanzada correctamente',
                 'etapa_actual': ruta.get_etapa_actual_display() if ruta.etapa_actual else 'Completada',
                 'porcentaje_completado': ruta.porcentaje_completado,
                 'estado': ruta.estado,
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
                 'completada': ruta.estado == 'COMPLETADA'
             })
         
@@ -139,18 +125,20 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def retroceder(self, request, pk=None):
         """
-        Retrocede a la etapa anterior (por si hay error).
-        
-        POST /api/rutas-clinicas/{id}/retroceder/
+        Retrocede a la etapa anterior.
+        Body opcional: {"motivo": "texto"}
         """
         ruta = self.get_object()
+        usuario = request.user
+        motivo = request.data.get('motivo', '')
         
-        if ruta.retroceder_etapa():
+        if ruta.retroceder_etapa(motivo=motivo, usuario=usuario):
             return Response({
                 'success': True,
                 'mensaje': 'Se retrocedió a la etapa anterior',
                 'etapa_actual': ruta.get_etapa_actual_display(),
-                'porcentaje_completado': ruta.porcentaje_completado
+                'porcentaje_completado': ruta.porcentaje_completado,
+                'estado_paciente': ruta.paciente.get_estado_actual_display()
             })
         
         return Response({
@@ -161,43 +149,41 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def pausar(self, request, pk=None):
         """
-        Pausa la ruta clínica completa.
-        
-        POST /api/rutas-clinicas/{id}/pausar/
-        Body: {"motivo": "Razón de la pausa"}
+        Pausa la ruta clínica.
+        Body: {"motivo": "texto"}
         """
         ruta = self.get_object()
+        usuario = request.user
         serializer = RutaAccionSerializer(data=request.data)
         
         if serializer.is_valid():
             motivo = serializer.validated_data.get('motivo', 'Sin motivo especificado')
-            ruta.pausar_ruta(motivo)
+            ruta.pausar_ruta(motivo=motivo, usuario=usuario)
             
             return Response({
                 'success': True,
                 'estado': ruta.estado,
-                'mensaje': f'Ruta pausada exitosamente por: {motivo}', # Mensaje corregido
+                'mensaje': f'Ruta pausada: {motivo}',
                 'esta_pausado': ruta.esta_pausado,
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
                 'etapa_actual': ruta.get_etapa_actual_display()
             })
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) # Retorna los errores de validación del serializer
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['post'])
     def reanudar(self, request, pk=None):
-        """
-        Reanuda una ruta pausada.
-        
-        POST /api/rutas-clinicas/{id}/reanudar/
-        """
+        """Reanuda una ruta pausada"""
         ruta = self.get_object()
+        usuario = request.user
         
-        if ruta.reanudar_ruta():
+        if ruta.reanudar_ruta(usuario=usuario):
             return Response({
                 'success': True,
                 'estado': ruta.estado,
                 'mensaje': 'Ruta reanudada exitosamente',
                 'esta_pausado': ruta.esta_pausado,
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
                 'etapa_actual': ruta.get_etapa_actual_display()
             })
         
@@ -207,40 +193,19 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             'estado_actual': ruta.estado
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['post'])
-    def completar(self, request, pk=None):
-        """
-        Marca la ruta como completada manualmente.
-        
-        POST /api/rutas-clinicas/{id}/completar/
-        """
-        ruta = self.get_object()
-        
-        ruta.estado = 'COMPLETADA'
-        ruta.fecha_fin_real = timezone.now()
-        ruta.porcentaje_completado = 100.0
-        ruta.etapa_actual = None
-        ruta.save()
-        
-        return Response({
-            'success': True,
-            'mensaje': 'Ruta marcada como completada',
-            'estado': ruta.estado,
-            'fecha_fin_real': ruta.fecha_fin_real,
-            'tiempo_total': int(ruta.obtener_tiempo_total_real().total_seconds() / 60)
-        })
+    # ============================================
+    # INFORMACIÓN Y ANÁLISIS
+    # ============================================
     
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
         """
-        Endpoint para obtener el timeline completo del paciente.
-        
-        GET /api/rutas-clinicas/{id}/timeline/
-        
-        Retorna toda la información necesaria para renderizar el timeline horizontal.
+        Endpoint principal para visualización del timeline.
+        Retorna información completa incluyendo retrasos.
         """
         ruta = self.get_object()
         timeline_data = ruta.obtener_info_timeline()
+        retrasos = ruta.detectar_retrasos()
         
         # Detectar alertas
         alertas = []
@@ -251,6 +216,15 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                 'mensaje': f'Ruta pausada: {ruta.motivo_pausa}',
                 'severidad': 'warning'
             })
+        
+        if retrasos:
+            for retraso in retrasos:
+                alertas.append({
+                    'tipo': 'retraso',
+                    'mensaje': f'{retraso["etapa_label"]} retrasada {retraso["retraso_minutos"]} minutos',
+                    'severidad': 'error',
+                    'etapa': retraso['etapa']
+                })
         
         if ruta.estado == 'COMPLETADA':
             alertas.append({
@@ -270,64 +244,123 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             'estado_actual': ruta.estado,
             'esta_pausado': ruta.esta_pausado,
             'alertas': alertas,
+            'retrasos': retrasos,
         }
         
         serializer = TimelineSerializer(data)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'])
+    def historial(self, request, pk=None):
+        """Retorna el historial completo de cambios de la ruta"""
+        ruta = self.get_object()
+        
+        return Response({
+            'ruta_id': str(ruta.id),
+            'paciente': {
+                'id': str(ruta.paciente.id),
+                'nombre': ruta.paciente.metadatos_adicionales.get('nombre', 'N/A'),
+            },
+            'historial': ruta.historial_cambios,
+            'total_cambios': len(ruta.historial_cambios)
+        })
+    
+    @action(detail=True, methods=['get'])
+    def retrasos(self, request, pk=None):
+        """Detecta y retorna las etapas con retraso"""
+        ruta = self.get_object()
+        retrasos = ruta.detectar_retrasos()
+        
+        return Response({
+            'tiene_retrasos': len(retrasos) > 0,
+            'cantidad_retrasos': len(retrasos),
+            'retrasos': retrasos,
+            'etapa_actual': ruta.get_etapa_actual_display(),
+            'estado': ruta.estado
+        })
+    
+    @action(detail=True, methods=['post'])
+    def agregar_observacion(self, request, pk=None):
+        """
+        Agrega observaciones a la etapa actual.
+        Body: {"observaciones": "texto"}
+        """
+        ruta = self.get_object()
+        observaciones = request.data.get('observaciones', '')
+        
+        if not observaciones:
+            return Response({
+                'success': False,
+                'mensaje': 'Las observaciones no pueden estar vacías'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if ruta.etapa_actual and ruta.etapa_actual in ruta.timestamps_etapas:
+            ruta.timestamps_etapas[ruta.etapa_actual]['observaciones'] = observaciones
+            ruta.save()
+            
+            return Response({
+                'success': True,
+                'mensaje': 'Observaciones agregadas correctamente',
+                'etapa': ruta.get_etapa_actual_display(),
+                'observaciones': observaciones
+            })
+        
+        return Response({
+            'success': False,
+            'mensaje': 'No hay etapa actual para agregar observaciones'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # ============================================
+    # ENDPOINTS GENERALES
+    # ============================================
+    
     @action(detail=False, methods=['get'])
     def activas(self, request):
-        """
-        Lista rutas clínicas activas (iniciadas o en progreso).
-        
-        GET /api/rutas-clinicas/activas/
-        """
-        rutas = self.get_queryset().filter(
-            estado__in=['INICIADA', 'EN_PROGRESO']
-        )
-        
+        """Lista rutas clínicas activas"""
+        rutas = self.get_queryset().filter(estado__in=['INICIADA', 'EN_PROGRESO'])
         serializer = self.get_serializer(rutas, many=True)
+        
         return Response({
             'count': rutas.count(),
             'rutas': serializer.data
         })
     
     @action(detail=False, methods=['get'])
-    def pausadas(self, request):
-        """
-        Lista rutas clínicas pausadas.
+    def con_retrasos(self, request):
+        """Lista rutas que tienen etapas retrasadas"""
+        rutas_activas = self.get_queryset().filter(estado='EN_PROGRESO')
         
-        GET /api/rutas-clinicas/pausadas/
-        """
-        rutas = self.get_queryset().filter(esta_pausado=True)
+        rutas_con_retraso = []
+        for ruta in rutas_activas:
+            retrasos = ruta.detectar_retrasos()
+            if retrasos:
+                serialized = RutaClinicaListSerializer(ruta).data
+                serialized['retrasos'] = retrasos
+                rutas_con_retraso.append(serialized)
         
-        serializer = self.get_serializer(rutas, many=True)
         return Response({
-            'count': rutas.count(),
-            'rutas': serializer.data
+            'count': len(rutas_con_retraso),
+            'rutas': rutas_con_retraso
         })
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """
-        Retorna estadísticas generales de rutas clínicas.
-        
-        GET /api/rutas-clinicas/estadisticas/
-        """
+        """Estadísticas generales mejoradas"""
         queryset = self.get_queryset()
         
-        # Estadísticas por estado
+        # Estadísticas básicas
         total = queryset.count()
         iniciadas = queryset.filter(estado='INICIADA').count()
         en_progreso = queryset.filter(estado='EN_PROGRESO').count()
         pausadas = queryset.filter(esta_pausado=True).count()
         completadas = queryset.filter(estado='COMPLETADA').count()
-        canceladas = queryset.filter(estado='CANCELADA').count()
+        
+        # Detectar rutas con retraso
+        rutas_activas = queryset.filter(estado='EN_PROGRESO')
+        con_retraso = sum(1 for ruta in rutas_activas if ruta.detectar_retrasos())
         
         # Promedio de progreso
-        progreso_promedio = queryset.aggregate(
-            promedio=Avg('porcentaje_completado')
-        )['promedio'] or 0
+        progreso_promedio = queryset.aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
         
         # Tiempo promedio de completitud
         rutas_completadas = queryset.filter(estado='COMPLETADA', fecha_fin_real__isnull=False)
@@ -355,71 +388,29 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                 'en_progreso': en_progreso,
                 'pausadas': pausadas,
                 'completadas': completadas,
-                'canceladas': canceladas,
             },
             'por_etapa_actual': por_etapa,
             'progreso_promedio': round(progreso_promedio, 2),
             'tiempo_promedio_completitud_minutos': round(tiempo_promedio, 2),
             'tasa_completitud': round((completadas / total * 100) if total > 0 else 0, 2),
+            'rutas_con_retraso': con_retraso,
+            'tasa_retraso': round((con_retraso / en_progreso * 100) if en_progreso > 0 else 0, 2),
         })
     
     @action(detail=False, methods=['get'])
     def etapas_disponibles(self, request):
-        """
-        Lista todas las etapas disponibles para selección.
-        
-        GET /api/rutas-clinicas/etapas-disponibles/
-        """
+        """Lista etapas disponibles con duraciones estimadas"""
         etapas = [
-            {'key': key, 'label': label}
+            {
+                'key': key,
+                'label': label,
+                'duracion_estimada': RutaClinica.DURACIONES_ESTIMADAS.get(key, 30),
+                'estado_paciente': RutaClinica.ETAPA_A_ESTADO_PACIENTE.get(key, 'EN_CONSULTA')
+            }
             for key, label in RutaClinica.ETAPAS_CHOICES
         ]
         
         return Response({
             'etapas': etapas,
             'total': len(etapas)
-        })
-    
-    @action(detail=True, methods=['post'])
-    def recalcular_progreso(self, request, pk=None):
-        """
-        Recalcula manualmente el progreso de la ruta.
-        
-        POST /api/rutas-clinicas/{id}/recalcular_progreso/
-        """
-        ruta = self.get_object()
-        progreso = ruta.calcular_progreso()
-        
-        return Response({
-            'success': True,
-            'porcentaje_completado': progreso,
-            'mensaje': 'Progreso recalculado exitosamente',
-            'estado': ruta.estado
-        })
-    
-    @action(detail=True, methods=['get'])
-    def info_etapa_actual(self, request, pk=None):
-        """
-        Obtiene información detallada de la etapa actual.
-        
-        GET /api/rutas-clinicas/{id}/info_etapa_actual/
-        """
-        ruta = self.get_object()
-        
-        if not ruta.etapa_actual:
-            return Response({
-                'etapa_actual': None,
-                'mensaje': 'No hay etapa actual'
-            })
-        
-        timestamps = ruta.timestamps_etapas.get(ruta.etapa_actual, {})
-        
-        return Response({
-            'etapa_key': ruta.etapa_actual,
-            'etapa_label': ruta.get_etapa_actual_display(),
-            'orden': ruta.indice_etapa_actual + 1,
-            'fecha_inicio': timestamps.get('fecha_inicio'),
-            'fecha_fin': timestamps.get('fecha_fin'),
-            'estado': 'EN_PROCESO',
-            'es_actual': True
         })
