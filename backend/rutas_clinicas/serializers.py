@@ -1,4 +1,4 @@
-# backend/rutas_clinicas/serializers.py - VERSIÓN MEJORADA
+# backend/rutas_clinicas/serializers.py - VERSIÓN MEJORADA Y CORREGIDA
 from rest_framework import serializers
 from .models import RutaClinica
 from pacientes.serializers import PacienteListSerializer
@@ -122,14 +122,19 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         return None
     
     def get_total_etapas(self, obj):
-        return len(obj.etapas_seleccionadas)
+        return len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
     
     def get_etapas_restantes(self, obj):
-        return len(obj.etapas_seleccionadas) - len(obj.etapas_completadas)
+        total = len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
+        completadas = len(obj.etapas_completadas) if isinstance(obj.etapas_completadas, list) else 0
+        return total - completadas
     
     def get_retrasos_detectados(self, obj):
         """NUEVO: Detecta retrasos en las etapas"""
-        return obj.detectar_retrasos()
+        try:
+            return obj.detectar_retrasos()
+        except Exception:
+            return []
 
 
 class RutaClinicaListSerializer(serializers.ModelSerializer):
@@ -163,19 +168,40 @@ class RutaClinicaListSerializer(serializers.ModelSerializer):
         ]
     
     def get_paciente_nombre(self, obj):
-        """Obtiene el nombre del paciente si existe en metadatos"""
-        return obj.paciente.metadatos_adicionales.get('nombre', f'Paciente {obj.paciente.identificador_hash[:8]}')
+        """
+        🔧 CORRECCIÓN CRÍTICA - Línea 167
+        Obtiene el nombre del paciente con validación robusta para evitar error:
+        AttributeError: 'list' object has no attribute 'get'
+        """
+        # Obtener metadatos_adicionales
+        metadatos = obj.paciente.metadatos_adicionales
+        
+        # VALIDACIÓN: Verificar que sea un diccionario
+        if not isinstance(metadatos, dict):
+            # Si no es dict (es lista, None, etc), retornar identificador
+            return f'Paciente {obj.paciente.identificador_hash[:8]}'
+        
+        # Si es dict, intentar obtener el nombre
+        return metadatos.get('nombre', f'Paciente {obj.paciente.identificador_hash[:8]}')
     
     def get_progreso_info(self, obj):
+        """Información de progreso con validación de tipos"""
+        total = len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
+        completadas = len(obj.etapas_completadas) if isinstance(obj.etapas_completadas, list) else 0
+        
         return {
-            'total': len(obj.etapas_seleccionadas),
-            'completadas': len(obj.etapas_completadas),
+            'total': total,
+            'completadas': completadas,
             'porcentaje': obj.porcentaje_completado,
         }
     
     def get_tiene_retrasos(self, obj):
-        """NUEVO: Indica si tiene retrasos"""
-        return len(obj.detectar_retrasos()) > 0
+        """NUEVO: Indica si tiene retrasos con manejo de errores"""
+        try:
+            retrasos = obj.detectar_retrasos()
+            return len(retrasos) > 0
+        except Exception:
+            return False
 
 
 class RutaClinicaCreateSerializer(serializers.ModelSerializer):
@@ -242,11 +268,23 @@ class TimelineSerializer(serializers.Serializer):
     retrasos = serializers.ListField()  # NUEVO
     
     def get_paciente(self, obj):
-        """Información del paciente"""
+        """
+        🔧 CORRECCIÓN APLICADA
+        Información del paciente con validación de metadatos_adicionales
+        """
+        # Obtener metadatos de forma segura
+        metadatos = obj['paciente'].metadatos_adicionales
+        
+        # Validar que sea dict antes de usar .get()
+        if isinstance(metadatos, dict):
+            nombre = metadatos.get('nombre', 'N/A')
+        else:
+            nombre = f'Paciente {obj["paciente"].identificador_hash[:8]}'
+        
         return {
             'id': str(obj['paciente'].id),
             'identificador_hash': obj['paciente'].identificador_hash,
-            'nombre': obj['paciente'].metadatos_adicionales.get('nombre', 'N/A'),
+            'nombre': nombre,
             'edad': obj['paciente'].edad,
             'genero': obj['paciente'].get_genero_display(),
             'estado_actual': obj['paciente'].get_estado_actual_display(),

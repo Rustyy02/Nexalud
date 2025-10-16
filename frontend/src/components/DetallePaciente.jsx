@@ -1,4 +1,4 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN MEJORADA CON RETRASOS
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -14,6 +14,14 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -21,6 +29,8 @@ import {
   Home as HomeIcon,
   Security as SecurityIcon,
   MedicalServices as MedicalIcon,
+  History as HistoryIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
@@ -30,15 +40,21 @@ const DetallePaciente = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
+  // Estados principales
   const [paciente, setPaciente] = useState(null);
   const [rutaClinica, setRutaClinica] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // NUEVOS ESTADOS - Faltaban estos
+  const [dialogObservaciones, setDialogObservaciones] = useState(false);
+  const [dialogHistorial, setDialogHistorial] = useState(false);
+  const [observaciones, setObservaciones] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     cargarDatos();
-    // Actualizar cada 30 segundos para detectar retrasos en tiempo real
     const interval = setInterval(cargarDatos, 30000);
     return () => clearInterval(interval);
   }, [id]);
@@ -55,11 +71,9 @@ const DetallePaciente = () => {
       
       if (rutasRes.data && rutasRes.data.length > 0) {
         const rutaActual = rutasRes.data[0];
-        // Usar el nuevo endpoint de timeline que incluye retrasos
         const timelineRes = await rutasClinicasService.getTimeline(rutaActual.id);
         setRutaClinica(timelineRes.data);
         
-        // Cargar historial
         const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
         setHistorial(historialRes.data.historial || []);
       }
@@ -73,7 +87,6 @@ const DetallePaciente = () => {
   };
 
   const handleAvanzarEtapa = () => {
-    // Abrir diálogo para agregar observaciones
     setDialogObservaciones(true);
   };
 
@@ -81,7 +94,13 @@ const DetallePaciente = () => {
     if (!rutaClinica || !rutaClinica.ruta_clinica) return;
 
     try {
-      await rutasClinicasService.avanzar(rutaClinica.ruta_clinica.id);
+      setActionLoading(true);
+      await rutasClinicasService.avanzar(
+        rutaClinica.ruta_clinica.id,
+        { observaciones }
+      );
+      setDialogObservaciones(false);
+      setObservaciones('');
       await cargarDatos();
     } catch (err) {
       setError(err.response?.data?.mensaje || 'Error al avanzar la etapa');
@@ -95,6 +114,7 @@ const DetallePaciente = () => {
     if (!rutaClinica || !rutaClinica.ruta_clinica) return;
 
     try {
+      setActionLoading(true);
       await rutasClinicasService.retroceder(rutaClinica.ruta_clinica.id);
       await cargarDatos();
     } catch (err) {
@@ -116,14 +136,20 @@ const DetallePaciente = () => {
   };
 
   const obtenerDatosPaciente = (paciente) => {
+    // Verificar que metadatos_adicionales sea un objeto
+    const metadatos = paciente.metadatos_adicionales || {};
+    
     return {
-      nombre: paciente.metadatos_adicionales?.nombre || `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
-      rut: paciente.metadatos_adicionales?.rut || paciente.identificador_hash.substring(0, 12),
+      nombre: metadatos.nombre || `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
+      rut: metadatos.rut_original || paciente.identificador_hash.substring(0, 12),
       edad: paciente.edad,
-      tipoSangre: paciente.metadatos_adicionales?.tipo_sangre || 'O+',
-      contacto: paciente.metadatos_adicionales?.contacto || '+56 9 7846 1789',
-      direccion: paciente.metadatos_adicionales?.direccion || 'Cocalan 160, Llay-Llay, Valparaiso',
-      seguro: paciente.metadatos_adicionales?.seguro || 'Sura',
+      tipoSangre: metadatos.tipo_sangre || paciente.tipo_sangre || 'O+',
+      contacto: metadatos.contacto || '+56 9 7846 1789',
+      direccion: metadatos.direccion || 'Sin dirección registrada',
+      seguro: metadatos.seguro || 'Sin seguro',
+      alergias: paciente.alergias || metadatos.alergias || 'Sin alergias registradas',
+      condiciones: paciente.condiciones_preexistentes || metadatos.condiciones || 'Sin condiciones',
+      medicamentos: paciente.medicamentos_actuales || metadatos.medicamentos || 'Sin medicamentos',
     };
   };
 
@@ -161,10 +187,23 @@ const DetallePaciente = () => {
           </Alert>
         )}
 
+        {/* Alertas de Retrasos */}
+        {rutaClinica?.retrasos && rutaClinica.retrasos.length > 0 && (
+          <Alert severity="error" icon={<WarningIcon />} sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" fontWeight="600">
+              ⚠️ Se detectaron {rutaClinica.retrasos.length} etapa(s) con retraso
+            </Typography>
+            {rutaClinica.retrasos.map((retraso, index) => (
+              <Typography key={index} variant="body2" sx={{ mt: 0.5 }}>
+                • {retraso.etapa_label}: {retraso.retraso_minutos} minutos de retraso
+              </Typography>
+            ))}
+          </Alert>
+        )}
+
         {/* Card Principal del Paciente */}
         <Card elevation={3} sx={{ mb: 3 }}>
           <CardContent>
-            {/* Header con información básica */}
             <Box sx={{ display: 'flex', gap: 3, mb: 4 }}>
               <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}>
                 <PersonIcon sx={{ fontSize: 40 }} />
@@ -186,7 +225,6 @@ const DetallePaciente = () => {
                 </Box>
               </Box>
               
-              {/* NUEVO: Botón de Historial */}
               <Button
                 variant="outlined"
                 startIcon={<HistoryIcon />}
@@ -202,6 +240,34 @@ const DetallePaciente = () => {
             {/* Proceso de Atención - Etapas */}
             {rutaClinica && (
               <Box sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="600">
+                    Proceso de Atención
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {rutaClinica.ruta_clinica.estado === 'EN_PROGRESO' && (
+                      <>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={handleRetrocederEtapa}
+                          disabled={actionLoading || rutaClinica.ruta_clinica.indice_etapa_actual === 0}
+                        >
+                          Retroceder
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={handleAvanzarEtapa}
+                          disabled={actionLoading}
+                        >
+                          Avanzar Etapa
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </Box>
+
                 <Grid container spacing={2}>
                   {rutaClinica.timeline.map((etapa) => (
                     <Grid item xs={6} sm={4} md={2} key={etapa.orden}>
@@ -212,7 +278,8 @@ const DetallePaciente = () => {
                                   etapa.es_actual ? 'primary.main' : 'grey.300',
                           color: etapa.estado !== 'PENDIENTE' ? 'white' : 'text.primary',
                           borderWidth: etapa.es_actual ? 3 : 1,
-                          borderColor: etapa.es_actual ? 'primary.dark' : 'divider',
+                          borderColor: etapa.retrasada ? 'error.main' : 
+                                      etapa.es_actual ? 'primary.dark' : 'divider',
                           cursor: 'pointer',
                           transition: 'all 0.3s',
                           '&:hover': {
@@ -245,6 +312,14 @@ const DetallePaciente = () => {
                                 fontWeight: 600,
                                 fontSize: '0.7rem'
                               }}
+                            />
+                          )}
+                          {etapa.retrasada && (
+                            <Chip
+                              label="Retrasada"
+                              size="small"
+                              color="error"
+                              sx={{ mt: 1, fontSize: '0.7rem' }}
                             />
                           )}
                           {etapa.estado === 'PENDIENTE' && (
@@ -316,10 +391,51 @@ const DetallePaciente = () => {
                 </Paper>
               </Grid>
             </Grid>
+
+            {/* Información Médica Adicional */}
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="h6" fontWeight="600" gutterBottom>
+              Información Médica
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={4}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                  <Typography variant="subtitle2" fontWeight="600" gutterBottom>
+                    ⚠️ Alergias
+                  </Typography>
+                  <Typography variant="body2">
+                    {datos.alergias}
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', color: 'info.contrastText' }}>
+                  <Typography variant="subtitle2" fontWeight="600" gutterBottom>
+                    📋 Condiciones Preexistentes
+                  </Typography>
+                  <Typography variant="body2">
+                    {datos.condiciones}
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.light', color: 'success.contrastText' }}>
+                  <Typography variant="subtitle2" fontWeight="600" gutterBottom>
+                    💊 Medicamentos Actuales
+                  </Typography>
+                  <Typography variant="body2">
+                    {datos.medicamentos}
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
           </CardContent>
         </Card>
 
-        {/* NUEVO: Diálogo de Observaciones */}
+        {/* Diálogo de Observaciones */}
         <Dialog 
           open={dialogObservaciones} 
           onClose={() => !actionLoading && setDialogObservaciones(false)}
@@ -338,7 +454,7 @@ const DetallePaciente = () => {
                 label="Observaciones sobre esta etapa"
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
-                placeholder="Ej: Paciente presenta mejoría, derivado a laboratorio para exámenes complementarios"
+                placeholder="Ej: Paciente presenta mejoría, derivado a laboratorio"
                 helperText="Opcional: Agregue notas sobre esta etapa antes de avanzar"
               />
             </Box>
@@ -355,12 +471,12 @@ const DetallePaciente = () => {
               variant="contained"
               disabled={actionLoading}
             >
-              {actionLoading ? 'Procesando...' : 'Avanzar con Observaciones'}
+              {actionLoading ? 'Procesando...' : 'Avanzar'}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* NUEVO: Diálogo de Historial */}
+        {/* Diálogo de Historial */}
         <Dialog 
           open={dialogHistorial} 
           onClose={() => setDialogHistorial(false)}
