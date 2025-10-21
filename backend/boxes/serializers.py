@@ -153,3 +153,68 @@ class BoxOcupacionSerializer(serializers.Serializer):
     
     class Meta:
         fields = ['timestamp']
+        
+class BoxConAtencionesSerializer(serializers.ModelSerializer):
+    """Serializer de Box con información de atenciones programadas"""
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    especialidad_display = serializers.CharField(source='get_especialidad_display', read_only=True)
+    disponible = serializers.SerializerMethodField()
+    atencion_actual = serializers.SerializerMethodField()
+    ocupado_por_atencion = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Box
+        fields = [
+            'id',
+            'numero',
+            'nombre',
+            'especialidad',
+            'especialidad_display',
+            'estado',
+            'estado_display',
+            'disponible',
+            'activo',
+            'capacidad_maxima',
+            'ultima_ocupacion',
+            'atencion_actual',
+            'ocupado_por_atencion',
+        ]
+    
+    def get_disponible(self, obj):
+        return obj.obtener_disponibilidad()
+    
+    def get_atencion_actual(self, obj):
+        """Obtiene la atención que está ocupando el box actualmente"""
+        from django.utils import timezone
+        from atenciones.models import Atencion
+        
+        ahora = timezone.now()
+        
+        # Buscar atención en curso en este box
+        atencion_en_curso = Atencion.objects.filter(
+            box=obj,
+            estado__in=['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO'],
+            fecha_hora_inicio__lte=ahora,
+        ).order_by('fecha_hora_inicio').first()
+        
+        if atencion_en_curso:
+            # Calcular si la atención todavía debería estar ocupando el box
+            tiempo_transcurrido = (ahora - atencion_en_curso.fecha_hora_inicio).total_seconds() / 60
+            
+            # Si está dentro del tiempo planificado
+            if tiempo_transcurrido <= atencion_en_curso.duracion_planificada + 15:  # +15 min de margen
+                return {
+                    'id': str(atencion_en_curso.id),
+                    'paciente': atencion_en_curso.paciente.identificador_hash[:12],
+                    'medico': atencion_en_curso.medico.nombre_completo,
+                    'fecha_hora_inicio': atencion_en_curso.fecha_hora_inicio,
+                    'duracion_planificada': atencion_en_curso.duracion_planificada,
+                    'estado': atencion_en_curso.estado,
+                    'tipo_atencion': atencion_en_curso.get_tipo_atencion_display(),
+                }
+        
+        return None
+    
+    def get_ocupado_por_atencion(self, obj):
+        """Verifica si el box está ocupado por una atención programada"""
+        return self.get_atencion_actual(obj) is not None

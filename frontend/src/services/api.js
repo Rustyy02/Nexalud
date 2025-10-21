@@ -143,8 +143,10 @@ export const boxesService = {
   activar: (id) => api.post(`/boxes/${id}/activar/`),
   desactivar: (id) => api.post(`/boxes/${id}/desactivar/`),
   getHistorialOcupacion: (id) => api.get(`/boxes/${id}/historial_ocupacion/`),
+  
+  // NUEVO ENDPOINT
+  sincronizarEstados: () => api.get('/boxes/sincronizar_estados/'),
 };
-
 // ============================================
 // SERVICIOS DE ATENCIONES
 // ============================================

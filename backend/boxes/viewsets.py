@@ -13,7 +13,22 @@ from .serializers import (
     BoxOcupacionSerializer
 )
 
-
+class BoxViewSet(viewsets.ModelViewSet):
+    queryset = Box.objects.all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Retorna el serializer apropiado según la acción"""
+        # MODIFICAR ESTA PARTE
+        if self.action == 'list':
+            return BoxSerializer # CAMBIADO
+        elif self.action in ['create', 'update', 'partial_update']:
+            return BoxCreateUpdateSerializer
+        elif self.action in ['ocupar', 'liberar']:
+            return BoxOcupacionSerializer
+        elif self.action == 'estadisticas':
+            return BoxEstadisticasSerializer
+        return BoxSerializer
 class BoxViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gestionar boxes de atención.
@@ -354,3 +369,62 @@ class BoxViewSet(viewsets.ModelViewSet):
             'ultima_liberacion': box.ultima_liberacion,
             'ocupacion_actual': box.obtener_ocupacion_actual()
         })
+        
+        # backend/boxes/viewsets.py - AGREGAR AL FINAL DE LA CLASE BoxViewSet
+
+    @action(detail=False, methods=['get'])
+    def sincronizar_estados(self, request):
+        """
+        Sincroniza los estados de los boxes con las atenciones programadas.
+        Marca como ocupados los boxes que tienen atenciones en curso.
+        
+        GET /api/boxes/sincronizar_estados/
+        """
+        from django.utils import timezone
+        from atenciones.models import Atencion
+        
+        ahora = timezone.now()
+        boxes_actualizados = 0
+        
+        # Obtener todas las atenciones que deberían estar en curso
+        atenciones_activas = Atencion.objects.filter(
+            estado__in=['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO'],
+            fecha_hora_inicio__lte=ahora,
+        ).select_related('box')
+        
+        boxes_ocupados = set()
+        
+        for atencion in atenciones_activas:
+            tiempo_transcurrido = (ahora - atencion.fecha_hora_inicio).total_seconds() / 60
+            
+            # Si la atención está dentro de su tiempo planificado
+            if tiempo_transcurrido <= atencion.duracion_planificada + 15:
+                boxes_ocupados.add(atencion.box.id)
+                
+                # Marcar box como ocupado si no lo está
+                if atencion.box.estado != 'OCUPADO':
+                    atencion.box.estado = 'OCUPADO'
+                    atencion.box.ultima_ocupacion = atencion.fecha_hora_inicio
+                    atencion.box.save()
+                    boxes_actualizados += 1
+                
+                # Si la atención está programada, iniciarla automáticamente
+                if atencion.estado == 'PROGRAMADA':
+                    atencion.iniciar_cronometro()
+        
+        # Liberar boxes que no tienen atenciones activas
+        boxes_a_liberar = self.get_queryset().filter(
+            estado='OCUPADO'
+        ).exclude(id__in=boxes_ocupados)
+        
+        for box in boxes_a_liberar:
+            box.liberar()
+            boxes_actualizados += 1
+        
+        return Response({
+            'success': True,
+            'boxes_actualizados': boxes_actualizados,
+            'boxes_ocupados': len(boxes_ocupados),
+            'timestamp': ahora
+        })
+
