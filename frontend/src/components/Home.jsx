@@ -64,9 +64,11 @@ const Home = () => {
   const cargarDatos = async () => {
     try {
       setError('');
+      // CORRECCIÓN: Añadir timestamp para evitar caché
+      const timestamp = new Date().getTime();
       const [pacientesRes, boxesRes] = await Promise.all([
-        pacientesService.getAll({ activo: true }),
-        boxesService.getAll()
+        pacientesService.getAll({ activo: true, _t: timestamp }),
+        boxesService.getAll({ _t: timestamp })
       ]);
       
       setPacientes(pacientesRes.data);
@@ -147,26 +149,41 @@ const Home = () => {
   // FUNCIÓN ACTUALIZADA - Obtener datos del paciente desde el backend
   // ============================================
   const obtenerDatosPaciente = (paciente) => {
-    // ← CORRECCIÓN: Validar que metadatos_adicionales sea un objeto
+    // Validación de paciente
+    if (!paciente) {
+      return {
+        nombre: 'Paciente desconocido',
+        rut: 'Sin RUT',
+        correo: 'Sin correo',
+        contacto: 'Sin contacto',
+      };
+    }
+
+    // Validar que metadatos_adicionales sea un objeto
     const metadatos = (typeof paciente.metadatos_adicionales === 'object' && 
                       !Array.isArray(paciente.metadatos_adicionales)) 
                       ? paciente.metadatos_adicionales 
                       : {};
 
+    // Obtener identificador con validación
+    const identificador = paciente.identificador_hash || paciente.id || '';
+    const identificadorCorto = identificador ? identificador.substring(0, 8) : 'SIN-ID';
+
     return {
       nombre: metadatos.nombre || 
               paciente.nombre || 
-              `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
+              paciente.nombre_completo ||
+              `Paciente ${identificadorCorto}`,
       rut: metadatos.rut_original || 
           paciente.rut || 
-          paciente.identificador_hash.substring(0, 12) + '...',
+          (identificador ? `${identificador.substring(0, 12)}...` : 'Sin RUT'),
       correo: metadatos.correo || 
               paciente.correo || 
               'Sin correo registrado',
       contacto: metadatos.contacto || 
                 paciente.telefono || 
                 'Sin contacto registrado',
-    };  
+    };
   };
 
   // Filtrar pacientes según el término de búsqueda

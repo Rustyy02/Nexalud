@@ -420,23 +420,28 @@ class Paciente(models.Model):
         # Generar hash del RUT si no existe
         if self.rut and not self.identificador_hash:
             self.identificador_hash = self.generar_hash_rut(self.rut)
+        elif not self.identificador_hash:
+            # Si no hay RUT, generar hash del ID temporal
+            import uuid
+            temp_id = str(uuid.uuid4())
+            self.identificador_hash = hashlib.sha256(temp_id.encode()).hexdigest()
         
         # Calcular edad desde fecha de nacimiento
         if self.fecha_nacimiento:
             self.edad = self.calcular_edad_desde_fecha()
         else:
-            # ← AGREGAR ESTA LÍNEA
-            self.edad = 0  # Valor por defecto si no hay fecha de nacimiento
+            self.edad = 0
         
         # Asegurar que metadatos_adicionales sea dict
         if not isinstance(self.metadatos_adicionales, dict):
             self.metadatos_adicionales = {}
         
-        # ← MODIFICAR: Llamar clean() solo si no es creación
-        if self.pk:  # Si ya existe en BD
-            self.full_clean()
+        try:
+            super().save(*args, **kwargs)
+        except Exception as e:
+            print(f"Error al guardar paciente: {e}")
+            raise
         
-        super().save(*args, **kwargs)
     
     # ============================================
     # MÉTODOS DE VALIDACIÓN RUT CHILENO
@@ -449,14 +454,14 @@ class Paciente(models.Model):
         Formato esperado: XX.XXX.XXX-X
         """
         # Limpiar el RUT
-        rut_limpio = rut.replace('.', '').replace('-', '')
+        rut_limpio = rut.replace('.', '').replace('-', '').replace(' ', '').upper()
         
         if len(rut_limpio) < 2:
             return False
         
         # Separar cuerpo y dígito verificador
         cuerpo = rut_limpio[:-1]
-        dv = rut_limpio[-1].upper()
+        dv = rut_limpio[-1]
         
         # Validar que el cuerpo sea numérico
         if not cuerpo.isdigit():

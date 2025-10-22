@@ -181,6 +181,10 @@ class PacienteListSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'rut',
+            'identificador_hash',  # ← IMPORTANTE: Incluir este campo
+            'nombre',  # ← Incluir campo individual
+            'apellido_paterno',  # ← Incluir campo individual
+            'apellido_materno',  # ← Incluir campo individual
             'nombre_completo',
             'edad',
             'genero',
@@ -196,6 +200,7 @@ class PacienteListSerializer(serializers.ModelSerializer):
             'activo',
             'tiene_alergias',
             'imc',
+            'metadatos_adicionales',  # ← Incluir metadatos
         ]
     
     def get_tiene_alergias(self, obj):
@@ -245,9 +250,23 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
         if not value or len(value.strip()) == 0:
             raise serializers.ValidationError("El RUT no puede estar vacío.")
         
-        # Formatear si viene sin formato
-        if not ('.' in value and '-' in value):
-            value = Paciente.formatear_rut(value)
+        # Limpiar y formatear
+        rut_limpio = value.replace('.', '').replace('-', '').replace(' ', '').upper()
+        
+        # Formatear si no tiene puntos ni guión
+        if len(rut_limpio) >= 2:
+            # Formatear: XX.XXX.XXX-X
+            cuerpo = rut_limpio[:-1]
+            dv = rut_limpio[-1]
+            
+            # Formatear con puntos
+            cuerpo_formateado = ""
+            for i, digito in enumerate(reversed(cuerpo)):
+                if i > 0 and i % 3 == 0:
+                    cuerpo_formateado = "." + cuerpo_formateado
+                cuerpo_formateado = digito + cuerpo_formateado
+            
+            value = f"{cuerpo_formateado}-{dv}"
         
         # Validar formato y dígito verificador
         if not Paciente.validar_rut(value):
@@ -255,7 +274,7 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
                 "El RUT ingresado no es válido. Verifique el dígito verificador."
             )
         
-        # Verificar si el RUT ya existe
+        # Verificar unicidad
         if self.instance is None:
             if Paciente.objects.filter(rut=value).exists():
                 raise serializers.ValidationError(
@@ -268,39 +287,44 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
                 )
         
         return value
-    
-    # ← ELIMINAR O HACER OPCIONALES ESTAS VALIDACIONES:
+
     def validate_nombre(self, value):
-        """Valida que el nombre no esté vacío"""
+        """Valida que el nombre no esté vacío si se proporciona"""
         if value and len(value.strip()) > 0:
             return value.strip().title()
-        return value  # ← Permitir vacío
-    
+        # Permitir None o string vacío
+        return value if value else ''
+
     def validate_apellido_paterno(self, value):
         """Valida apellido paterno"""
         if value and len(value.strip()) > 0:
             return value.strip().title()
-        return value  # ← Permitir vacío
-    
-    def validate_correo(self, value):
-        """Valida el formato del correo electrónico"""
-        if value:
-            value = value.lower().strip()
-            # ← ELIMINAR validación de unicidad para correo
-        return value
-    
+        return value if value else ''
+
     def validate_apellido_materno(self, value):
         """Valida y formatea apellido materno"""
-        if value:
+        if value and len(value.strip()) > 0:
             return value.strip().title()
-        return value
-    
+        return value if value else ''
+
     def validate_telefono(self, value):
         """Valida el formato del teléfono chileno"""
-        if value and not value.startswith('+56'):
+        if not value:  # Permitir vacío
+            return value
+        
+        # Limpiar espacios
+        value = value.replace(' ', '')
+        
+        if not value.startswith('+56'):
             raise serializers.ValidationError(
                 "El teléfono debe comenzar con +56 (código de país de Chile)."
             )
+        return value
+
+    def validate_correo(self, value):
+        """Valida el formato del correo electrónico"""
+        if value:
+            return value.lower().strip()
         return value
     
     def validate_fecha_nacimiento(self, value):

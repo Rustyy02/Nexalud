@@ -129,7 +129,7 @@ class PacienteViewSet(viewsets.ModelViewSet):
             rut_limpio = rut.replace('.', '').replace('-', '')
             queryset = queryset.filter(rut__icontains=rut_limpio)
         
-        return queryset.order_by('-fecha_ingreso')
+        return queryset.order_by('-fecha_ingreso', '-fecha_actualizacion')
     
     # ============================================
     # ENDPOINTS BÁSICOS MEJORADOS

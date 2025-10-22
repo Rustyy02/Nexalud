@@ -140,16 +140,44 @@ const DetallePaciente = () => {
     };
 
     const obtenerDatosPaciente = (paciente) => {
+        // Validación de paciente
+        if (!paciente) {
+            return {
+                nombre: 'Paciente desconocido',
+                rut: 'Sin RUT',
+                edad: 0,
+                tipoSangre: 'Desconocido',
+                contacto: 'Sin contacto',
+                direccion: 'Sin dirección',
+                seguro: 'Sin seguro',
+                alergias: 'Sin alergias',
+                condiciones: 'Sin condiciones',
+                medicamentos: 'Sin medicamentos',
+            };
+        }
+
         const metadatos = paciente.metadatos_adicionales || {};
+        
+        // Obtener identificador con validación
+        const identificador = paciente.identificador_hash || paciente.id || '';
+        const identificadorCorto = identificador ? identificador.substring(0, 8) : 'SIN-ID';
 
         return {
-            nombre: metadatos.nombre || `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
-            rut: metadatos.rut_original || paciente.identificador_hash.substring(0, 12),
-            edad: paciente.edad,
+            nombre: metadatos.nombre || 
+                    paciente.nombre_completo || 
+                    `Paciente ${identificadorCorto}`,
+            rut: metadatos.rut_original || 
+                paciente.rut || 
+                (identificador ? identificador.substring(0, 12) : 'Sin RUT'),
+            edad: paciente.edad || 0,
             tipoSangre: metadatos.tipo_sangre || paciente.tipo_sangre || 'O+',
-            contacto: metadatos.contacto || '+56 9 7846 1789',
-            direccion: metadatos.direccion || 'Sin dirección registrada',
-            seguro: metadatos.seguro || 'Sin seguro',
+            contacto: metadatos.contacto || paciente.telefono || '+56 9 0000 0000',
+            direccion: metadatos.direccion || 
+                    paciente.direccion_completa || 
+                    'Sin dirección registrada',
+            seguro: metadatos.seguro || 
+                    paciente.seguro_medico_display || 
+                    'Sin seguro',
             alergias: paciente.alergias || metadatos.alergias || 'Sin alergias registradas',
             condiciones: paciente.condiciones_preexistentes || metadatos.condiciones || 'Sin condiciones',
             medicamentos: paciente.medicamentos_actuales || metadatos.medicamentos || 'Sin medicamentos',
