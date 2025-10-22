@@ -1,4 +1,4 @@
-# backend/pacientes/serializers.py - ACTUALIZADO CON NUEVOS CAMPOS
+# backend/pacientes/serializers.py - ACTUALIZADO COMPLETO
 from rest_framework import serializers
 from .models import Paciente
 
@@ -25,8 +25,18 @@ class PacienteSerializer(serializers.ModelSerializer):
         source='get_tipo_sangre_display',
         read_only=True
     )
+    seguro_medico_display = serializers.CharField(
+        source='get_seguro_medico_display',
+        read_only=True
+    )
+    direccion_region_display = serializers.CharField(
+        source='get_direccion_region_display',
+        read_only=True
+    )
     
-    # Campos calculados
+    # Campos calculados y propiedades
+    nombre_completo = serializers.CharField(read_only=True)
+    direccion_completa = serializers.CharField(read_only=True)
     tiempo_total = serializers.SerializerMethodField()
     proceso_completo = serializers.SerializerMethodField()
     proceso_pausado = serializers.SerializerMethodField()
@@ -34,17 +44,47 @@ class PacienteSerializer(serializers.ModelSerializer):
     categoria_imc = serializers.SerializerMethodField()
     tiene_alergias = serializers.SerializerMethodField()
     tiene_condiciones = serializers.SerializerMethodField()
-    informacion_medica = serializers.SerializerMethodField()
+    informacion_completa = serializers.SerializerMethodField()
     
     class Meta:
         model = Paciente
         fields = [
+            # Identificadores
             'id',
+            'rut',
             'identificador_hash',
+            
+            # Datos Personales
+            'nombre',
+            'apellido_paterno',
+            'apellido_materno',
+            'nombre_completo',
+            'fecha_nacimiento',
             'edad',
             'genero',
             'genero_display',
-            # NUEVOS CAMPOS MÉDICOS
+            
+            # Contacto
+            'correo',
+            'telefono',
+            'telefono_emergencia',
+            'nombre_contacto_emergencia',
+            
+            # Dirección
+            'direccion_calle',
+            'direccion_comuna',
+            'direccion_ciudad',
+            'direccion_region',
+            'direccion_region_display',
+            'direccion_codigo_postal',
+            'direccion_completa',
+            
+            # Seguro Médico
+            'seguro_medico',
+            'seguro_medico_display',
+            'numero_beneficiario',
+            
+            # Información Médica
             'tipo_sangre',
             'tipo_sangre_display',
             'peso',
@@ -52,6 +92,7 @@ class PacienteSerializer(serializers.ModelSerializer):
             'alergias',
             'condiciones_preexistentes',
             'medicamentos_actuales',
+            
             # Estado y seguimiento
             'fecha_ingreso',
             'estado_actual',
@@ -61,6 +102,7 @@ class PacienteSerializer(serializers.ModelSerializer):
             'fecha_actualizacion',
             'activo',
             'metadatos_adicionales',
+            
             # Campos calculados
             'tiempo_total',
             'proceso_completo',
@@ -69,9 +111,15 @@ class PacienteSerializer(serializers.ModelSerializer):
             'categoria_imc',
             'tiene_alergias',
             'tiene_condiciones',
-            'informacion_medica',
+            'informacion_completa',
         ]
-        read_only_fields = ['id', 'fecha_ingreso', 'fecha_actualizacion']
+        read_only_fields = [
+            'id',
+            'identificador_hash',
+            'edad',
+            'fecha_ingreso',
+            'fecha_actualizacion'
+        ]
     
     def get_tiempo_total(self, obj):
         """Retorna el tiempo total en formato legible"""
@@ -87,32 +135,25 @@ class PacienteSerializer(serializers.ModelSerializer):
         return None
     
     def get_proceso_completo(self, obj):
-        """Indica si el proceso está completo"""
         return obj.is_proceso_completo()
     
     def get_proceso_pausado(self, obj):
-        """Indica si el proceso está pausado"""
         return obj.is_proceso_pausado()
     
     def get_imc(self, obj):
-        """Calcula el IMC"""
         return obj.calcular_imc()
     
     def get_categoria_imc(self, obj):
-        """Retorna la categoría del IMC"""
         return obj.obtener_categoria_imc()
     
     def get_tiene_alergias(self, obj):
-        """Indica si tiene alergias registradas"""
         return obj.tiene_alergias()
     
     def get_tiene_condiciones(self, obj):
-        """Indica si tiene condiciones preexistentes"""
         return obj.tiene_condiciones_preexistentes()
     
-    def get_informacion_medica(self, obj):
-        """Retorna información médica completa"""
-        return obj.obtener_informacion_medica_completa()
+    def get_informacion_completa(self, obj):
+        return obj.obtener_informacion_completa()
 
 
 class PacienteListSerializer(serializers.ModelSerializer):
@@ -127,10 +168,11 @@ class PacienteListSerializer(serializers.ModelSerializer):
         source='get_nivel_urgencia_display', 
         read_only=True
     )
-    tipo_sangre_display = serializers.CharField(
-        source='get_tipo_sangre_display',
+    seguro_medico_display = serializers.CharField(
+        source='get_seguro_medico_display',
         read_only=True
     )
+    nombre_completo = serializers.CharField(read_only=True)
     tiene_alergias = serializers.SerializerMethodField()
     imc = serializers.SerializerMethodField()
     
@@ -138,11 +180,14 @@ class PacienteListSerializer(serializers.ModelSerializer):
         model = Paciente
         fields = [
             'id',
-            'identificador_hash',
+            'rut',
+            'nombre_completo',
             'edad',
             'genero',
-            'tipo_sangre',
-            'tipo_sangre_display',
+            'telefono',
+            'correo',
+            'seguro_medico',
+            'seguro_medico_display',
             'estado_actual',
             'estado_actual_display',
             'nivel_urgencia',
@@ -163,22 +208,47 @@ class PacienteListSerializer(serializers.ModelSerializer):
 class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer para crear y actualizar pacientes.
-    Incluye todos los campos editables.
+    Incluye validaciones completas.
     """
     
     class Meta:
         model = Paciente
         fields = [
-            'identificador_hash',
-            'edad',
+            # Identificadores
+            'rut',
+            
+            # Datos Personales
+            'nombre',
+            'apellido_paterno',
+            'apellido_materno',
+            'fecha_nacimiento',
             'genero',
-            # NUEVOS CAMPOS MÉDICOS
+            
+            # Contacto
+            'correo',
+            'telefono',
+            'telefono_emergencia',
+            'nombre_contacto_emergencia',
+            
+            # Dirección
+            'direccion_calle',
+            'direccion_comuna',
+            'direccion_ciudad',
+            'direccion_region',
+            'direccion_codigo_postal',
+            
+            # Seguro Médico
+            'seguro_medico',
+            'numero_beneficiario',
+            
+            # Información Médica
             'tipo_sangre',
             'peso',
             'altura',
             'alergias',
             'condiciones_preexistentes',
             'medicamentos_actuales',
+            
             # Estado
             'estado_actual',
             'nivel_urgencia',
@@ -186,20 +256,94 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
             'metadatos_adicionales',
         ]
     
-    def validate_edad(self, value):
-        """Valida que la edad sea razonable"""
-        if value < 0 or value > 150:
+    def validate_rut(self, value):
+        """Valida el RUT chileno"""
+        # Formatear si viene sin formato
+        if not ('.' in value and '-' in value):
+            value = Paciente.formatear_rut(value)
+        
+        # Validar formato y dígito verificador
+        if not Paciente.validar_rut(value):
             raise serializers.ValidationError(
-                "La edad debe estar entre 0 y 150 años."
+                "El RUT ingresado no es válido. Verifique el dígito verificador."
+            )
+        
+        # Verificar si el RUT ya existe (excepto en actualización)
+        if self.instance is None:  # Creación
+            if Paciente.objects.filter(rut=value).exists():
+                raise serializers.ValidationError(
+                    "Ya existe un paciente registrado con este RUT."
+                )
+        else:  # Actualización
+            if Paciente.objects.filter(rut=value).exclude(pk=self.instance.pk).exists():
+                raise serializers.ValidationError(
+                    "Ya existe un paciente registrado con este RUT."
+                )
+        
+        return value
+    
+    def validate_nombre(self, value):
+        """Valida que el nombre no esté vacío"""
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El nombre no puede estar vacío.")
+        return value.strip().title()
+    
+    def validate_apellido_paterno(self, value):
+        """Valida que el apellido paterno no esté vacío"""
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El apellido paterno no puede estar vacío.")
+        return value.strip().title()
+    
+    def validate_apellido_materno(self, value):
+        """Valida y formatea apellido materno"""
+        if value:
+            return value.strip().title()
+        return value
+    
+    def validate_correo(self, value):
+        """Valida el formato del correo electrónico"""
+        if value:
+            value = value.lower().strip()
+            # Verificar si el correo ya existe (opcional)
+            if self.instance is None:
+                if Paciente.objects.filter(correo=value).exists():
+                    raise serializers.ValidationError(
+                        "Ya existe un paciente registrado con este correo electrónico."
+                    )
+            else:
+                if Paciente.objects.filter(correo=value).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError(
+                        "Ya existe un paciente registrado con este correo electrónico."
+                    )
+        return value
+    
+    def validate_telefono(self, value):
+        """Valida el formato del teléfono chileno"""
+        if value and not value.startswith('+56'):
+            raise serializers.ValidationError(
+                "El teléfono debe comenzar con +56 (código de país de Chile)."
             )
         return value
     
-    def validate_identificador_hash(self, value):
-        """Valida que el identificador_hash no esté vacío"""
-        if not value or len(value.strip()) == 0:
+    def validate_fecha_nacimiento(self, value):
+        """Valida que la fecha de nacimiento sea razonable"""
+        from datetime import date
+        
+        if value > date.today():
             raise serializers.ValidationError(
-                "El identificador hash no puede estar vacío."
+                "La fecha de nacimiento no puede ser futura."
             )
+        
+        # Calcular edad
+        edad = date.today().year - value.year
+        if (date.today().month, date.today().day) < (value.month, value.day):
+            edad -= 1
+        
+        if edad < 0 or edad > 150:
+            raise serializers.ValidationError(
+                "La fecha de nacimiento no es válida. La edad debe estar entre 0 y 150 años."
+            )
+        
         return value
     
     def validate_peso(self, value):
@@ -227,17 +371,25 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
                 "metadatos_adicionales debe ser un diccionario (dict), no una lista."
             )
         return value
+    
+    def validate(self, data):
+        """Validaciones cruzadas"""
+        # Validar que si hay teléfono de emergencia, haya nombre de contacto
+        if data.get('telefono_emergencia') and not data.get('nombre_contacto_emergencia'):
+            raise serializers.ValidationError({
+                'nombre_contacto_emergencia': 'Debe proporcionar el nombre del contacto de emergencia.'
+            })
+        
+        return data
 
 
 class PacienteEstadoSerializer(serializers.Serializer):
     """
     Serializer para actualizar solo el estado del paciente.
-    Útil para endpoints específicos de cambio de estado.
     """
     estado_actual = serializers.ChoiceField(choices=Paciente.ESTADO_CHOICES)
     
     def update(self, instance, validated_data):
-        """Actualiza el estado del paciente"""
         instance.actualizar_estado(validated_data['estado_actual'])
         return instance
 
@@ -248,19 +400,16 @@ class PacienteIMCSerializer(serializers.Serializer):
     """
     paciente_id = serializers.UUIDField()
     nombre = serializers.CharField()
+    rut = serializers.CharField()
     peso = serializers.DecimalField(max_digits=5, decimal_places=2)
     altura = serializers.IntegerField()
     imc = serializers.FloatField()
     categoria_imc = serializers.CharField()
-    
-    class Meta:
-        fields = ['paciente_id', 'nombre', 'peso', 'altura', 'imc', 'categoria_imc']
 
 
 class PacienteDatosMedicosSerializer(serializers.ModelSerializer):
     """
     Serializer específico para datos médicos del paciente.
-    Útil para actualizar solo información médica.
     """
     imc = serializers.SerializerMethodField()
     categoria_imc = serializers.SerializerMethodField()
@@ -283,3 +432,66 @@ class PacienteDatosMedicosSerializer(serializers.ModelSerializer):
     
     def get_categoria_imc(self, obj):
         return obj.obtener_categoria_imc()
+
+
+class PacienteDatosContactoSerializer(serializers.ModelSerializer):
+    """
+    Serializer específico para datos de contacto.
+    """
+    direccion_completa = serializers.CharField(read_only=True)
+    direccion_region_display = serializers.CharField(
+        source='get_direccion_region_display',
+        read_only=True
+    )
+    
+    class Meta:
+        model = Paciente
+        fields = [
+            'correo',
+            'telefono',
+            'telefono_emergencia',
+            'nombre_contacto_emergencia',
+            'direccion_calle',
+            'direccion_comuna',
+            'direccion_ciudad',
+            'direccion_region',
+            'direccion_region_display',
+            'direccion_codigo_postal',
+            'direccion_completa',
+        ]
+
+
+class PacienteSeguroMedicoSerializer(serializers.ModelSerializer):
+    """
+    Serializer específico para información del seguro médico.
+    """
+    seguro_medico_display = serializers.CharField(
+        source='get_seguro_medico_display',
+        read_only=True
+    )
+    
+    class Meta:
+        model = Paciente
+        fields = [
+            'seguro_medico',
+            'seguro_medico_display',
+            'numero_beneficiario',
+        ]
+
+
+class PacienteResumenSerializer(serializers.ModelSerializer):
+    """
+    Serializer resumido con información básica para displays rápidos.
+    """
+    nombre_completo = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = Paciente
+        fields = [
+            'id',
+            'rut',
+            'nombre_completo',
+            'edad',
+            'telefono',
+            'estado_actual',
+        ]
