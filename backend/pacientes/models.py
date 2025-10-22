@@ -87,8 +87,8 @@ class Paciente(models.Model):
     
     # Validadores personalizados
     rut_validator = RegexValidator(
-        regex=r'^\d{1,2}\.\d{3}\.\d{3}-[0-9kK]$',
-        message='El RUT debe estar en formato chileno: XX.XXX.XXX-X (ejemplo: 12.345.678-9)'
+        regex=r'^\d{1,2}\.?\d{3}\.?\d{3}-[0-9kK]$',  # ← CAMBIADO: \d{1,3} en lugar de \d{1,2}
+        message='El RUT debe estar en formato chileno: XX.XXX.XXX-X (ejemplo: 21.376.932-3)'
     )
     
     telefono_validator = RegexValidator(
@@ -104,7 +104,7 @@ class Paciente(models.Model):
     
     # RUT Chileno (con formato y dígito verificador)
     rut = models.CharField(
-        max_length=12,
+        max_length=16,
         unique=True,
         validators=[rut_validator],
         default='',
@@ -453,42 +453,38 @@ class Paciente(models.Model):
         Valida un RUT chileno con su dígito verificador.
         Formato esperado: XX.XXX.XXX-X
         """
-        # Limpiar el RUT
         rut_limpio = rut.replace('.', '').replace('-', '').replace(' ', '').upper()
-        
+
         if len(rut_limpio) < 2:
             return False
-        
-        # Separar cuerpo y dígito verificador
+
         cuerpo = rut_limpio[:-1]
         dv = rut_limpio[-1]
-        
-        # Validar que el cuerpo sea numérico
+
         if not cuerpo.isdigit():
             return False
-        
-        # Calcular dígito verificador
+
         suma = 0
         multiplicador = 2
-        
+
         for digito in reversed(cuerpo):
             suma += int(digito) * multiplicador
             multiplicador += 1
-            if multiplicador == 8:
+            if multiplicador > 7:
                 multiplicador = 2
-        
+
         resto = suma % 11
         dv_calculado = 11 - resto
-        
-        # Convertir a formato string
+
         if dv_calculado == 11:
-            dv_calculado = '0'
+            dv_esperado = '0'
         elif dv_calculado == 10:
-            dv_calculado = 'K'
+            dv_esperado = 'K'
         else:
-            dv_calculado = str(dv_calculado)
-        
-        return dv == dv_calculado
+            dv_esperado = str(dv_calculado)
+
+        # Normalizar ambas comparaciones
+        return dv_esperado == dv.upper()
     
     @staticmethod
     def formatear_rut(rut_sin_formato):

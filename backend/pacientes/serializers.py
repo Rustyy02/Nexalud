@@ -250,16 +250,14 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
         if not value or len(value.strip()) == 0:
             raise serializers.ValidationError("El RUT no puede estar vacío.")
         
-        # Limpiar y formatear
+        # Limpiar y formatear automáticamente
         rut_limpio = value.replace('.', '').replace('-', '').replace(' ', '').upper()
         
-        # Formatear si no tiene puntos ni guión
         if len(rut_limpio) >= 2:
-            # Formatear: XX.XXX.XXX-X
             cuerpo = rut_limpio[:-1]
             dv = rut_limpio[-1]
             
-            # Formatear con puntos
+            # Formatear con puntos: XX.XXX.XXX-X
             cuerpo_formateado = ""
             for i, digito in enumerate(reversed(cuerpo)):
                 if i > 0 and i % 3 == 0:
@@ -277,11 +275,6 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
         # Verificar unicidad
         if self.instance is None:
             if Paciente.objects.filter(rut=value).exists():
-                raise serializers.ValidationError(
-                    "Ya existe un paciente registrado con este RUT."
-                )
-        else:
-            if Paciente.objects.filter(rut=value).exclude(pk=self.instance.pk).exists():
                 raise serializers.ValidationError(
                     "Ya existe un paciente registrado con este RUT."
                 )
