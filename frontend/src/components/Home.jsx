@@ -1,4 +1,4 @@
-// frontend/src/components/Home.jsx
+// frontend/src/components/Home.jsx - ACTUALIZADO CON CAMPOS CORRECTOS
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -143,13 +143,30 @@ const Home = () => {
     return colores[estado] || 'default';
   };
 
+  // ============================================
+  // FUNCIÓN ACTUALIZADA - Obtener datos del paciente desde el backend
+  // ============================================
   const obtenerDatosPaciente = (paciente) => {
+    // ← CORRECCIÓN: Validar que metadatos_adicionales sea un objeto
+    const metadatos = (typeof paciente.metadatos_adicionales === 'object' && 
+                      !Array.isArray(paciente.metadatos_adicionales)) 
+                      ? paciente.metadatos_adicionales 
+                      : {};
+
     return {
-      nombre: paciente.metadatos_adicionales?.nombre || `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
-      rut: paciente.identificador_hash.substring(0, 12) + '...',
-      correo: paciente.metadatos_adicionales?.correo || 'paciente@ejemplo.com',
-      contacto: paciente.metadatos_adicionales?.contacto || '+56 9 0000 0000',
-    };
+      nombre: metadatos.nombre || 
+              paciente.nombre || 
+              `Paciente ${paciente.identificador_hash.substring(0, 8)}`,
+      rut: metadatos.rut_original || 
+          paciente.rut || 
+          paciente.identificador_hash.substring(0, 12) + '...',
+      correo: metadatos.correo || 
+              paciente.correo || 
+              'Sin correo registrado',
+      contacto: metadatos.contacto || 
+                paciente.telefono || 
+                'Sin contacto registrado',
+    };  
   };
 
   // Filtrar pacientes según el término de búsqueda
@@ -159,13 +176,23 @@ const Home = () => {
     const termino = terminoBusqueda.toLowerCase().trim();
     const datos = obtenerDatosPaciente(paciente);
     
-    // Buscar en identificador_hash completo
-    if (paciente.identificador_hash.toLowerCase().includes(termino)) {
+    // Buscar en RUT
+    if (datos.rut.toLowerCase().includes(termino)) {
       return true;
     }
     
     // Buscar en el nombre del paciente
     if (datos.nombre.toLowerCase().includes(termino)) {
+      return true;
+    }
+    
+    // Buscar en correo
+    if (datos.correo.toLowerCase().includes(termino)) {
+      return true;
+    }
+    
+    // Buscar en teléfono
+    if (datos.contacto.toLowerCase().includes(termino)) {
       return true;
     }
     
@@ -208,7 +235,7 @@ const Home = () => {
           <Box sx={{ p: 3, pb: 2 }}>
             <TextField
               fullWidth
-              placeholder="Buscar por RUT o identificador..."
+              placeholder="Buscar por RUT, nombre, correo o teléfono..."
               value={terminoBusqueda}
               onChange={(e) => setTerminoBusqueda(e.target.value)}
               InputProps={{
@@ -237,17 +264,20 @@ const Home = () => {
             />
           </Box>
 
+          {/* ============================================
+              TABLA ACTUALIZADA CON CAMPOS CORRECTOS
+              ============================================ */}
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>Rut</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>RUT</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Correo</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Contacto</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Urgencia</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600 }}></TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600 }}>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -266,12 +296,17 @@ const Home = () => {
                         }}
                         onClick={() => handleSeleccionarPaciente(paciente)}
                       >
+                        {/* RUT */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <BadgeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                            {datos.rut}
+                            <Typography variant="body2" fontFamily="monospace">
+                              {datos.rut}
+                            </Typography>
                           </Box>
                         </TableCell>
+
+                        {/* Nombre */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
@@ -282,32 +317,48 @@ const Home = () => {
                             </Typography>
                           </Box>
                         </TableCell>
+
+                        {/* Correo */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                            {datos.correo}
+                            <Typography variant="body2">
+                              {datos.correo}
+                            </Typography>
                           </Box>
                         </TableCell>
+
+                        {/* Contacto */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                            {datos.contacto}
+                            <Typography variant="body2" fontFamily="monospace">
+                              {datos.contacto}
+                            </Typography>
                           </Box>
                         </TableCell>
+
+                        {/* Estado */}
                         <TableCell>
                           <Chip
                             label={paciente.estado_actual_display}
                             size="small"
                             color={getColorEstado(paciente.estado_actual)}
+                            sx={{ fontWeight: 500 }}
                           />
                         </TableCell>
+
+                        {/* Urgencia */}
                         <TableCell>
                           <Chip
                             label={paciente.nivel_urgencia_display}
                             size="small"
                             color={getColorUrgencia(paciente.nivel_urgencia)}
+                            sx={{ fontWeight: 500 }}
                           />
                         </TableCell>
+
+                        {/* Acciones */}
                         <TableCell align="center">
                           <Button
                             variant="outlined"
@@ -458,7 +509,7 @@ const Home = () => {
                           <Typography variant="caption" color="text.secondary">
                             RUT
                           </Typography>
-                          <Typography variant="body2" fontWeight="500">
+                          <Typography variant="body2" fontWeight="500" fontFamily="monospace">
                             {obtenerDatosPaciente(pacienteSeleccionado).rut}
                           </Typography>
                         </Box>
@@ -482,7 +533,7 @@ const Home = () => {
                           <Typography variant="caption" color="text.secondary">
                             Contacto
                           </Typography>
-                          <Typography variant="body2" fontWeight="500">
+                          <Typography variant="body2" fontWeight="500" fontFamily="monospace">
                             {obtenerDatosPaciente(pacienteSeleccionado).contacto}
                           </Typography>
                         </Box>

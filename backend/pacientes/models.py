@@ -128,12 +128,16 @@ class Paciente(models.Model):
     nombre = models.CharField(
         max_length=100,
         null=True,
+        blank=True,  
+        default='',
         help_text="Nombre(s) del paciente"
     )
     
     apellido_paterno = models.CharField(
         max_length=100,
         null=True,
+        blank=True,  
+        default='',
         help_text="Apellido paterno del paciente"
     )
     
@@ -141,11 +145,13 @@ class Paciente(models.Model):
         max_length=100,
         blank=True,
         null=True,
+        default='',
         help_text="Apellido materno del paciente (opcional)"
     )
     
     fecha_nacimiento = models.DateField(
         null=True,
+        blank=True,
         help_text="Fecha de nacimiento del paciente"
     )
     
@@ -168,6 +174,7 @@ class Paciente(models.Model):
         max_length=254,
         blank=True,
         null=True,
+        default='',
         validators=[EmailValidator()],
         help_text="Correo electrónico del paciente"
     )
@@ -175,6 +182,8 @@ class Paciente(models.Model):
     telefono = models.CharField(
         max_length=13,
         null=True,
+        blank=True,  
+        default='',
         validators=[telefono_validator],
         help_text="Teléfono celular en formato +56912345678"
     )
@@ -201,24 +210,32 @@ class Paciente(models.Model):
     direccion_calle = models.CharField(
         max_length=255,
         null=True,
+        blank=True,  
+        default='',
         help_text="Calle y número"
     )
     
     direccion_comuna = models.CharField(
         max_length=100,
         null=True,
+        blank=True,  
+        default='',
         help_text="Comuna"
     )
     
     direccion_ciudad = models.CharField(
         max_length=100,
         null=True,
+        blank=True,  
+        default='',
         help_text="Ciudad"
     )
     
     direccion_region = models.CharField(
         max_length=5,
         null=True,
+        blank=True,  
+        default='',
         choices=REGION_CHOICES,
         help_text="Región de Chile"
     )
@@ -226,6 +243,7 @@ class Paciente(models.Model):
     direccion_codigo_postal = models.CharField(
         max_length=10,
         blank=True,
+        null=True,
         default='Sin proporcionar',
         help_text="Código postal (opcional)"
     )
@@ -406,12 +424,18 @@ class Paciente(models.Model):
         # Calcular edad desde fecha de nacimiento
         if self.fecha_nacimiento:
             self.edad = self.calcular_edad_desde_fecha()
+        else:
+            # ← AGREGAR ESTA LÍNEA
+            self.edad = 0  # Valor por defecto si no hay fecha de nacimiento
         
         # Asegurar que metadatos_adicionales sea dict
         if not isinstance(self.metadatos_adicionales, dict):
             self.metadatos_adicionales = {}
         
-        self.full_clean()
+        # ← MODIFICAR: Llamar clean() solo si no es creación
+        if self.pk:  # Si ya existe en BD
+            self.full_clean()
+        
         super().save(*args, **kwargs)
     
     # ============================================

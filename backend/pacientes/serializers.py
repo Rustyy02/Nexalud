@@ -206,50 +206,34 @@ class PacienteListSerializer(serializers.ModelSerializer):
 
 
 class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
-    """
-    Serializer para crear y actualizar pacientes.
-    Incluye validaciones completas.
-    """
+    """Serializer para crear y actualizar pacientes"""
     
     class Meta:
         model = Paciente
         fields = [
-            # Identificadores
             'rut',
-            
-            # Datos Personales
             'nombre',
             'apellido_paterno',
             'apellido_materno',
             'fecha_nacimiento',
             'genero',
-            
-            # Contacto
             'correo',
             'telefono',
             'telefono_emergencia',
             'nombre_contacto_emergencia',
-            
-            # Dirección
             'direccion_calle',
             'direccion_comuna',
             'direccion_ciudad',
             'direccion_region',
             'direccion_codigo_postal',
-            
-            # Seguro Médico
             'seguro_medico',
             'numero_beneficiario',
-            
-            # Información Médica
             'tipo_sangre',
             'peso',
             'altura',
             'alergias',
             'condiciones_preexistentes',
             'medicamentos_actuales',
-            
-            # Estado
             'estado_actual',
             'nivel_urgencia',
             'activo',
@@ -258,6 +242,9 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
     
     def validate_rut(self, value):
         """Valida el RUT chileno"""
+        if not value or len(value.strip()) == 0:
+            raise serializers.ValidationError("El RUT no puede estar vacío.")
+        
         # Formatear si viene sin formato
         if not ('.' in value and '-' in value):
             value = Paciente.formatear_rut(value)
@@ -268,13 +255,13 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
                 "El RUT ingresado no es válido. Verifique el dígito verificador."
             )
         
-        # Verificar si el RUT ya existe (excepto en actualización)
-        if self.instance is None:  # Creación
+        # Verificar si el RUT ya existe
+        if self.instance is None:
             if Paciente.objects.filter(rut=value).exists():
                 raise serializers.ValidationError(
                     "Ya existe un paciente registrado con este RUT."
                 )
-        else:  # Actualización
+        else:
             if Paciente.objects.filter(rut=value).exclude(pk=self.instance.pk).exists():
                 raise serializers.ValidationError(
                     "Ya existe un paciente registrado con este RUT."
@@ -282,39 +269,30 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
+    # ← ELIMINAR O HACER OPCIONALES ESTAS VALIDACIONES:
     def validate_nombre(self, value):
         """Valida que el nombre no esté vacío"""
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("El nombre no puede estar vacío.")
-        return value.strip().title()
+        if value and len(value.strip()) > 0:
+            return value.strip().title()
+        return value  # ← Permitir vacío
     
     def validate_apellido_paterno(self, value):
-        """Valida que el apellido paterno no esté vacío"""
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("El apellido paterno no puede estar vacío.")
-        return value.strip().title()
-    
-    def validate_apellido_materno(self, value):
-        """Valida y formatea apellido materno"""
-        if value:
+        """Valida apellido paterno"""
+        if value and len(value.strip()) > 0:
             return value.strip().title()
-        return value
+        return value  # ← Permitir vacío
     
     def validate_correo(self, value):
         """Valida el formato del correo electrónico"""
         if value:
             value = value.lower().strip()
-            # Verificar si el correo ya existe (opcional)
-            if self.instance is None:
-                if Paciente.objects.filter(correo=value).exists():
-                    raise serializers.ValidationError(
-                        "Ya existe un paciente registrado con este correo electrónico."
-                    )
-            else:
-                if Paciente.objects.filter(correo=value).exclude(pk=self.instance.pk).exists():
-                    raise serializers.ValidationError(
-                        "Ya existe un paciente registrado con este correo electrónico."
-                    )
+            # ← ELIMINAR validación de unicidad para correo
+        return value
+    
+    def validate_apellido_materno(self, value):
+        """Valida y formatea apellido materno"""
+        if value:
+            return value.strip().title()
         return value
     
     def validate_telefono(self, value):
