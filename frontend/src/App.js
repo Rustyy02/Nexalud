@@ -10,6 +10,7 @@ import Login from './components/Login';
 import Home from './components/Home';
 import EstadoBoxes from './components/EstadoBoxes';
 import DetallePaciente from './components/DetallePaciente';
+import Dashboard from './components/Dashboard';
 
 // Tema personalizado de Material UI
 const theme = createTheme({
@@ -121,6 +122,15 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <EstadoBoxes />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
             </ProtectedRoute>
           }
         />

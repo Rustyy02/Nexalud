@@ -220,4 +220,20 @@ export const authService = {
   },
 };
 
+// ============================================
+// SERVICIO DE DASHBOARD
+// ============================================
+
+export const dashboardService = {
+  // Métricas generales (carga inicial)
+  getMetricas: () => api.get('/dashboard/metricas/'),
+  
+  // Tiempo real (polling cada 5-10 segundos)
+  getTiempoReal: () => api.get('/dashboard/tiempo-real/'),
+  
+  // Estadísticas detalladas (para gráficos)
+  getEstadisticas: (periodo = 7) => 
+    api.get('/dashboard/estadisticas/', { params: { periodo } }),
+};
+
 export default api;

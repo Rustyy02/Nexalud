@@ -80,6 +80,11 @@ const Navbar = () => {
       path: '/boxes',
       icon: <MeetingRoomIcon />,
     },
+    {
+    label: 'Dashboard', // NUEVO
+    path: '/dashboard',
+    icon: <MeetingRoomIcon />,
+    },
   ];
 
   return (

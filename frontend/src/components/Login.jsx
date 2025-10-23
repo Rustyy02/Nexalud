@@ -211,7 +211,7 @@ const Login = () => {
               mt: 3,
             }}
           >
-            Sistema de Gestión Médica © 2025
+            Sistema de apoyo a la gestión médica Nexalud © 2025
           </Typography>
         </CardContent>
       </Card>
