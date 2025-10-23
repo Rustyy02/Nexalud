@@ -1,4 +1,4 @@
-# backend/rutas_clinicas/models.py - VERSIÓN MEJORADA
+# backend/rutas_clinicas/models.py - VERSIÓN ACTUALIZADA CON TODAS LAS ETAPAS
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -9,7 +9,7 @@ from pacientes.models import Paciente
 class RutaClinica(models.Model):
     """
     Modelo mejorado para gestionar rutas clínicas de pacientes.
-    Ahora con sincronización automática y tracking detallado.
+    Ahora muestra TODAS las etapas disponibles, no solo las seleccionadas.
     """
     
     ESTADO_CHOICES = [
@@ -72,7 +72,7 @@ class RutaClinica(models.Model):
     indice_etapa_actual = models.PositiveIntegerField(default=0)
     etapas_completadas = models.JSONField(default=list)
     
-    # Información detallada por etapa (MEJORADO)
+    # Información detallada por etapa
     timestamps_etapas = models.JSONField(
         default=dict,
         help_text="Timestamps y detalles de cada etapa"
@@ -96,7 +96,7 @@ class RutaClinica(models.Model):
     metadatos_adicionales = models.JSONField(default=dict, blank=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
     
-    # NUEVO: Historial de cambios
+    # Historial de cambios
     historial_cambios = models.JSONField(
         default=list,
         help_text="Registro de todos los cambios de etapa"
@@ -118,17 +118,21 @@ class RutaClinica(models.Model):
         return f"Ruta {self.paciente} - {self.porcentaje_completado:.1f}% - {self.get_etapa_actual_display() or 'No iniciada'}"
     
     # ============================================
-    # MÉTODOS PRINCIPALES (MEJORADOS)
+    # MÉTODOS PRINCIPALES
     # ============================================
     
     def iniciar_ruta(self, usuario=None):
         """Inicia la ruta clínica con la primera etapa"""
+        # Obtener todas las etapas disponibles
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        
+        # Si no hay etapas seleccionadas, usar todas
         if not self.etapas_seleccionadas:
-            return False
+            self.etapas_seleccionadas = todas_etapas
         
         self.estado = 'EN_PROGRESO'
         self.indice_etapa_actual = 0
-        self.etapa_actual = self.etapas_seleccionadas[0]
+        self.etapa_actual = todas_etapas[0]  # Siempre empezar con la primera etapa
         
         # Registrar inicio de primera etapa
         ahora = timezone.now()
@@ -144,7 +148,7 @@ class RutaClinica(models.Model):
         # Registrar en historial
         self._agregar_al_historial('INICIO_RUTA', self.etapa_actual, usuario)
         
-        # NUEVO: Sincronizar estado del paciente
+        # Sincronizar estado del paciente
         self._sincronizar_estado_paciente()
         
         # Calcular fecha estimada de fin
@@ -153,82 +157,70 @@ class RutaClinica(models.Model):
         self.save()
         return True
     
-    def avanzar_etapa(self, observaciones='', usuario=None):
-        """Avanza a la siguiente etapa con validaciones"""
-        if not self.etapas_seleccionadas:
+    def avanzar(self, observaciones=""):
+        """
+        Avanza a la siguiente etapa de la ruta clínica.
+        """
+        if self.estado != 'EN_PROGRESO':
             return False
         
-        # Completar etapa actual
-        if self.etapa_actual:
-            if self.etapa_actual not in self.etapas_completadas:
-                self.etapas_completadas.append(self.etapa_actual)
-            
-            # Actualizar timestamps
-            ahora = timezone.now()
-            if self.etapa_actual in self.timestamps_etapas:
-                etapa_data = self.timestamps_etapas[self.etapa_actual]
-                etapa_data['fecha_fin'] = ahora.isoformat()
-                
-                # Calcular duración real
-                if etapa_data.get('fecha_inicio'):
-                    inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'])
-                    duracion = (ahora - inicio).total_seconds() / 60
-                    etapa_data['duracion_real'] = int(duracion)
-                
-                # Agregar observaciones
-                if observaciones:
-                    etapa_data['observaciones'] = observaciones
-                
-                etapa_data['usuario_fin'] = str(usuario) if usuario else None
+        etapas = self.etapas_timeline.all().order_by('orden')
+        total_etapas = etapas.count()
         
-        # Verificar si hay más etapas
-        if self.indice_etapa_actual + 1 >= len(self.etapas_seleccionadas):
-            # Completar ruta
+        # Verificar que no estemos en la última etapa
+        if self.indice_etapa_actual >= total_etapas - 1:
+            return False
+        
+        # Obtener la etapa actual
+        etapa_actual = etapas[self.indice_etapa_actual]
+        
+        # Marcar la etapa actual como completada
+        if not etapa_actual.fecha_fin:
+            etapa_actual.fecha_fin = timezone.now()
+            if etapa_actual.observaciones:
+                etapa_actual.observaciones += f"\n{observaciones}"
+            else:
+                etapa_actual.observaciones = observaciones
+            etapa_actual.save()
+        
+        # Avanzar al siguiente índice
+        self.indice_etapa_actual += 1
+        
+        # Actualizar la etapa actual
+        if self.indice_etapa_actual < total_etapas:
+            siguiente_etapa = etapas[self.indice_etapa_actual]
+            self.etapa_actual = siguiente_etapa.etapa
+            
+            # Iniciar la siguiente etapa si aún no tiene fecha de inicio
+            if not siguiente_etapa.fecha_inicio:
+                siguiente_etapa.fecha_inicio = timezone.now()
+                siguiente_etapa.save()
+        else:
+            # Si llegamos al final, completar la ruta
             self.estado = 'COMPLETADA'
             self.etapa_actual = None
-            self.fecha_fin_real = timezone.now()
-            self.porcentaje_completado = 100.0
-            
-            # Actualizar estado del paciente a ALTA_COMPLETA
-            self.paciente.estado_actual = 'ALTA_COMPLETA'
-            self.paciente.save()
-            
-            self._agregar_al_historial('COMPLETAR_RUTA', None, usuario)
-            self.save()
-            return True
         
-        # Avanzar a siguiente etapa
-        etapa_anterior = self.etapa_actual
-        self.indice_etapa_actual += 1
-        self.etapa_actual = self.etapas_seleccionadas[self.indice_etapa_actual]
+        # Recalcular progreso
+        self.recalcular_progreso()
         
-        # Registrar inicio de nueva etapa
-        ahora = timezone.now()
-        self.timestamps_etapas[self.etapa_actual] = {
-            'fecha_inicio': ahora.isoformat(),
-            'fecha_fin': None,
-            'duracion_real': None,
-            'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 30),
-            'observaciones': '',
-            'usuario_inicio': str(usuario) if usuario else None,
-        }
-        
-        # Registrar en historial
-        self._agregar_al_historial('AVANZAR', self.etapa_actual, usuario, {
-            'desde': etapa_anterior,
-            'hacia': self.etapa_actual,
-        })
-        
-        # Sincronizar estado del paciente
-        self._sincronizar_estado_paciente()
-        
-        # Calcular progreso
-        self.calcular_progreso()
         self.save()
+        
+        # Registrar en el historial
+        self.registrar_en_historial(
+            accion='AVANZAR',
+            usuario=None,
+            desde=etapa_actual.get_etapa_display(),
+            hacia=self.get_etapa_actual_display() if self.etapa_actual else 'Completada',
+            motivo=observaciones
+        )
+        
         return True
     
     def retroceder_etapa(self, motivo='', usuario=None):
         """Retrocede a la etapa anterior"""
+        # Obtener todas las etapas
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        
         if self.indice_etapa_actual <= 0:
             return False
         
@@ -243,7 +235,7 @@ class RutaClinica(models.Model):
         # Retroceder
         etapa_anterior = self.etapa_actual
         self.indice_etapa_actual -= 1
-        self.etapa_actual = self.etapas_seleccionadas[self.indice_etapa_actual]
+        self.etapa_actual = todas_etapas[self.indice_etapa_actual]
         
         # Registrar en historial
         self._agregar_al_historial('RETROCEDER', self.etapa_actual, usuario, {
@@ -298,12 +290,11 @@ class RutaClinica(models.Model):
     # ============================================
     
     def calcular_progreso(self):
-        """Calcula el porcentaje de progreso"""
-        if not self.etapas_seleccionadas:
-            self.porcentaje_completado = 0.0
-            return 0.0
+        """Calcula el porcentaje de progreso basado en TODAS las etapas"""
+        # Obtener todas las etapas disponibles
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        total_etapas = len(todas_etapas)
         
-        total_etapas = len(self.etapas_seleccionadas)
         etapas_completadas = len(self.etapas_completadas)
         
         progreso = (etapas_completadas / total_etapas) * 100
@@ -345,11 +336,17 @@ class RutaClinica(models.Model):
         
         return retrasos
     
-    def obtener_info_timeline(self):
-        """Retorna información estructurada para el timeline"""
+    def obtener_timeline_completo(self):
+        """
+        🆕 NUEVO MÉTODO: Retorna timeline con TODAS las etapas disponibles, 
+        no solo las seleccionadas.
+        """
         timeline = []
         
-        for i, etapa_key in enumerate(self.etapas_seleccionadas):
+        # SIEMPRE usar TODAS las etapas disponibles
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        
+        for i, etapa_key in enumerate(todas_etapas):
             etapa_label = dict(self.ETAPAS_CHOICES).get(etapa_key, etapa_key)
             
             # Determinar estado
@@ -358,7 +355,12 @@ class RutaClinica(models.Model):
             elif etapa_key == self.etapa_actual:
                 estado = 'EN_PROCESO'
             else:
-                estado = 'PENDIENTE'
+                # Verificar si está en la lista de seleccionadas
+                if etapa_key in (self.etapas_seleccionadas or []):
+                    estado = 'PENDIENTE'
+                else:
+                    # No está seleccionada, es opcional
+                    estado = 'NO_REQUERIDA'
             
             # Obtener timestamps y detalles
             etapa_data = self.timestamps_etapas.get(etapa_key, {})
@@ -368,7 +370,7 @@ class RutaClinica(models.Model):
             if estado == 'EN_PROCESO' and etapa_data.get('fecha_inicio'):
                 inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'])
                 duracion_actual = (timezone.now() - inicio).total_seconds() / 60
-                duracion_estimada = etapa_data.get('duracion_estimada', 30)
+                duracion_estimada = etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30))
                 retrasada = duracion_actual > duracion_estimada * 1.2
             
             timeline.append({
@@ -379,22 +381,35 @@ class RutaClinica(models.Model):
                 'fecha_inicio': etapa_data.get('fecha_inicio'),
                 'fecha_fin': etapa_data.get('fecha_fin'),
                 'duracion_real': etapa_data.get('duracion_real'),
-                'duracion_estimada': etapa_data.get('duracion_estimada'),
+                'duracion_estimada': etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30)),
                 'observaciones': etapa_data.get('observaciones', ''),
                 'es_actual': etapa_key == self.etapa_actual,
                 'retrasada': retrasada,
+                'es_requerida': etapa_key in (self.etapas_seleccionadas or todas_etapas),
             })
         
         return timeline
     
+    def obtener_info_timeline(self):
+        """Retorna información estructurada para el timeline (método legacy)"""
+        # Ahora simplemente llama al nuevo método
+        return self.obtener_timeline_completo()
+    
     def obtener_etapa_siguiente(self):
         """Retorna la siguiente etapa"""
-        if not self.etapas_seleccionadas:
-            return None
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
         
-        siguiente_indice = self.indice_etapa_actual + 1
-        if siguiente_indice < len(self.etapas_seleccionadas):
-            return self.etapas_seleccionadas[siguiente_indice]
+        if not self.etapa_actual:
+            return todas_etapas[0] if todas_etapas else None
+        
+        try:
+            indice_actual = todas_etapas.index(self.etapa_actual)
+            siguiente_indice = indice_actual + 1
+            if siguiente_indice < len(todas_etapas):
+                return todas_etapas[siguiente_indice]
+        except ValueError:
+            pass
+        
         return None
     
     # ============================================
@@ -430,8 +445,10 @@ class RutaClinica(models.Model):
     
     def _calcular_fecha_estimada_fin(self):
         """Calcula la fecha estimada de finalización"""
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
         duracion_total = sum(
             self.DURACIONES_ESTIMADAS.get(etapa, 30)
-            for etapa in self.etapas_seleccionadas
+            for etapa in todas_etapas
         )
         self.fecha_estimada_fin = self.fecha_inicio + timezone.timedelta(minutes=duracion_total)
+        

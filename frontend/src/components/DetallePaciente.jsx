@@ -1,4 +1,6 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA COMPLETA
+// frontend/src/components/DetallePaciente.jsx - ACTUALIZADO PARA TODAS LAS ETAPAS
+// 🆕 Ahora muestra TODAS las etapas del flujo clínico
+
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -35,6 +37,7 @@ import {
     Schedule as ScheduleIcon,
     ArrowForward as ArrowForwardIcon,
     ArrowBack as ArrowBackIcon,
+    HelpOutline as HelpIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
@@ -140,7 +143,6 @@ const DetallePaciente = () => {
     };
 
     const obtenerDatosPaciente = (paciente) => {
-        // Validación de paciente
         if (!paciente) {
             return {
                 nombre: 'Paciente desconocido',
@@ -157,8 +159,6 @@ const DetallePaciente = () => {
         }
 
         const metadatos = paciente.metadatos_adicionales || {};
-        
-        // Obtener identificador con validación
         const identificador = paciente.identificador_hash || paciente.id || '';
         const identificadorCorto = identificador ? identificador.substring(0, 8) : 'SIN-ID';
 
@@ -184,8 +184,9 @@ const DetallePaciente = () => {
         };
     };
 
-    // Función para obtener el color y estilo de cada etapa
+    // 🆕 FUNCIÓN ACTUALIZADA: Obtener estilo según el estado de la etapa
     const obtenerEstiloEtapa = (etapa) => {
+        // COMPLETADA: Etapas que ya pasaron (azul)
         if (etapa.estado === 'COMPLETADA') {
             return {
                 bgcolor: '#2196F3', // Azul para completadas
@@ -195,7 +196,9 @@ const DetallePaciente = () => {
                 statusLabel: 'Completada',
                 statusColor: '#1976D2',
             };
-        } else if (etapa.es_actual) {
+        } 
+        // EN_CURSO: La etapa actual (verde)
+        else if (etapa.estado === 'EN_CURSO' || etapa.es_actual) {
             return {
                 bgcolor: '#4CAF50', // Verde para actual
                 color: 'white',
@@ -204,7 +207,9 @@ const DetallePaciente = () => {
                 statusLabel: 'En Curso',
                 statusColor: '#388E3C',
             };
-        } else {
+        } 
+        // PENDIENTE: Etapas futuras (gris)
+        else {
             return {
                 bgcolor: '#E0E0E0', // Gris para pendientes
                 color: '#757575',
@@ -300,10 +305,10 @@ const DetallePaciente = () => {
 
                         <Divider sx={{ my: 3 }} />
 
-                        {/* SECCIÓN: Timeline de Etapas - TODAS VISIBLES */}
+                        {/* SECCIÓN: Timeline de Etapas - 🆕 TODAS LAS ETAPAS VISIBLES */}
                         {rutaClinica && rutaClinica.timeline && rutaClinica.timeline.length > 0 ? (
                             <Box sx={{ mb: 4 }}>
-                                {/* Header con título y botones de control */}
+                                {/* Header con título y botones */}
                                 <Box sx={{
                                     display: 'flex',
                                     justifyContent: 'space-between',
@@ -313,9 +318,14 @@ const DetallePaciente = () => {
                                     borderBottom: '2px solid',
                                     borderColor: 'primary.main',
                                 }}>
-                                    <Typography variant="h5" fontWeight="700" color="primary.main">
-                                        Proceso de Atención
-                                    </Typography>
+                                    <Box>
+                                        <Typography variant="h5" fontWeight="700" color="primary.main">
+                                            Proceso de Atención Completo
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Visualización de todas las etapas del flujo clínico
+                                        </Typography>
+                                    </Box>
 
                                     {/* Botones de Control */}
                                     {rutaClinica.ruta_clinica.estado === 'EN_PROGRESO' && (
@@ -360,7 +370,7 @@ const DetallePaciente = () => {
                                     )}
                                 </Box>
 
-                                {/* Timeline Visual Horizontal - TODAS LAS ETAPAS */}
+                                {/* 🆕 Timeline Visual Horizontal - TODAS LAS ETAPAS */}
                                 <Box sx={{
                                     display: 'flex',
                                     gap: 2,
@@ -486,7 +496,7 @@ const DetallePaciente = () => {
                                                             <Box sx={{
                                                                 mt: 2,
                                                                 pt: 2,
-                                                                borderTop: etapa.estado === 'PENDIENTE'
+                                                                borderTop: etapa.estado === 'PENDIENTE' || etapa.estado === 'NO_REQUERIDA'
                                                                     ? '1px solid rgba(0,0,0,0.12)'
                                                                     : '1px solid rgba(255,255,255,0.3)'
                                                             }}>
@@ -495,7 +505,7 @@ const DetallePaciente = () => {
                                                                     display="block"
                                                                     sx={{
                                                                         fontWeight: 600,
-                                                                        opacity: etapa.estado === 'PENDIENTE' ? 0.7 : 1,
+                                                                        opacity: etapa.estado === 'PENDIENTE' || etapa.estado === 'NO_REQUERIDA' ? 0.7 : 1,
                                                                         mb: 0.5,
                                                                     }}
                                                                 >
@@ -575,7 +585,7 @@ const DetallePaciente = () => {
                                     })}
                                 </Box>
 
-                                {/* Leyenda de colores */}
+                                {/* 🆕 Leyenda de colores actualizada */}
                                 <Box sx={{
                                     display: 'flex',
                                     justifyContent: 'center',
@@ -619,6 +629,18 @@ const DetallePaciente = () => {
                                         }} />
                                         <Typography variant="body2" fontWeight="500">
                                             Pendiente
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{
+                                            width: 20,
+                                            height: 20,
+                                            bgcolor: '#FAFAFA',
+                                            borderRadius: 1,
+                                            border: '2px solid #E0E0E0',
+                                        }} />
+                                        <Typography variant="body2" fontWeight="500">
+                                            Opcional
                                         </Typography>
                                     </Box>
                                 </Box>

@@ -1,11 +1,11 @@
-# backend/rutas_clinicas/serializers.py - VERSIÓN MEJORADA Y CORREGIDA
+# backend/rutas_clinicas/serializers.py - ACTUALIZADO PARA MOSTRAR TODAS LAS ETAPAS
 from rest_framework import serializers
 from .models import RutaClinica
 from pacientes.serializers import PacienteListSerializer
 
 
 class RutaClinicaSerializer(serializers.ModelSerializer):
-    """Serializer completo mejorado con detección de retrasos"""
+    """Serializer completo mejorado con todas las etapas"""
     paciente = PacienteListSerializer(read_only=True)
     paciente_id = serializers.PrimaryKeyRelatedField(
         queryset=__import__('pacientes.models', fromlist=['Paciente']).Paciente.objects.all(),
@@ -27,7 +27,7 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
     etapa_siguiente = serializers.SerializerMethodField()
     total_etapas = serializers.SerializerMethodField()
     etapas_restantes = serializers.SerializerMethodField()
-    retrasos_detectados = serializers.SerializerMethodField()  # NUEVO
+    retrasos_detectados = serializers.SerializerMethodField()
     
     # Choices disponibles
     etapas_disponibles = serializers.SerializerMethodField()
@@ -57,18 +57,18 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
             'porcentaje_completado',
             'estado',
             'estado_display',
-            'estado_paciente',  # NUEVO
+            'estado_paciente',
             'esta_pausado',
             'motivo_pausa',
             'metadatos_adicionales',
-            'historial_cambios',  # NUEVO
+            'historial_cambios',
             'fecha_actualizacion',
             'tiempo_total_real',
             'timeline',
             'etapa_siguiente',
             'total_etapas',
             'etapas_restantes',
-            'retrasos_detectados',  # NUEVO
+            'retrasos_detectados',
         ]
         read_only_fields = [
             'id',
@@ -106,8 +106,8 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         }
     
     def get_timeline(self, obj):
-        """Timeline estructurado con información de retrasos"""
-        return obj.obtener_info_timeline()
+        """🆕 ACTUALIZADO: Timeline estructurado con TODAS las etapas"""
+        return obj.obtener_timeline_completo()  # ← CAMBIO CLAVE
     
     def get_etapa_siguiente(self, obj):
         """Siguiente etapa"""
@@ -122,15 +122,17 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         return None
     
     def get_total_etapas(self, obj):
-        return len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
+        """🆕 ACTUALIZADO: Total de TODAS las etapas disponibles"""
+        return len(RutaClinica.ETAPAS_CHOICES)
     
     def get_etapas_restantes(self, obj):
-        total = len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
+        """Etapas restantes"""
+        total = len(RutaClinica.ETAPAS_CHOICES)
         completadas = len(obj.etapas_completadas) if isinstance(obj.etapas_completadas, list) else 0
         return total - completadas
     
     def get_retrasos_detectados(self, obj):
-        """NUEVO: Detecta retrasos en las etapas"""
+        """Detecta retrasos en las etapas"""
         try:
             return obj.detectar_retrasos()
         except Exception:
@@ -145,7 +147,7 @@ class RutaClinicaListSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     etapa_actual_display = serializers.CharField(source='get_etapa_actual_display', read_only=True)
     progreso_info = serializers.SerializerMethodField()
-    tiene_retrasos = serializers.SerializerMethodField()  # NUEVO
+    tiene_retrasos = serializers.SerializerMethodField()
     estado_paciente = serializers.CharField(source='paciente.estado_actual_display', read_only=True)
     
     class Meta:
@@ -161,32 +163,25 @@ class RutaClinicaListSerializer(serializers.ModelSerializer):
             'porcentaje_completado',
             'estado',
             'estado_display',
-            'estado_paciente',  # NUEVO
+            'estado_paciente',
             'esta_pausado',
             'progreso_info',
-            'tiene_retrasos',  # NUEVO
+            'tiene_retrasos',
         ]
     
     def get_paciente_nombre(self, obj):
-        """
-        🔧 CORRECCIÓN CRÍTICA - Línea 167
-        Obtiene el nombre del paciente con validación robusta para evitar error:
-        AttributeError: 'list' object has no attribute 'get'
-        """
-        # Obtener metadatos_adicionales
+        """Obtiene el nombre del paciente con validación robusta"""
         metadatos = obj.paciente.metadatos_adicionales
         
-        # VALIDACIÓN: Verificar que sea un diccionario
+        # Validar que sea un diccionario
         if not isinstance(metadatos, dict):
-            # Si no es dict (es lista, None, etc), retornar identificador
             return f'Paciente {obj.paciente.identificador_hash[:8]}'
         
-        # Si es dict, intentar obtener el nombre
         return metadatos.get('nombre', f'Paciente {obj.paciente.identificador_hash[:8]}')
     
     def get_progreso_info(self, obj):
-        """Información de progreso con validación de tipos"""
-        total = len(obj.etapas_seleccionadas) if isinstance(obj.etapas_seleccionadas, list) else 0
+        """🆕 ACTUALIZADO: Información de progreso con todas las etapas"""
+        total = len(RutaClinica.ETAPAS_CHOICES)
         completadas = len(obj.etapas_completadas) if isinstance(obj.etapas_completadas, list) else 0
         
         return {
@@ -196,7 +191,7 @@ class RutaClinicaListSerializer(serializers.ModelSerializer):
         }
     
     def get_tiene_retrasos(self, obj):
-        """NUEVO: Indica si tiene retrasos con manejo de errores"""
+        """Indica si tiene retrasos"""
         try:
             retrasos = obj.detectar_retrasos()
             return len(retrasos) > 0
@@ -209,7 +204,8 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
     
     etapas_seleccionadas = serializers.MultipleChoiceField(
         choices=RutaClinica.ETAPAS_CHOICES,
-        help_text="Seleccione las etapas del proceso clínico"
+        help_text="Seleccione las etapas del proceso clínico",
+        required=False  # ← AHORA ES OPCIONAL
     )
     
     class Meta:
@@ -223,8 +219,9 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
     
     def validate_etapas_seleccionadas(self, value):
         """Valida etapas seleccionadas"""
+        # Si no se proporcionan, usar todas
         if not value or len(value) == 0:
-            raise serializers.ValidationError("Debe seleccionar al menos una etapa.")
+            return [key for key, _ in RutaClinica.ETAPAS_CHOICES]
         
         if not isinstance(value, list):
             value = list(value)
@@ -254,7 +251,7 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
 
 
 class TimelineSerializer(serializers.Serializer):
-    """Serializer mejorado para el timeline con retrasos"""
+    """Serializer mejorado para el timeline con todas las etapas"""
     paciente = serializers.SerializerMethodField()
     ruta_clinica = serializers.SerializerMethodField()
     timeline = serializers.ListField()
@@ -265,17 +262,13 @@ class TimelineSerializer(serializers.Serializer):
     estado_actual = serializers.CharField()
     esta_pausado = serializers.BooleanField()
     alertas = serializers.ListField()
-    retrasos = serializers.ListField()  # NUEVO
+    retrasos = serializers.ListField()
     
     def get_paciente(self, obj):
-        """
-        🔧 CORRECCIÓN APLICADA
-        Información del paciente con validación de metadatos_adicionales
-        """
-        # Obtener metadatos de forma segura
+        """Información del paciente con validación"""
         metadatos = obj['paciente'].metadatos_adicionales
         
-        # Validar que sea dict antes de usar .get()
+        # Validar que sea dict
         if isinstance(metadatos, dict):
             nombre = metadatos.get('nombre', 'N/A')
         else:
@@ -307,7 +300,7 @@ class TimelineSerializer(serializers.Serializer):
 
 
 class RutaAccionSerializer(serializers.Serializer):
-    """Serializer para acciones (pausar, observaciones, etc)"""
+    """Serializer para acciones"""
     motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
     observaciones = serializers.CharField(required=False, allow_blank=True, max_length=1000)
 
