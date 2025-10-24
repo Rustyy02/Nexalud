@@ -548,3 +548,50 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             'etapas': etapas,
             'total': len(etapas)
         })
+        
+    @action(detail=True, methods=['get'])
+    def debug_timeline(self, request, pk=None):
+        """
+        🔍 DEBUG: Muestra información detallada del timeline
+        """
+        try:
+            ruta = self.get_object()
+            
+            resultado = {
+                'ruta_id': str(ruta.id),
+                'estado_ruta': ruta.estado,
+                'etapa_actual': ruta.etapa_actual,
+                'indice_etapa_actual': ruta.indice_etapa_actual,
+                'etapas_seleccionadas': ruta.etapas_seleccionadas,
+                'etapas_completadas': ruta.etapas_completadas,
+                'timestamps_etapas': ruta.timestamps_etapas,
+                'debug_timeline': []
+            }
+            
+            timeline = ruta.obtener_timeline_completo()
+            
+            for etapa in timeline:
+                resultado['debug_timeline'].append({
+                    'orden': etapa['orden'],
+                    'etapa_key': etapa['etapa_key'],
+                    'etapa_label': etapa['etapa_label'],
+                    'estado_calculado': etapa['estado'],
+                    'es_actual': etapa['es_actual'],
+                    'es_requerida': etapa['es_requerida'],
+                    'fecha_inicio': etapa['fecha_inicio'],
+                    'fecha_fin': etapa['fecha_fin'],
+                    'checks': {
+                        'esta_en_completadas': etapa['etapa_key'] in ruta.etapas_completadas,
+                        'es_etapa_actual': etapa['etapa_key'] == ruta.etapa_actual,
+                        'esta_en_seleccionadas': etapa['etapa_key'] in ruta.etapas_seleccionadas,
+                    }
+                })
+            
+            return Response(resultado)
+            
+        except Exception as e:
+            import traceback
+            return Response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

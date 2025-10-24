@@ -337,30 +337,36 @@ class RutaClinica(models.Model):
         return retrasos
     
     def obtener_timeline_completo(self):
-        """
-        🆕 NUEVO MÉTODO: Retorna timeline con TODAS las etapas disponibles, 
-        no solo las seleccionadas.
-        """
+
         timeline = []
         
         # SIEMPRE usar TODAS las etapas disponibles
         todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
         
+        # Asegurar que etapas_completadas es una lista
+        if not isinstance(self.etapas_completadas, list):
+            self.etapas_completadas = []
+        
+        # Asegurar que etapas_seleccionadas es una lista
+        if not isinstance(self.etapas_seleccionadas, list):
+            self.etapas_seleccionadas = []
+        
         for i, etapa_key in enumerate(todas_etapas):
             etapa_label = dict(self.ETAPAS_CHOICES).get(etapa_key, etapa_key)
             
-            # Determinar estado
+            # ✅ CORRECCIÓN: Determinar estado con prioridad correcta
+            # PRIORIDAD 1: Etapas completadas
             if etapa_key in self.etapas_completadas:
                 estado = 'COMPLETADA'
+            # PRIORIDAD 2: Etapa actual
             elif etapa_key == self.etapa_actual:
                 estado = 'EN_PROCESO'
+            # PRIORIDAD 3: Verificar si está en la lista de seleccionadas
+            elif etapa_key in self.etapas_seleccionadas:
+                estado = 'PENDIENTE'
+            # PRIORIDAD 4: No está seleccionada, es opcional
             else:
-                # Verificar si está en la lista de seleccionadas
-                if etapa_key in (self.etapas_seleccionadas or []):
-                    estado = 'PENDIENTE'
-                else:
-                    # No está seleccionada, es opcional
-                    estado = 'NO_REQUERIDA'
+                estado = 'NO_REQUERIDA'
             
             # Obtener timestamps y detalles
             etapa_data = self.timestamps_etapas.get(etapa_key, {})
@@ -368,10 +374,16 @@ class RutaClinica(models.Model):
             # Calcular si está retrasada
             retrasada = False
             if estado == 'EN_PROCESO' and etapa_data.get('fecha_inicio'):
-                inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'])
-                duracion_actual = (timezone.now() - inicio).total_seconds() / 60
-                duracion_estimada = etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30))
-                retrasada = duracion_actual > duracion_estimada * 1.2
+                try:
+                    inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'])
+                    duracion_actual = (timezone.now() - inicio).total_seconds() / 60
+                    duracion_estimada = etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30))
+                    retrasada = duracion_actual > duracion_estimada * 1.2
+                except Exception:
+                    retrasada = False
+            
+            # ✅ es_actual debe ser booleano explícito
+            es_actual = (etapa_key == self.etapa_actual and self.estado == 'EN_PROGRESO')
             
             timeline.append({
                 'orden': i + 1,
@@ -383,9 +395,9 @@ class RutaClinica(models.Model):
                 'duracion_real': etapa_data.get('duracion_real'),
                 'duracion_estimada': etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30)),
                 'observaciones': etapa_data.get('observaciones', ''),
-                'es_actual': etapa_key == self.etapa_actual,
+                'es_actual': es_actual,  # ✅ CORRECCIÓN: Verificación más robusta
                 'retrasada': retrasada,
-                'es_requerida': etapa_key in (self.etapas_seleccionadas or todas_etapas),
+                'es_requerida': etapa_key in self.etapas_seleccionadas if self.etapas_seleccionadas else True,
             })
         
         return timeline

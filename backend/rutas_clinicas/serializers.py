@@ -247,6 +247,7 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
         """Crea la ruta y calcula progreso inicial"""
         ruta = RutaClinica.objects.create(**validated_data)
         ruta.calcular_progreso()
+        ruta.iniciar_ruta()
         return ruta
 
 
