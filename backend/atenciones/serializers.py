@@ -145,6 +145,7 @@ class AtencionSerializer(serializers.ModelSerializer):
     esta_retrasada = serializers.SerializerMethodField()
     diferencia_duracion = serializers.SerializerMethodField()
     metricas = serializers.SerializerMethodField()
+    tiempo_restante_minutos = serializers.SerializerMethodField()
     
     class Meta:
         model = Atencion
@@ -177,6 +178,7 @@ class AtencionSerializer(serializers.ModelSerializer):
             'esta_retrasada',
             'diferencia_duracion',
             'metricas',
+            'tiempo_restante_minutos',
         ]
         read_only_fields = [
             'id',
@@ -186,6 +188,13 @@ class AtencionSerializer(serializers.ModelSerializer):
             'fecha_creacion',
             'fecha_actualizacion'
         ]
+    
+    def get_tiempo_restante_minutos(self, obj):
+        """Tiempo restante en minutos para completar la atención"""
+        tiempo = obj.obtener_tiempo_restante()
+        if tiempo:
+            return int(tiempo.total_seconds() / 60)
+        return None
     
     def get_retraso_minutos(self, obj):
         """Retraso en minutos respecto a la hora programada"""
@@ -209,6 +218,7 @@ class AtencionSerializer(serializers.ModelSerializer):
     def get_metricas(self, obj):
         """Métricas completas de la atención"""
         return obj.generar_metricas()
+
 
 
 class AtencionListSerializer(serializers.ModelSerializer):

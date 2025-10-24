@@ -1,4 +1,4 @@
-// frontend/src/components/EstadoBoxes.jsx - CON SINCRONIZACIÓN COMPLETA
+// frontend/src/components/EstadoBoxes.jsx - VERSIÓN CORREGIDA COMPLETA
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -22,6 +22,7 @@ import {
   Tooltip,
   IconButton,
   Divider,
+  LinearProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -32,6 +33,7 @@ import {
   Sync as SyncIcon,
   Info as InfoIcon,
   MedicalServices as MedicalIcon,
+  Timer as TimerIcon,
 } from '@mui/icons-material';
 import { boxesService, atencionesService } from '../services/api';
 import Navbar from './Navbar';
@@ -51,26 +53,49 @@ const EstadoBoxes = () => {
   const [dialogInfoAtencion, setDialogInfoAtencion] = useState(false);
   const [boxSeleccionado, setBoxSeleccionado] = useState(null);
   const [duracionEstimada, setDuracionEstimada] = useState(30);
-  const [tiemposLiberacion, setTiemposLiberacion] = useState({});
+  const [motivoOcupacion, setMotivoOcupacion] = useState('');
+
+  // Opciones de duración disponibles
+  const duracionesDisponibles = [15, 30, 45, 60, 75, 90, 105, 120];
 
   useEffect(() => {
     cargarDatos();
     sincronizarEstados();
     
+    // Sincronizar cada 30 segundos (ahora incluye liberación de atenciones)
     const intervalSync = setInterval(sincronizarEstados, 30000);
+    
+    // Recargar datos cada 15 segundos
     const intervalData = setInterval(cargarDatos, 15000);
+    
+    // Liberar ocupaciones manuales cada 60 segundos
+    const intervalLiberar = setInterval(liberarOcupacionesManuales, 60000);
     
     return () => {
       clearInterval(intervalSync);
       clearInterval(intervalData);
-      Object.values(tiemposLiberacion).forEach(timeout => clearTimeout(timeout));
+      clearInterval(intervalLiberar);
     };
   }, []);
 
   const sincronizarEstados = async () => {
     try {
       setSincronizando(true);
-      await boxesService.sincronizarEstados();
+      const response = await boxesService.sincronizarEstados();
+      
+      // Log para debugging (puedes comentar esto en producción)
+      if (response.data.boxes_actualizados > 0 || response.data.atenciones_finalizadas > 0) {
+        console.log('Sincronización:', {
+          boxes_actualizados: response.data.boxes_actualizados,
+          atenciones_finalizadas: response.data.atenciones_finalizadas,
+          timestamp: response.data.timestamp
+        });
+      }
+      
+      // Si se finalizaron atenciones, recargar datos inmediatamente
+      if (response.data.atenciones_finalizadas > 0) {
+        await cargarDatos();
+      }
     } catch (err) {
       console.error('Error en sincronización automática:', err);
     } finally {
@@ -78,14 +103,33 @@ const EstadoBoxes = () => {
     }
   };
 
+  const liberarOcupacionesManuales = async () => {
+    try {
+      const response = await boxesService.liberarOcupacionesManuales();
+      if (response.data.boxes_liberados > 0) {
+        console.log('Ocupaciones manuales liberadas:', response.data.boxes_liberados);
+        showSnackbar(
+          `${response.data.boxes_liberados} box(es) liberados automáticamente`,
+          'info'
+        );
+        await cargarDatos();
+      }
+    } catch (err) {
+      console.error('Error al liberar ocupaciones manuales:', err);
+    }
+  };
+
   const sincronizarManual = async () => {
     try {
       setSincronizando(true);
       const response = await boxesService.sincronizarEstados();
-      showSnackbar(
-        `Sincronización completa: ${response.data.boxes_actualizados} boxes actualizados`,
-        'success'
-      );
+      
+      const mensaje = `Sincronización completa: ${response.data.boxes_actualizados} boxes actualizados`;
+      const mensajeAtenciones = response.data.atenciones_finalizadas > 0 
+        ? `, ${response.data.atenciones_finalizadas} atenciones finalizadas`
+        : '';
+      
+      showSnackbar(mensaje + mensajeAtenciones, 'success');
       await cargarDatos();
     } catch (err) {
       showSnackbar('Error al sincronizar estados', 'error');
@@ -157,12 +201,14 @@ const EstadoBoxes = () => {
   const handleAbrirDialogoOcupar = (box) => {
     setBoxSeleccionado(box);
     setDuracionEstimada(30);
+    setMotivoOcupacion('');
     setDialogOcupar(true);
   };
 
   const handleCerrarDialogoOcupar = () => {
     setDialogOcupar(false);
     setBoxSeleccionado(null);
+    setMotivoOcupacion('');
   };
 
   const handleVerInfoAtencion = (box) => {
@@ -188,20 +234,22 @@ const EstadoBoxes = () => {
       if (nuevoEstado === 'OCUPADO') {
         handleAbrirDialogoOcupar(box);
       } else {
-        await boxesService.liberar(box.id);
+        const response = await boxesService.liberar(box.id);
         
-        if (tiemposLiberacion[box.id]) {
-          clearTimeout(tiemposLiberacion[box.id]);
-          const nuevosTimeouts = { ...tiemposLiberacion };
-          delete nuevosTimeouts[box.id];
-          setTiemposLiberacion(nuevosTimeouts);
+        if (response.data.success) {
+          showSnackbar(`Box ${box.numero} liberado correctamente`, 'success');
+        } else {
+          showSnackbar(response.data.mensaje || 'No se pudo liberar el box', 'warning');
         }
         
-        showSnackbar(`Box ${box.numero} liberado correctamente`, 'success');
         await cargarDatos();
       }
     } catch (err) {
-      showSnackbar('Error al cambiar el estado del box', 'error');
+      if (err.response && err.response.data && err.response.data.mensaje) {
+        showSnackbar(err.response.data.mensaje, 'error');
+      } else {
+        showSnackbar('Error al cambiar estado del box', 'error');
+      }
       console.error(err);
     }
   };
@@ -210,77 +258,35 @@ const EstadoBoxes = () => {
     if (!boxSeleccionado) return;
 
     try {
-      await boxesService.ocupar(boxSeleccionado.id);
-      
-      const duracionMs = duracionEstimada * 60 * 1000;
-      const timeoutId = setTimeout(async () => {
-        try {
-          await boxesService.liberar(boxSeleccionado.id);
-          showSnackbar(`Box ${boxSeleccionado.numero} liberado automáticamente`, 'info');
-          await cargarDatos();
-          
-          const nuevosTimeouts = { ...tiemposLiberacion };
-          delete nuevosTimeouts[boxSeleccionado.id];
-          setTiemposLiberacion(nuevosTimeouts);
-        } catch (err) {
-          console.error('Error en auto-liberación:', err);
-        }
-      }, duracionMs);
-
-      setTiemposLiberacion({
-        ...tiemposLiberacion,
-        [boxSeleccionado.id]: timeoutId
+      const response = await boxesService.ocupar(boxSeleccionado.id, {
+        duracion_minutos: duracionEstimada,
+        motivo: motivoOcupacion || 'Ocupación manual'
       });
 
-      showSnackbar(
-        `Box ${boxSeleccionado.numero} ocupado. Se liberará en ${duracionEstimada} minutos`,
-        'success'
-      );
-      
-      handleCerrarDialogoOcupar();
-      await cargarDatos();
+      if (response.data.success) {
+        showSnackbar(
+          `Box ${boxSeleccionado.numero} ocupado por ${duracionEstimada} minutos`,
+          'success'
+        );
+        handleCerrarDialogoOcupar();
+        await cargarDatos();
+      } else {
+        showSnackbar(response.data.mensaje || 'Error al ocupar el box', 'error');
+      }
     } catch (err) {
-      showSnackbar('Error al ocupar el box', 'error');
+      if (err.response && err.response.data && err.response.data.error) {
+        showSnackbar(err.response.data.error, 'error');
+      } else {
+        showSnackbar('Error al ocupar el box', 'error');
+      }
       console.error(err);
     }
-  };
-
-  const notificarProfesional = async (atraso) => {
-    showSnackbar(`Notificación enviada al profesional del ${atraso.box}`, 'info');
   };
 
   const iniciarAtencionAtrasada = async (atraso) => {
     try {
       await atencionesService.iniciarCronometro(atraso.atencionId);
-      
-      const boxCorrespondiente = boxes.find(b => b.numero === atraso.box);
-      
-      if (boxCorrespondiente) {
-        await boxesService.ocupar(boxCorrespondiente.id);
-        
-        const duracionMs = atraso.duracionPlanificada * 60 * 1000;
-        const timeoutId = setTimeout(async () => {
-          try {
-            await boxesService.liberar(boxCorrespondiente.id);
-            await atencionesService.finalizarCronometro(atraso.atencionId);
-            showSnackbar(`Atención completada y box ${atraso.box} liberado`, 'success');
-            await cargarDatos();
-          } catch (err) {
-            console.error('Error en auto-liberación:', err);
-          }
-        }, duracionMs);
-
-        setTiemposLiberacion({
-          ...tiemposLiberacion,
-          [boxCorrespondiente.id]: timeoutId
-        });
-      }
-
-      showSnackbar(
-        `Atención iniciada. Se liberará en ${atraso.duracionPlanificada} minutos`,
-        'success'
-      );
-      
+      showSnackbar('Atención iniciada correctamente', 'success');
       await cargarDatos();
     } catch (err) {
       showSnackbar('Error al iniciar la atención', 'error');
@@ -288,197 +294,285 @@ const EstadoBoxes = () => {
     }
   };
 
-  const getEstadoColor = (estado) => {
-    const colores = {
-      DISPONIBLE: 'success',
-      OCUPADO: 'warning',
-      MANTENIMIENTO: 'error',
-      FUERA_SERVICIO: 'default',
-    };
-    return colores[estado] || 'default';
+  const notificarProfesional = (atraso) => {
+    showSnackbar(`Notificación enviada para box ${atraso.box}`, 'info');
   };
 
-  const getEstadoIcon = (estado) => {
-    if (estado === 'DISPONIBLE') return <CheckCircleIcon />;
-    if (estado === 'OCUPADO') return <WarningIcon />;
+  const getEstadoColor = (estado) => {
+    switch (estado) {
+      case 'DISPONIBLE':
+        return 'success';
+      case 'OCUPADO':
+        return 'error';
+      case 'MANTENIMIENTO':
+        return 'warning';
+      case 'FUERA_SERVICIO':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const getEstadoIcon = (box) => {
+    if (box.estado === 'DISPONIBLE') return <CheckCircleIcon />;
+    if (box.estado === 'OCUPADO') {
+      if (box.ocupado_por_atencion) return <MedicalIcon />;
+      if (box.ocupacion_manual_activa) return <TimerIcon />;
+      return <WarningIcon />;
+    }
     return <ScheduleIcon />;
   };
 
   const formatearHoraAtencion = (box) => {
-    if (box.atencion_actual) {
-      const fecha = new Date(box.atencion_actual.fecha_hora_inicio);
-      const hora = fecha.toLocaleTimeString('es-CL', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      
-      const fechaFin = new Date(fecha.getTime() + box.atencion_actual.duracion_planificada * 60 * 1000);
-      const horaFin = fechaFin.toLocaleTimeString('es-CL', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      
-      return `${hora} - ${horaFin}`;
+    if (!box.atencion_actual || !box.atencion_actual.fecha_hora_inicio) {
+      return 'Sin horario';
     }
-    return '';
+    
+    const fecha = new Date(box.atencion_actual.fecha_hora_inicio);
+    return fecha.toLocaleTimeString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const calcularProgresoOcupacion = (ocupacion) => {
+    if (!ocupacion) return 0;
+    
+    const ahora = new Date();
+    const inicio = new Date(ocupacion.fecha_inicio);
+    const fin = new Date(ocupacion.fecha_fin_programada);
+    
+    const duracionTotal = fin - inicio;
+    const tiempoTranscurrido = ahora - inicio;
+    
+    const progreso = (tiempoTranscurrido / duracionTotal) * 100;
+    return Math.min(Math.max(progreso, 0), 100);
   };
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 64px)' }}>
-          <CircularProgress />
-        </Box>
-      </>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
     );
   }
+
+  const boxesDisponibles = boxes.filter((b) => b.estado === 'DISPONIBLE').length;
+  const boxesOcupados = boxes.filter((b) => b.estado === 'OCUPADO').length;
+  const boxesMantenimiento = boxes.filter((b) => b.estado === 'MANTENIMIENTO').length;
 
   return (
     <>
       <Navbar />
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="600">
-            Gestión de Boxes
+          <Typography variant="h4" fontWeight="700">
+            Estado de Boxes en Tiempo Real
           </Typography>
-          
-          <Button
-            variant="outlined"
-            startIcon={sincronizando ? <CircularProgress size={20} /> : <SyncIcon />}
-            onClick={sincronizarManual}
-            disabled={sincronizando}
-          >
-            {sincronizando ? 'Sincronizando...' : 'Sincronizar Estados'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={sincronizando ? <CircularProgress size={20} /> : <SyncIcon />}
+              onClick={sincronizarManual}
+              disabled={sincronizando}
+            >
+              {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+            </Button>
+          </Box>
         </Box>
 
-        {/* Alerta */}
-        <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 3 }}>
-          Los estados de los boxes se sincronizan automáticamente cada 30 segundos con las atenciones programadas.
-        </Alert>
+        {/* Estadísticas */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      Disponibles
+                    </Typography>
+                    <Typography variant="h4" fontWeight="600" color="success.main">
+                      {boxesDisponibles}
+                    </Typography>
+                  </Box>
+                  <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
-        {/* Boxes */}
-        <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-          <Typography variant="h5" fontWeight="600" gutterBottom>
-            Box's
+          <Grid item xs={12} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      Ocupados
+                    </Typography>
+                    <Typography variant="h4" fontWeight="600" color="error.main">
+                      {boxesOcupados}
+                    </Typography>
+                  </Box>
+                  <WarningIcon sx={{ fontSize: 48, color: 'error.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      Mantenimiento
+                    </Typography>
+                    <Typography variant="h4" fontWeight="600" color="warning.main">
+                      {boxesMantenimiento}
+                    </Typography>
+                  </Box>
+                  <ScheduleIcon sx={{ fontSize: 48, color: 'warning.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Card elevation={2}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      Total
+                    </Typography>
+                    <Typography variant="h4" fontWeight="600">
+                      {boxes.length}
+                    </Typography>
+                  </Box>
+                  <AccessTimeIcon sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Boxes Grid */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h5" fontWeight="600" sx={{ mb: 3 }}>
+            Boxes
           </Typography>
-
-          <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid container spacing={2}>
             {boxes.map((box) => (
-              <Grid item xs={12} sm={6} md={3} key={box.id}>
+              <Grid item xs={12} sm={6} md={4} lg={3} key={box.id}>
                 <Card
                   elevation={3}
                   sx={{
                     height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderRadius: 2,
+                    borderLeft: '4px solid',
+                    borderLeftColor:
+                      box.estado === 'DISPONIBLE'
+                        ? 'success.main'
+                        : box.estado === 'OCUPADO'
+                        ? 'error.main'
+                        : 'warning.main',
                     transition: 'transform 0.2s',
-                    borderLeft: box.ocupado_por_atencion ? '4px solid' : 'none',
-                    borderLeftColor: 'primary.main',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      boxShadow: 4,
                     },
                   }}
                 >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6" fontWeight="600">
-                        {box.numero}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        <Chip
-                          icon={getEstadoIcon(box.estado)}
-                          label={box.estado_display}
-                          color={getEstadoColor(box.estado)}
-                          size="small"
-                          sx={{ fontWeight: 500 }}
-                        />
-                        {box.ocupado_por_atencion && (
-                          <Tooltip title="Ver información">
-                            <IconButton size="small" onClick={() => handleVerInfoAtencion(box)}>
-                              <InfoIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight="600">
+                          {box.numero}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {box.nombre}
+                        </Typography>
                       </Box>
+                      <Chip
+                        icon={getEstadoIcon(box)}
+                        label={box.estado_display}
+                        color={getEstadoColor(box.estado)}
+                        size="small"
+                      />
                     </Box>
 
+                    <Divider sx={{ my: 2 }} />
+
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <strong>Especialidad:</strong> {box.especialidad_display}
+                    </Typography>
+
                     {box.ocupado_por_atencion && box.atencion_actual && (
-                      <Box sx={{ 
-                        bgcolor: 'primary.light', 
-                        p: 1.5, 
-                        borderRadius: 1, 
-                        mb: 2,
-                        border: '1px solid',
-                        borderColor: 'primary.main',
-                      }}>
-                        <Typography variant="caption" color="primary.dark" fontWeight="600" display="block">
-                          📋 ATENCIÓN PROGRAMADA
+                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'primary.lighter', borderRadius: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                          <MedicalIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                          <Typography variant="caption" color="primary.main" fontWeight="600">
+                            ATENCIÓN EN CURSO
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" display="block">
+                          Paciente: {box.atencion_actual.paciente}
                         </Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          <strong>Paciente:</strong> {box.atencion_actual.paciente}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Hora:</strong> {formatearHoraAtencion(box)}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Tipo:</strong> {box.atencion_actual.tipo_atencion}
+                        <Typography variant="caption" display="block">
+                          Hora: {formatearHoraAtencion(box)}
                         </Typography>
                       </Box>
                     )}
 
-                    {box.estado === 'OCUPADO' && !box.ocupado_por_atencion && (
-                      <>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          <strong>Ocupación Manual</strong>
+                    {box.ocupacion_manual_activa && !box.ocupado_por_atencion && (
+                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'warning.lighter', borderRadius: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                          <TimerIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                          <Typography variant="caption" color="warning.main" fontWeight="600">
+                            OCUPACIÓN MANUAL
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" display="block">
+                          Tiempo restante: {Math.round(box.ocupacion_manual_activa.minutos_restantes)} min
                         </Typography>
-                        {tiemposLiberacion[box.id] && (
-                          <Chip
-                            icon={<AccessTimeIcon />}
-                            label="Auto-liberación activa"
-                            size="small"
-                            color="info"
-                            sx={{ mb: 2 }}
-                          />
+                        {box.ocupacion_manual_activa.motivo && (
+                          <Typography variant="caption" display="block">
+                            Motivo: {box.ocupacion_manual_activa.motivo}
+                          </Typography>
                         )}
-                      </>
+                      </Box>
                     )}
 
-                    {box.estado === 'DISPONIBLE' && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        ✓ Disponible para atención
-                      </Typography>
-                    )}
-
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      size="large"
-                      onClick={() => cambiarEstadoBox(box, box.estado === 'DISPONIBLE' ? 'OCUPADO' : 'DISPONIBLE')}
-                      disabled={
-                        box.estado === 'MANTENIMIENTO' || 
-                        box.estado === 'FUERA_SERVICIO' ||
-                        box.ocupado_por_atencion
-                      }
-                      sx={{
-                        textTransform: 'none',
-                        fontWeight: 500,
-                        backgroundColor: box.estado === 'DISPONIBLE' ? 'primary.main' : 'success.main',
-                        '&:hover': {
-                          backgroundColor: box.estado === 'DISPONIBLE' ? 'primary.dark' : 'success.dark',
-                        },
-                      }}
-                    >
-                      {box.ocupado_por_atencion 
-                        ? '🔒 Ocupado por Atención' 
-                        : box.estado === 'DISPONIBLE' 
-                          ? 'Marcar como Ocupado' 
-                          : 'Marcar como Libre'}
-                    </Button>
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                      {box.estado === 'DISPONIBLE' ? (
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          size="small"
+                          onClick={() => cambiarEstadoBox(box, 'OCUPADO')}
+                        >
+                          Ocupar
+                        </Button>
+                      ) : box.estado === 'OCUPADO' ? (
+                        <>
+                          <Button
+                            variant="outlined"
+                            fullWidth
+                            size="small"
+                            onClick={() => cambiarEstadoBox(box, 'DISPONIBLE')}
+                            disabled={box.ocupado_por_atencion || box.ocupacion_manual_activa}
+                          >
+                            Liberar
+                          </Button>
+                          {(box.ocupado_por_atencion || box.ocupacion_manual_activa) && (
+                            <Tooltip title="Ver información">
+                              <IconButton size="small" onClick={() => handleVerInfoAtencion(box)}>
+                                <InfoIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </>
+                      ) : null}
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -563,23 +657,33 @@ const EstadoBoxes = () => {
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                El box se liberará automáticamente.
+                El box se liberará automáticamente después del tiempo seleccionado.
               </Typography>
+              
               <TextField
                 select
                 fullWidth
-                label="Duración estimada"
+                label="Duración"
                 value={duracionEstimada}
                 onChange={(e) => setDuracionEstimada(e.target.value)}
+                sx={{ mb: 2 }}
               >
-                <MenuItem value={15}>15 minutos</MenuItem>
-                <MenuItem value={20}>20 minutos</MenuItem>
-                <MenuItem value={30}>30 minutos</MenuItem>
-                <MenuItem value={45}>45 minutos</MenuItem>
-                <MenuItem value={60}>1 hora</MenuItem>
-                <MenuItem value={90}>1.5 horas</MenuItem>
-                <MenuItem value={120}>2 horas</MenuItem>
+                {duracionesDisponibles.map((minutos) => (
+                  <MenuItem key={minutos} value={minutos}>
+                    {minutos} minutos
+                  </MenuItem>
+                ))}
               </TextField>
+
+              <TextField
+                fullWidth
+                label="Motivo (opcional)"
+                value={motivoOcupacion}
+                onChange={(e) => setMotivoOcupacion(e.target.value)}
+                placeholder="Ej: Limpieza, Mantenimiento, etc."
+                multiline
+                rows={2}
+              />
             </Box>
           </DialogContent>
           <DialogActions>
@@ -588,17 +692,20 @@ const EstadoBoxes = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Info Atención */}
+        {/* Diálogo Info Atención/Ocupación */}
         <Dialog open={dialogInfoAtencion} onClose={handleCerrarInfoAtencion} maxWidth="sm" fullWidth>
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <MedicalIcon color="primary" />
-              Información de Atención - {boxSeleccionado?.numero}
+              {boxSeleccionado?.ocupado_por_atencion ? <MedicalIcon color="primary" /> : <TimerIcon color="warning" />}
+              Información - {boxSeleccionado?.numero}
             </Box>
           </DialogTitle>
           <DialogContent>
             {boxSeleccionado?.atencion_actual && (
               <Box sx={{ pt: 2 }}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Atención Programada
+                </Typography>
                 <Typography variant="body1" gutterBottom>
                   <strong>Paciente:</strong> {boxSeleccionado.atencion_actual.paciente}
                 </Typography>
@@ -618,6 +725,44 @@ const EstadoBoxes = () => {
                 <Typography variant="body1" gutterBottom>
                   <strong>Estado:</strong> <Chip label={boxSeleccionado.atencion_actual.estado} size="small" color="primary" />
                 </Typography>
+              </Box>
+            )}
+
+            {boxSeleccionado?.ocupacion_manual_activa && !boxSeleccionado?.ocupado_por_atencion && (
+              <Box sx={{ pt: 2 }}>
+                <Typography variant="h6" gutterBottom color="warning.main">
+                  Ocupación Manual
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Duración:</strong> {boxSeleccionado.ocupacion_manual_activa.duracion_minutos} minutos
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Inicio:</strong> {new Date(boxSeleccionado.ocupacion_manual_activa.fecha_inicio).toLocaleString('es-CL')}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Fin programado:</strong> {new Date(boxSeleccionado.ocupacion_manual_activa.fecha_fin_programada).toLocaleString('es-CL')}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Tiempo restante:</strong> {Math.round(boxSeleccionado.ocupacion_manual_activa.minutos_restantes)} minutos
+                </Typography>
+                {boxSeleccionado.ocupacion_manual_activa.motivo && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="body1" gutterBottom>
+                      <strong>Motivo:</strong> {boxSeleccionado.ocupacion_manual_activa.motivo}
+                    </Typography>
+                  </>
+                )}
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                    Progreso
+                  </Typography>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={calcularProgresoOcupacion(boxSeleccionado.ocupacion_manual_activa)}
+                    sx={{ height: 8, borderRadius: 1 }}
+                  />
+                </Box>
               </Box>
             )}
           </DialogContent>

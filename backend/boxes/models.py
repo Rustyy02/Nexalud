@@ -187,3 +187,66 @@ class Box(models.Model):
         """
         return (self.especialidad == especialidad or 
                 self.especialidad == 'MULTIUSO') and self.obtener_disponibilidad()
+
+
+class OcupacionManual(models.Model):
+    """
+    Modelo para registrar ocupaciones manuales de boxes sin atención médica.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    box = models.ForeignKey(
+        'Box',
+        on_delete=models.CASCADE,
+        related_name='ocupaciones_manuales'
+    )
+    duracion_minutos = models.PositiveIntegerField(
+        help_text="Duración de la ocupación en minutos"
+    )
+    fecha_inicio = models.DateTimeField(
+        default=timezone.now,
+        help_text="Momento en que se ocupó el box"
+    )
+    fecha_fin_programada = models.DateTimeField(
+        help_text="Momento programado para liberar el box"
+    )
+    fecha_fin_real = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Momento real en que se liberó el box"
+    )
+    motivo = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Motivo de la ocupación manual"
+    )
+    activa = models.BooleanField(
+        default=True,
+        help_text="Si la ocupación sigue activa"
+    )
+
+    class Meta:
+        db_table = 'ocupaciones_manuales'
+        verbose_name = 'Ocupación Manual'
+        verbose_name_plural = 'Ocupaciones Manuales'
+        ordering = ['-fecha_inicio']
+        indexes = [
+            models.Index(fields=['box', 'activa']),
+            models.Index(fields=['fecha_fin_programada']),
+        ]
+    
+    def __str__(self):
+        return f"Ocupación {self.box.numero} - {self.duracion_minutos} min"
+    
+    def finalizar(self):
+        """Finaliza la ocupación manual y libera el box"""
+        if self.activa:
+            self.fecha_fin_real = timezone.now()
+            self.activa = False
+            self.box.liberar(self.fecha_fin_real)
+            self.save()
+            return True
+        return False
+    
+    def debe_finalizar(self):
+        """Verifica si la ocupación debe finalizar según la hora programada"""
+        return timezone.now() >= self.fecha_fin_programada and self.activa
