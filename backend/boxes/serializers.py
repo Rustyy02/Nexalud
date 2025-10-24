@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Box
+from .models import Box, OcupacionManual
 
 
 class BoxSerializer(serializers.ModelSerializer):
@@ -10,6 +10,7 @@ class BoxSerializer(serializers.ModelSerializer):
     ocupacion_actual = serializers.SerializerMethodField()
     porcentaje_ocupacion_hoy = serializers.SerializerMethodField()
     tiempo_ocupado_formateado = serializers.SerializerMethodField()
+    ocupacion_manual_activa = serializers.SerializerMethodField()
     
     class Meta:
         model = Box
@@ -34,6 +35,7 @@ class BoxSerializer(serializers.ModelSerializer):
             'disponibilidad',
             'ocupacion_actual',
             'porcentaje_ocupacion_hoy',
+            'ocupacion_manual_activa',
         ]
         read_only_fields = [
             'id',
@@ -74,6 +76,29 @@ class BoxSerializer(serializers.ModelSerializer):
             }
         return {'horas': 0, 'minutos': 0, 'total_minutos': 0}
 
+    def get_ocupacion_manual_activa(self, obj):
+            """Información de ocupación manual activa"""
+            from django.utils import timezone
+            
+            ocupacion = OcupacionManual.objects.filter(
+                box=obj,
+                activa=True
+            ).first()
+            
+            if ocupacion:
+                ahora = timezone.now()
+                tiempo_restante = ocupacion.fecha_fin_programada - ahora
+                minutos_restantes = max(0, tiempo_restante.total_seconds() / 60)
+                
+                return {
+                    'id': str(ocupacion.id),
+                    'duracion_minutos': ocupacion.duracion_minutos,
+                    'fecha_inicio': ocupacion.fecha_inicio,
+                    'fecha_fin_programada': ocupacion.fecha_fin_programada,
+                    'motivo': ocupacion.motivo,
+                    'minutos_restantes': round(minutos_restantes, 1),
+                }
+            return None
 
 class BoxListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para lista de boxes"""
@@ -218,3 +243,32 @@ class BoxConAtencionesSerializer(serializers.ModelSerializer):
     def get_ocupado_por_atencion(self, obj):
         """Verifica si el box está ocupado por una atención programada"""
         return self.get_atencion_actual(obj) is not None
+    
+class OcupacionManualSerializer(serializers.ModelSerializer):
+    """Serializer para ocupaciones manuales"""
+    tiempo_restante_minutos = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = OcupacionManual
+        fields = [
+            'id',
+            'box',
+            'duracion_minutos',
+            'fecha_inicio',
+            'fecha_fin_programada',
+            'fecha_fin_real',
+            'motivo',
+            'activa',
+            'tiempo_restante_minutos',
+        ]
+        read_only_fields = ['id', 'fecha_inicio', 'fecha_fin_real']
+    
+    def get_tiempo_restante_minutos(self, obj):
+        """Calcula el tiempo restante para la ocupación"""
+        if obj.activa:
+            from django.utils import timezone
+            ahora = timezone.now()
+            if ahora < obj.fecha_fin_programada:
+                diferencia = obj.fecha_fin_programada - ahora
+                return max(0, round(diferencia.total_seconds() / 60, 1))
+        return 0

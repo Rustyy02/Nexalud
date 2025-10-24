@@ -127,8 +127,8 @@ export const boxesService = {
   getById: (id) => api.get(`/boxes/${id}/`),
   create: (data) => api.post('/boxes/', data),
   update: (id, data) => api.patch(`/boxes/${id}/`, data),
-  ocupar: (id, timestamp = null) => 
-    api.post(`/boxes/${id}/ocupar/`, timestamp ? { timestamp } : {}),
+  ocupar: (id, duracion_minutos, motivo = '') => 
+    api.post(`/boxes/${id}/ocupar/`, { duracion_minutos, motivo }),
   liberar: (id, timestamp = null) => 
     api.post(`/boxes/${id}/liberar/`, timestamp ? { timestamp } : {}),
   getDisponibles: (especialidad = null) => {
@@ -146,6 +146,9 @@ export const boxesService = {
   
   // NUEVO ENDPOINT
   sincronizarEstados: () => api.get('/boxes/sincronizar_estados/'),
+  verificarYLiberar: () => api.get('/boxes/verificar_y_liberar/'),
+  liberarOcupacionesManuales: () => 
+    api.post('/boxes/liberar_ocupaciones_manuales/'),
 };
 // ============================================
 // SERVICIOS DE ATENCIONES

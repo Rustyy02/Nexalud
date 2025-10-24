@@ -269,7 +269,7 @@ class Atencion(models.Model):
             self.save()
             return True
         return False
-    
+
     def finalizar_cronometro(self):
         """
         Finaliza el cronómetro y calcula la duración real.
