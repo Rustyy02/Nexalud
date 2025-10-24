@@ -306,76 +306,37 @@ const Dashboard = () => {
 
         {/* Gráficos */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Gráfico de Tendencias */}
+          {/* Gráfico de Tendencias - Temporary Simplified Version */}
           <Grid item xs={12} md={8}>
             <Paper elevation={3} sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight="600" gutterBottom>
                 Tendencias - Últimos 7 Días
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={datosTendencias}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" />
-                  <YAxis />
-                  <RechartsTooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="Pacientes" 
-                    stroke="#8884d8" 
-                    strokeWidth={2}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="Atenciones" 
-                    stroke="#82ca9d" 
-                    strokeWidth={2}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="Completadas" 
-                    stroke="#ffc658" 
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography color="text.secondary">
+                  Gráfico temporalmente no disponible
+                </Typography>
+              </Box>
             </Paper>
           </Grid>
 
-          {/* Gráfico de Urgencias */}
+          {/* Gráfico de Urgencias - Temporary Simplified Version */}
           <Grid item xs={12} md={4}>
             <Paper elevation={3} sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight="600" gutterBottom>
                 Pacientes por Urgencia
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={datosUrgencia}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => 
-                      `${name}: ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {datosUrgencia.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={COLORS[index % COLORS.length]} 
-                      />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 300 }}>
+                {datosUrgencia.map((item, index) => (
+                  <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2">{item.name}</Typography>
+                    <Chip label={item.value} size="small" />
+                  </Box>
+                ))}
+              </Box>
             </Paper>
           </Grid>
         </Grid>
-
         {/* Top Médicos */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={6}>
