@@ -20,19 +20,14 @@ import {
   MeetingRoom as BoxIcon,
   MedicalServices as AtencionIcon,
   Timeline as RutaIcon,
-  LocalHospital as MedicoIcon,
   Refresh as RefreshIcon,
   Warning as WarningIcon,
-  CheckCircle as CheckIcon,
-  TrendingUp as TrendingIcon,
 } from '@mui/icons-material';
 import { dashboardService } from '../services/api';
 import Navbar from './Navbar';
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
@@ -306,37 +301,118 @@ const Dashboard = () => {
 
         {/* Gráficos */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Gráfico de Tendencias - Temporary Simplified Version */}
+          {/* Gráfico de Tendencias */}
           <Grid item xs={12} md={8}>
-            <Paper elevation={3} sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight="600" gutterBottom>
+            <Paper elevation={3} sx={{ p: 3, minHeight: 500 }}>
+              <Typography variant="h6" fontWeight="600" gutterBottom sx={{ mb: 2 }}>
                 Tendencias - Últimos 7 Días
               </Typography>
-              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography color="text.secondary">
-                  Gráfico temporalmente no disponible
-                </Typography>
+              <Box sx={{ width: '100%', height: 420, pt: 2 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={datosTendencias}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="fecha" 
+                      tick={{ fontSize: 13 }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 13 }}
+                    />
+                    <RechartsTooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #ccc',
+                        borderRadius: 8,
+                        padding: 10
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: 10 }}
+                      iconType="line"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Pacientes" 
+                      stroke="#8884d8" 
+                      strokeWidth={3}
+                      dot={{ r: 5 }}
+                      activeDot={{ r: 8 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Atenciones" 
+                      stroke="#82ca9d" 
+                      strokeWidth={3}
+                      dot={{ r: 5 }}
+                      activeDot={{ r: 8 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Completadas" 
+                      stroke="#ffc658" 
+                      strokeWidth={3}
+                      dot={{ r: 5 }}
+                      activeDot={{ r: 8 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </Box>
             </Paper>
           </Grid>
 
-          {/* Gráfico de Urgencias - Temporary Simplified Version */}
+          {/* Gráfico de Urgencias */}
           <Grid item xs={12} md={4}>
-            <Paper elevation={3} sx={{ p: 3 }}>
-              <Typography variant="h6" fontWeight="600" gutterBottom>
+            <Paper elevation={3} sx={{ p: 3, minHeight: 500 }}>
+              <Typography variant="h6" fontWeight="600" gutterBottom sx={{ mb: 2 }}>
                 Pacientes por Urgencia
               </Typography>
-              <Box sx={{ height: 300 }}>
-                {datosUrgencia.map((item, index) => (
-                  <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">{item.name}</Typography>
-                    <Chip label={item.value} size="small" />
-                  </Box>
-                ))}
+              <Box sx={{ 
+                width: '100%', 
+                height: 420, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                pt: 2
+              }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={datosUrgencia}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => 
+                        `${name}: ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={110}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {datosUrgencia.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]} 
+                        />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #ccc',
+                        borderRadius: 8,
+                        padding: 10
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </Box>
             </Paper>
           </Grid>
         </Grid>
+
         {/* Top Médicos */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={6}>
