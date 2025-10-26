@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders', # Para React
     'channels', # Para el websocket
+    'tipos_atencion',
     'pacientes',
     'rutas_clinicas',
     'boxes',

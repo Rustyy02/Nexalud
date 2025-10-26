@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import Paciente
 
+ESTADO_CHOICES = Paciente.ESTADO_CHOICES
 
 class PacienteSerializer(serializers.ModelSerializer):
     """
@@ -382,7 +383,7 @@ class PacienteEstadoSerializer(serializers.Serializer):
     """
     Serializer para actualizar solo el estado del paciente.
     """
-    estado_actual = serializers.ChoiceField(choices=Paciente.ESTADO_CHOICES)
+    estado_actual = serializers.ChoiceField(choices=ESTADO_CHOICES)
     
     def update(self, instance, validated_data):
         instance.actualizar_estado(validated_data['estado_actual'])

@@ -7,7 +7,7 @@ class RutaClinicaAdminForm(forms.ModelForm):
     """Form personalizado para el admin de RutaClinica"""
     
     etapas_seleccionadas = forms.MultipleChoiceField(
-        choices=RutaClinica.ETAPAS_CHOICES,
+        choices=RutaClinica.ESTADO_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
         help_text="Seleccione las etapas del proceso clínico en orden"
