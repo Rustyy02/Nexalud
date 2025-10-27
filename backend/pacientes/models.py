@@ -1,4 +1,4 @@
-# backend/pacientes/models.py - VERSIÓN COMPLETA ACTUALIZADA
+# backend/pacientes/models.py - VERSIÓN ACTUALIZADA CON ETAPA_ACTUAL
 import uuid
 import re
 import hashlib
@@ -12,16 +12,35 @@ from datetime import date
 class Paciente(models.Model):
     """
     Modelo completo para gestionar pacientes en el sistema Nexalud.
-    Incluye información personal, médica, contacto y seguro médico chileno.
+    
+    CAMBIOS IMPORTANTES:
+    - estado_actual: Estado general del sistema (EN_ESPERA, ACTIVO, INACTIVO, etc.)
+    - etapa_actual: Etapa específica del flujo clínico (sincronizada con RutaClinica)
     """
     
+    # ============================================
+    # ESTADOS DEL SISTEMA (Estado General)
+    # ============================================
     ESTADO_CHOICES = [
-        ('EN_ESPERA', 'En Espera'),
-        ('EN_CONSULTA', 'En Consulta'),
-        ('EN_EXAMEN', 'En Exámen'),
-        ('PROCESO_PAUSADO', 'Proceso Pausado'),
-        ('ALTA_COMPLETA', 'Alta Completa'),
-        ('PROCESO_INCOMPLETO', 'Proceso Incompleto'),
+        ('EN_ESPERA', 'En Espera'),           # Paciente esperando atención
+        ('ACTIVO', 'Activo'),                 # Paciente en proceso activo
+        ('PROCESO_PAUSADO', 'Proceso Pausado'), # Proceso temporalmente detenido
+        ('ALTA_COMPLETA', 'Alta Completa'),   # Proceso completado exitosamente
+        ('ALTA_MEDICA', 'Alta Médica'),       # Alta por decisión médica
+        ('PROCESO_INCOMPLETO', 'Proceso Incompleto'), # Proceso no completado
+        ('INACTIVO', 'Inactivo'),             # Paciente inactivo en el sistema
+    ]
+    
+    # ============================================
+    # ETAPAS DEL FLUJO CLÍNICO (Sincronizado con RutaClinica)
+    # ============================================
+    ETAPA_CHOICES = [
+        ('CONSULTA_MEDICA', 'Consulta Médica'),
+        ('PROCESO_EXAMEN', 'Proceso del Examen'),
+        ('REVISION_EXAMEN', 'Revisión del Examen'),
+        ('HOSPITALIZACION', 'Hospitalización'),
+        ('OPERACION', 'Operación'),
+        ('ALTA', 'Alta Médica'),
     ]
     
     URGENCIA_CHOICES = [
@@ -87,7 +106,7 @@ class Paciente(models.Model):
     
     # Validadores personalizados
     rut_validator = RegexValidator(
-        regex=r'^\d{1,2}\.?\d{3}\.?\d{3}-[0-9kK]$',  # ← CAMBIADO: \d{1,3} en lugar de \d{1,2}
+        regex=r'^\d{1,2}\.?\d{3}\.?\d{3}-[0-9kK]$',
         message='El RUT debe estar en formato chileno: XX.XXX.XXX-X (ejemplo: 21.376.932-3)'
     )
     
@@ -102,7 +121,6 @@ class Paciente(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # RUT Chileno (con formato y dígito verificador)
     rut = models.CharField(
         max_length=16,
         unique=True,
@@ -111,7 +129,6 @@ class Paciente(models.Model):
         help_text="RUT en formato chileno XX.XXX.XXX-X"
     )
     
-    # Hash del RUT (para búsquedas rápidas y privacidad)
     identificador_hash = models.CharField(
         max_length=64, 
         unique=True,
@@ -191,7 +208,7 @@ class Paciente(models.Model):
     telefono_emergencia = models.CharField(
         max_length=13,
         blank=True,
-       null=True,
+        null=True,
         validators=[telefono_validator],
         help_text="Teléfono de contacto de emergencia (opcional)"
     )
@@ -308,7 +325,7 @@ class Paciente(models.Model):
     )
     
     # ============================================
-    # ESTADO Y SEGUIMIENTO
+    # ESTADO Y SEGUIMIENTO - ✅ ACTUALIZADO
     # ============================================
     
     fecha_ingreso = models.DateTimeField(
@@ -316,10 +333,21 @@ class Paciente(models.Model):
         help_text="Fecha y hora de ingreso al sistema"
     )
     
+    # ✅ NUEVO: Estado general del sistema
     estado_actual = models.CharField(
         max_length=20, 
         choices=ESTADO_CHOICES,
-        default='EN_ESPERA'
+        default='EN_ESPERA',
+        help_text="Estado general del paciente en el sistema"
+    )
+    
+    # ✅ NUEVO: Etapa del flujo clínico (sincronizada con RutaClinica)
+    etapa_actual = models.CharField(
+        max_length=30,
+        choices=ETAPA_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Etapa actual del flujo clínico (sincronizada con RutaClinica)"
     )
     
     nivel_urgencia = models.CharField(
@@ -350,13 +378,46 @@ class Paciente(models.Model):
             models.Index(fields=['rut']),
             models.Index(fields=['identificador_hash']),
             models.Index(fields=['estado_actual']),
+            models.Index(fields=['etapa_actual']),  # ✅ NUEVO ÍNDICE
             models.Index(fields=['fecha_ingreso']),
             models.Index(fields=['nivel_urgencia']),
             models.Index(fields=['apellido_paterno', 'apellido_materno']),
         ]
     
     def __str__(self):
-        return f"{self.nombre_completo} - RUT: {self.rut} - {self.get_estado_actual_display()}"
+        etapa_str = f" - {self.get_etapa_actual_display()}" if self.etapa_actual else ""
+        return f"{self.nombre_completo} - RUT: {self.rut} - {self.get_estado_actual_display()}{etapa_str}"
+    
+    # ============================================
+    # ✅ NUEVOS MÉTODOS PARA GESTIÓN DE ETAPA
+    # ============================================
+    
+    def actualizar_etapa(self, nueva_etapa):
+        """
+        Actualiza la etapa actual del paciente.
+        Este método es llamado desde RutaClinica cuando avanza/retrocede.
+        """
+        if nueva_etapa in dict(self.ETAPA_CHOICES):
+            self.etapa_actual = nueva_etapa
+            
+            # Actualizar estado_actual según la etapa
+            if nueva_etapa == 'ALTA':
+                self.estado_actual = 'ALTA_COMPLETA'
+            else:
+                self.estado_actual = 'ACTIVO'
+            
+            self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
+            return True
+        return False
+    
+    def limpiar_etapa(self):
+        """Limpia la etapa cuando se completa o cancela la ruta"""
+        self.etapa_actual = None
+        self.save(update_fields=['etapa_actual', 'fecha_actualizacion'])
+    
+    def esta_en_proceso_clinico(self):
+        """Verifica si el paciente está en un proceso clínico activo"""
+        return self.etapa_actual is not None
     
     # ============================================
     # PROPIEDADES Y MÉTODOS CALCULADOS
@@ -421,7 +482,6 @@ class Paciente(models.Model):
         if self.rut and not self.identificador_hash:
             self.identificador_hash = self.generar_hash_rut(self.rut)
         elif not self.identificador_hash:
-            # Si no hay RUT, generar hash del ID temporal
             import uuid
             temp_id = str(uuid.uuid4())
             self.identificador_hash = hashlib.sha256(temp_id.encode()).hexdigest()
@@ -441,7 +501,6 @@ class Paciente(models.Model):
         except Exception as e:
             print(f"Error al guardar paciente: {e}")
             raise
-        
     
     # ============================================
     # MÉTODOS DE VALIDACIÓN RUT CHILENO
@@ -449,10 +508,7 @@ class Paciente(models.Model):
     
     @staticmethod
     def validar_rut(rut):
-        """
-        Valida un RUT chileno con su dígito verificador.
-        Formato esperado: XX.XXX.XXX-X
-        """
+        """Valida un RUT chileno con su dígito verificador"""
         rut_limpio = rut.replace('.', '').replace('-', '').replace(' ', '').upper()
 
         if len(rut_limpio) < 2:
@@ -483,26 +539,19 @@ class Paciente(models.Model):
         else:
             dv_esperado = str(dv_calculado)
 
-        # Normalizar ambas comparaciones
         return dv_esperado == dv.upper()
     
     @staticmethod
     def formatear_rut(rut_sin_formato):
-        """
-        Formatea un RUT sin puntos ni guión al formato chileno XX.XXX.XXX-X
-        Ejemplo: 12345678K -> 12.345.678-K
-        """
-        # Limpiar el RUT
+        """Formatea un RUT sin puntos ni guión al formato chileno XX.XXX.XXX-X"""
         rut_limpio = rut_sin_formato.replace('.', '').replace('-', '').upper()
         
         if len(rut_limpio) < 2:
             return rut_sin_formato
         
-        # Separar cuerpo y dígito verificador
         cuerpo = rut_limpio[:-1]
         dv = rut_limpio[-1]
         
-        # Formatear con puntos
         cuerpo_formateado = ""
         for i, digito in enumerate(reversed(cuerpo)):
             if i > 0 and i % 3 == 0:
@@ -529,7 +578,6 @@ class Paciente(models.Model):
         hoy = date.today()
         edad = hoy.year - self.fecha_nacimiento.year
         
-        # Ajustar si aún no ha cumplido años este año
         if (hoy.month, hoy.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day):
             edad -= 1
         
@@ -643,10 +691,12 @@ class Paciente(models.Model):
             
             # Estado
             'estado_actual': self.get_estado_actual_display(),
+            'etapa_actual': self.get_etapa_actual_display() if self.etapa_actual else "Sin etapa asignada",
             'nivel_urgencia': self.get_nivel_urgencia_display(),
             'fecha_ingreso': self.fecha_ingreso,
             'tiempo_en_sistema': self.calcular_tiempo_total(),
             'activo': self.activo,
+            'esta_en_proceso_clinico': self.esta_en_proceso_clinico(),
         }
     
     def obtener_nombre_display(self):

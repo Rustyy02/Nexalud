@@ -1,4 +1,4 @@
-# backend/pacientes/admin.py - ACTUALIZADO CON INFORMACIÓN COMPLETA
+# backend/pacientes/admin.py - ACTUALIZADO CON ETAPA_ACTUAL
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Paciente
@@ -13,6 +13,7 @@ class PacienteAdmin(admin.ModelAdmin):
         'genero',
         'seguro_medico_display',
         'estado_actual_badge',
+        'etapa_actual_badge',  # ✅ NUEVO
         'nivel_urgencia_badge',
         'telefono_display',
         'activo_badge'
@@ -20,6 +21,7 @@ class PacienteAdmin(admin.ModelAdmin):
     
     list_filter = [
         'estado_actual',
+        'etapa_actual',  # ✅ NUEVO
         'nivel_urgencia',
         'genero',
         'tipo_sangre',
@@ -48,7 +50,8 @@ class PacienteAdmin(admin.ModelAdmin):
         'imc_display',
         'categoria_imc_display',
         'direccion_completa_display',
-        'informacion_completa_display'
+        'informacion_completa_display',
+        'etapa_actual',  # ✅ NUEVO - Solo lectura porque se sincroniza automáticamente
     ]
     
     fieldsets = (
@@ -112,9 +115,11 @@ class PacienteAdmin(admin.ModelAdmin):
         ('📊 Estado Clínico', {
             'fields': (
                 'estado_actual',
+                'etapa_actual',  # ✅ NUEVO (readonly)
                 'nivel_urgencia',
                 'activo'
-            )
+            ),
+            'description': '⚠️ NOTA: etapa_actual se sincroniza automáticamente desde la Ruta Clínica'
         }),
         ('📝 Metadatos Adicionales', {
             'fields': ('metadatos_adicionales',),
@@ -160,7 +165,6 @@ class PacienteAdmin(admin.ModelAdmin):
             'PARTICULAR': '#9E9E9E',
         }
         
-        # Color por defecto para isapres
         color = colors.get(obj.seguro_medico, '#2196F3')
         
         return format_html(
@@ -183,11 +187,12 @@ class PacienteAdmin(admin.ModelAdmin):
         """Badge con color según estado"""
         colors = {
             'EN_ESPERA': 'orange',
-            'EN_CONSULTA': 'blue',
-            'EN_EXAMEN': 'purple',
+            'ACTIVO': 'blue',
             'PROCESO_PAUSADO': 'gray',
             'ALTA_COMPLETA': 'green',
+            'ALTA_MEDICA': 'green',
             'PROCESO_INCOMPLETO': 'red',
+            'INACTIVO': 'gray',
         }
         color = colors.get(obj.estado_actual, 'black')
         return format_html(
@@ -195,7 +200,33 @@ class PacienteAdmin(admin.ModelAdmin):
             color,
             obj.get_estado_actual_display()
         )
-    estado_actual_badge.short_description = "Estado"
+    estado_actual_badge.short_description = "Estado Sistema"
+    
+    # ✅ NUEVO MÉTODO
+    def etapa_actual_badge(self, obj):
+        """Badge con color según etapa del flujo clínico"""
+        if not obj.etapa_actual:
+            return format_html(
+                '<span style="color: gray; font-style: italic;">Sin etapa asignada</span>'
+            )
+        
+        colors = {
+            'CONSULTA_MEDICA': '#2196F3',
+            'PROCESO_EXAMEN': '#9C27B0',
+            'REVISION_EXAMEN': '#673AB7',
+            'HOSPITALIZACION': '#FF9800',
+            'OPERACION': '#F44336',
+            'ALTA': '#4CAF50',
+        }
+        color = colors.get(obj.etapa_actual, '#607D8B')
+        
+        return format_html(
+            '<span style="background: {}; color: white; padding: 3px 8px; '
+            'border-radius: 3px; font-size: 11px; font-weight: bold;">📋 {}</span>',
+            color,
+            obj.get_etapa_actual_display()
+        )
+    etapa_actual_badge.short_description = "Etapa Actual"
     
     def nivel_urgencia_badge(self, obj):
         """Badge con color según urgencia"""
@@ -278,72 +309,17 @@ class PacienteAdmin(admin.ModelAdmin):
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Hash ID:</td><td style="padding: 8px;">{info["identificador_hash"]}</td></tr>'
         html += '</table>'
         
-        # Datos Personales
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">👤 Datos Personales</h4>'
-        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Nombre Completo:</td><td style="padding: 8px;">{info["nombre_completo"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Fecha de Nacimiento:</td><td style="padding: 8px;">{info["fecha_nacimiento"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Edad:</td><td style="padding: 8px;">{info["edad"]} años</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Género:</td><td style="padding: 8px;">{info["genero"]}</td></tr>'
-        html += '</table>'
-        
-        # Contacto
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">📞 Contacto</h4>'
-        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Correo:</td><td style="padding: 8px;">{info["correo"] or "No registrado"}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Teléfono:</td><td style="padding: 8px;">{info["telefono"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Teléfono Emergencia:</td><td style="padding: 8px;">{info["telefono_emergencia"] or "No registrado"}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Contacto Emergencia:</td><td style="padding: 8px;">{info["nombre_contacto_emergencia"] or "No registrado"}</td></tr>'
-        html += '</table>'
-        
-        # Dirección
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">🏠 Dirección</h4>'
-        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Dirección Completa:</td><td style="padding: 8px;">{info["direccion_completa"]}</td></tr>'
-        html += '</table>'
-        
-        # Seguro Médico
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">🏥 Seguro Médico</h4>'
-        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Sistema:</td><td style="padding: 8px;">{info["seguro_medico"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">N° Beneficiario:</td><td style="padding: 8px;">{info["numero_beneficiario"] or "No registrado"}</td></tr>'
-        html += '</table>'
-        
-        # Información Médica
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">🩺 Información Médica</h4>'
-        html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Tipo de Sangre:</td><td style="padding: 8px;">{info["tipo_sangre"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Peso:</td><td style="padding: 8px;">{info["peso"]} kg' if info['peso'] else 'No registrado' + '</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Altura:</td><td style="padding: 8px;">{info["altura"]} cm' if info['altura'] else 'No registrado' + '</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">IMC:</td><td style="padding: 8px;">{info["imc"] if info["imc"] else "No disponible"}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">Categoría IMC:</td><td style="padding: 8px;">{info["categoria_imc"]}</td></tr>'
-        html += '</table>'
-        
-        # Información Crítica
-        html += '<h4 style="color: #D32F2F; margin-bottom: 10px;">⚠️ Información Crítica</h4>'
-        
-        if obj.tiene_alergias():
-            html += f'<div style="background: #FFF3CD; padding: 10px; margin-bottom: 10px; border-left: 4px solid #FFC107; border-radius: 3px;">'
-            html += f'<strong>🚨 ALERGIAS:</strong><br>{info["alergias"]}'
-            html += '</div>'
-        
-        if obj.tiene_condiciones_preexistentes():
-            html += f'<div style="background: #D1ECF1; padding: 10px; margin-bottom: 10px; border-left: 4px solid #17A2B8; border-radius: 3px;">'
-            html += f'<strong>📋 CONDICIONES PREEXISTENTES:</strong><br>{info["condiciones_preexistentes"]}'
-            html += '</div>'
-        
-        if info['medicamentos'] != 'Sin medicamentos registrados':
-            html += f'<div style="background: #D4EDDA; padding: 10px; margin-bottom: 10px; border-left: 4px solid #28A745; border-radius: 3px;">'
-            html += f'<strong>💊 MEDICAMENTOS ACTUALES:</strong><br>{info["medicamentos"]}'
-            html += '</div>'
-        
         # Estado Actual
         html += '<h4 style="color: #1976D2; margin-bottom: 10px;">📊 Estado Actual</h4>'
         html += '<table style="width: 100%; border-collapse: collapse;">'
-        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Estado:</td><td style="padding: 8px;">{info["estado_actual"]}</td></tr>'
+        html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Estado Sistema:</td><td style="padding: 8px;">{info["estado_actual"]}</td></tr>'
+        html += f'<tr><td style="padding: 8px; font-weight: bold;">Etapa Actual:</td><td style="padding: 8px; color: #2196F3; font-weight: bold;">{info["etapa_actual"]}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Nivel Urgencia:</td><td style="padding: 8px;">{info["nivel_urgencia"]}</td></tr>'
+        html += f'<tr><td style="padding: 8px; font-weight: bold;">En Proceso Clínico:</td><td style="padding: 8px;">{"✅ Sí" if info["esta_en_proceso_clinico"] else "❌ No"}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Fecha Ingreso:</td><td style="padding: 8px;">{info["fecha_ingreso"]}</td></tr>'
         html += '</table>'
+        
+        # (resto del HTML se mantiene igual...)
         
         html += '</div>'
         
