@@ -1,4 +1,4 @@
-// frontend/src/components/Home.jsx - ACTUALIZADO CON CAMPOS CORRECTOS
+// frontend/src/components/Home.jsx - ACTUALIZADO CON SINCRONIZACIÓN DE ETAPA
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -25,6 +25,7 @@ import {
   LinearProgress,
   TextField,
   InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -37,6 +38,8 @@ import {
   Warning as WarningIcon,
   Search as SearchIcon,
   Clear as ClearIcon,
+  Timeline as TimelineIcon,
+  LocalHospital as HospitalIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService, boxesService } from '../services/api';
@@ -64,7 +67,6 @@ const Home = () => {
   const cargarDatos = async () => {
     try {
       setError('');
-      // CORRECCIÓN: Añadir timestamp para evitar caché
       const timestamp = new Date().getTime();
       const [pacientesRes, boxesRes] = await Promise.all([
         pacientesService.getAll({ activo: true, _t: timestamp }),
@@ -117,10 +119,12 @@ const Home = () => {
   const getColorEstado = (estado) => {
     const colores = {
       'EN_ESPERA': 'warning',
-      'EN_CONSULTA': 'info',
-      'EN_EXAMEN': 'primary',
+      'ACTIVO': 'success',
       'PROCESO_PAUSADO': 'default',
       'ALTA_COMPLETA': 'success',
+      'ALTA_MEDICA': 'success',
+      'PROCESO_INCOMPLETO': 'error',
+      'INACTIVO': 'default',
     };
     return colores[estado] || 'default';
   };
@@ -135,6 +139,21 @@ const Home = () => {
     return colores[urgencia] || 'default';
   };
 
+  // ============================================
+  // 🆕 NUEVO: Obtener color para la etapa clínica
+  // ============================================
+  const getColorEtapa = (etapa) => {
+    const colores = {
+      'CONSULTA_MEDICA': 'primary',
+      'PROCESO_EXAMEN': 'secondary',
+      'REVISION_EXAMEN': 'info',
+      'HOSPITALIZACION': 'warning',
+      'OPERACION': 'error',
+      'ALTA': 'success',
+    };
+    return colores[etapa] || 'default';
+  };
+
   const getColorBox = (estado) => {
     const colores = {
       'DISPONIBLE': 'success',
@@ -145,11 +164,7 @@ const Home = () => {
     return colores[estado] || 'default';
   };
 
-  // ============================================
-  // FUNCIÓN ACTUALIZADA - Obtener datos del paciente desde el backend
-  // ============================================
   const obtenerDatosPaciente = (paciente) => {
-    // Validación de paciente
     if (!paciente) {
       return {
         nombre: 'Paciente desconocido',
@@ -159,13 +174,11 @@ const Home = () => {
       };
     }
 
-    // Validar que metadatos_adicionales sea un objeto
     const metadatos = (typeof paciente.metadatos_adicionales === 'object' && 
                       !Array.isArray(paciente.metadatos_adicionales)) 
                       ? paciente.metadatos_adicionales 
                       : {};
 
-    // Obtener identificador con validación
     const identificador = paciente.identificador_hash || paciente.id || '';
     const identificadorCorto = identificador ? identificador.substring(0, 8) : 'SIN-ID';
 
@@ -186,32 +199,16 @@ const Home = () => {
     };
   };
 
-  // Filtrar pacientes según el término de búsqueda
   const pacientesFiltrados = pacientes.filter((paciente) => {
     if (!terminoBusqueda.trim()) return true;
     
     const termino = terminoBusqueda.toLowerCase().trim();
     const datos = obtenerDatosPaciente(paciente);
     
-    // Buscar en RUT
-    if (datos.rut.toLowerCase().includes(termino)) {
-      return true;
-    }
-    
-    // Buscar en el nombre del paciente
-    if (datos.nombre.toLowerCase().includes(termino)) {
-      return true;
-    }
-    
-    // Buscar en correo
-    if (datos.correo.toLowerCase().includes(termino)) {
-      return true;
-    }
-    
-    // Buscar en teléfono
-    if (datos.contacto.toLowerCase().includes(termino)) {
-      return true;
-    }
+    if (datos.rut.toLowerCase().includes(termino)) return true;
+    if (datos.nombre.toLowerCase().includes(termino)) return true;
+    if (datos.correo.toLowerCase().includes(termino)) return true;
+    if (datos.contacto.toLowerCase().includes(termino)) return true;
     
     return false;
   });
@@ -248,7 +245,6 @@ const Home = () => {
             </Typography>
           </Box>
 
-          {/* Campo de búsqueda */}
           <Box sx={{ p: 3, pb: 2 }}>
             <TextField
               fullWidth
@@ -282,7 +278,7 @@ const Home = () => {
           </Box>
 
           {/* ============================================
-              TABLA ACTUALIZADA CON CAMPOS CORRECTOS
+              TABLA ACTUALIZADA CON ETAPA ACTUAL
               ============================================ */}
           <TableContainer>
             <Table>
@@ -292,7 +288,13 @@ const Home = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Correo</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Contacto</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Estado Sistema</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <HospitalIcon sx={{ fontSize: 18 }} />
+                      Etapa Clínica
+                    </Box>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Urgencia</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>Acciones</TableCell>
                 </TableRow>
@@ -355,7 +357,7 @@ const Home = () => {
                           </Box>
                         </TableCell>
 
-                        {/* Estado */}
+                        {/* Estado del Sistema */}
                         <TableCell>
                           <Chip
                             label={paciente.estado_actual_display}
@@ -363,6 +365,42 @@ const Home = () => {
                             color={getColorEstado(paciente.estado_actual)}
                             sx={{ fontWeight: 500 }}
                           />
+                        </TableCell>
+
+                        {/* 🆕 NUEVA COLUMNA: Etapa Clínica Actual */}
+                        <TableCell>
+                          {paciente.etapa_actual ? (
+                            <Tooltip 
+                              title="Etapa actual del flujo clínico"
+                              placement="top"
+                            >
+                              <Chip
+                                icon={<TimelineIcon sx={{ fontSize: 16 }} />}
+                                label={paciente.etapa_actual_display}
+                                size="small"
+                                color={getColorEtapa(paciente.etapa_actual)}
+                                sx={{ 
+                                  fontWeight: 600,
+                                  '& .MuiChip-icon': {
+                                    marginLeft: 1,
+                                  }
+                                }}
+                              />
+                            </Tooltip>
+                          ) : (
+                            <Tooltip title="Sin ruta clínica activa">
+                              <Chip
+                                label="Sin etapa"
+                                size="small"
+                                variant="outlined"
+                                sx={{ 
+                                  fontWeight: 500,
+                                  color: 'text.secondary',
+                                  borderColor: 'grey.300',
+                                }}
+                              />
+                            </Tooltip>
+                          )}
                         </TableCell>
 
                         {/* Urgencia */}
@@ -393,7 +431,7 @@ const Home = () => {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
                         No se encontraron pacientes que coincidan con la búsqueda
                       </Typography>
@@ -473,7 +511,9 @@ const Home = () => {
           </Box>
         </Paper>
 
-        {/* Drawer de Detalle del Paciente */}
+        {/* ============================================
+            DRAWER ACTUALIZADO CON ETAPA ACTUAL
+            ============================================ */}
         <Drawer
           anchor="right"
           open={drawerOpen}
@@ -557,12 +597,22 @@ const Home = () => {
                       </Box>
                     </Box>
 
-                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                    {/* 🆕 CHIPS ACTUALIZADOS CON ETAPA */}
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip
                         label={pacienteSeleccionado.estado_actual_display}
                         color={getColorEstado(pacienteSeleccionado.estado_actual)}
                         size="small"
                       />
+                      {pacienteSeleccionado.etapa_actual && (
+                        <Chip
+                          icon={<TimelineIcon sx={{ fontSize: 14 }} />}
+                          label={pacienteSeleccionado.etapa_actual_display}
+                          color={getColorEtapa(pacienteSeleccionado.etapa_actual)}
+                          size="small"
+                          sx={{ fontWeight: 600 }}
+                        />
+                      )}
                       <Chip
                         label={pacienteSeleccionado.nivel_urgencia_display}
                         color={getColorUrgencia(pacienteSeleccionado.nivel_urgencia)}
@@ -600,13 +650,19 @@ const Home = () => {
                       </Box>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {/* 🆕 MOSTRAR ETAPA ACTUAL SINCRONIZADA */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">
                             Etapa Actual:
                           </Typography>
-                          <Typography variant="body2" fontWeight="500">
-                            {rutaClinica.ruta_clinica.etapa_actual_display || 'No iniciada'}
-                          </Typography>
+                          <Chip
+                            label={rutaClinica.ruta_clinica.etapa_actual_display || 'No iniciada'}
+                            size="small"
+                            color={rutaClinica.ruta_clinica.etapa_actual ? 
+                                  getColorEtapa(rutaClinica.ruta_clinica.etapa_actual) : 
+                                  'default'}
+                            sx={{ fontWeight: 500 }}
+                          />
                         </Box>
 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

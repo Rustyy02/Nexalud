@@ -1,5 +1,5 @@
-// frontend/src/components/DetallePaciente.jsx - ACTUALIZADO PARA TODAS LAS ETAPAS
-// 🆕 Ahora muestra TODAS las etapas del flujo clínico
+// frontend/src/components/DetallePaciente.jsx - ACTUALIZADO CON SINCRONIZACIÓN DE ETAPA
+// 🆕 Ahora muestra la etapa actual sincronizada entre paciente y ruta clínica
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -37,7 +37,7 @@ import {
     Schedule as ScheduleIcon,
     ArrowForward as ArrowForwardIcon,
     ArrowBack as ArrowBackIcon,
-    HelpOutline as HelpIcon,
+    Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
@@ -189,7 +189,7 @@ const DetallePaciente = () => {
         // COMPLETADA: Etapas que ya pasaron (azul)
         if (etapa.estado === 'COMPLETADA') {
             return {
-                bgcolor: '#2196F3', // Azul para completadas
+                bgcolor: '#2196F3',
                 color: 'white',
                 borderColor: '#2196F3',
                 icon: <CheckCircleIcon sx={{ fontSize: 32 }} />,
@@ -200,7 +200,7 @@ const DetallePaciente = () => {
         // EN_CURSO: La etapa actual (verde)
         else if (etapa.estado === 'EN_CURSO' || etapa.es_actual) {
             return {
-                bgcolor: '#4CAF50', // Verde para actual
+                bgcolor: '#4CAF50',
                 color: 'white',
                 borderColor: '#4CAF50',
                 icon: <MedicalIcon sx={{ fontSize: 32 }} />,
@@ -211,7 +211,7 @@ const DetallePaciente = () => {
         // PENDIENTE: Etapas futuras (gris)
         else {
             return {
-                bgcolor: '#E0E0E0', // Gris para pendientes
+                bgcolor: '#E0E0E0',
                 color: '#757575',
                 borderColor: '#BDBDBD',
                 icon: <ScheduleIcon sx={{ fontSize: 32, color: '#757575' }} />,
@@ -269,7 +269,7 @@ const DetallePaciente = () => {
                     </Alert>
                 )}
 
-                {/* Card Principal del Paciente */}
+                {/* Card Principal del Paciente - 🆕 ACTUALIZADO */}
                 <Card elevation={3} sx={{ mb: 3 }}>
                     <CardContent>
                         <Box sx={{ display: 'flex', gap: 3, mb: 4 }}>
@@ -282,7 +282,7 @@ const DetallePaciente = () => {
                                 </Typography>
                                 <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
                                     <Typography variant="body1" color="text.secondary">
-                                        <strong>Rut:</strong> {datos.rut}
+                                        <strong>RUT:</strong> {datos.rut}
                                     </Typography>
                                     <Typography variant="body1" color="text.secondary">
                                         <strong>Edad:</strong> {datos.edad}
@@ -291,6 +291,80 @@ const DetallePaciente = () => {
                                         <strong>Tipo de Sangre:</strong> {datos.tipoSangre}
                                     </Typography>
                                 </Box>
+                                
+                                {/* 🆕 SECCIÓN NUEVA: Mostrar Estado y Etapa Sincronizados */}
+                                <Alert 
+                                    severity="info" 
+                                    sx={{ 
+                                        mb: 2,
+                                        bgcolor: 'primary.50',
+                                        '& .MuiAlert-message': {
+                                            width: '100%'
+                                        }
+                                    }}
+                                >
+                                    <Typography variant="subtitle2" fontWeight="600" gutterBottom>
+                                        Estado Actual del Paciente
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                                        <Box>
+                                            <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                                                Estado del Sistema:
+                                            </Typography>
+                                            <Chip
+                                                label={paciente.estado_actual_display}
+                                                color={getColorUrgencia(paciente.estado_actual)}
+                                                size="small"
+                                                sx={{ fontWeight: 600 }}
+                                            />
+                                        </Box>
+                                        
+                                        {paciente.etapa_actual ? (
+                                            <Box>
+                                                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                                                    Etapa del Flujo Clínico:
+                                                </Typography>
+                                                <Chip
+                                                    icon={<TimelineIcon sx={{ fontSize: 14 }} />}
+                                                    label={paciente.etapa_actual_display}
+                                                    size="small"
+                                                    sx={{ 
+                                                        fontWeight: 600,
+                                                        bgcolor: '#2196F3',
+                                                        color: 'white',
+                                                        '& .MuiChip-icon': {
+                                                            color: 'white',
+                                                        }
+                                                    }}
+                                                />
+                                            </Box>
+                                        ) : (
+                                            <Box>
+                                                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                                                    Etapa del Flujo Clínico:
+                                                </Typography>
+                                                <Chip
+                                                    label="Sin etapa asignada"
+                                                    size="small"
+                                                    variant="outlined"
+                                                    sx={{ fontWeight: 500 }}
+                                                />
+                                            </Box>
+                                        )}
+                                        
+                                        <Box>
+                                            <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                                                Urgencia:
+                                            </Typography>
+                                            <Chip
+                                                label={paciente.nivel_urgencia_display}
+                                                color={getColorUrgencia(paciente.nivel_urgencia)}
+                                                size="small"
+                                                sx={{ fontWeight: 600 }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                </Alert>
                             </Box>
 
                             <Button
@@ -305,10 +379,10 @@ const DetallePaciente = () => {
 
                         <Divider sx={{ my: 3 }} />
 
-                        {/* SECCIÓN: Timeline de Etapas - 🆕 TODAS LAS ETAPAS VISIBLES */}
+                        {/* SECCIÓN: Timeline de Etapas */}
                         {rutaClinica && rutaClinica.timeline && rutaClinica.timeline.length > 0 ? (
                             <Box sx={{ mb: 4 }}>
-                                {/* Header con título y botones */}
+                                {/* Header */}
                                 <Box sx={{
                                     display: 'flex',
                                     justifyContent: 'space-between',
@@ -323,7 +397,7 @@ const DetallePaciente = () => {
                                             Proceso de Atención Completo
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            Visualización de todas las etapas del flujo clínico
+                                            Todas las etapas del flujo clínico • Sincronización automática con el estado del paciente
                                         </Typography>
                                     </Box>
 
@@ -370,7 +444,7 @@ const DetallePaciente = () => {
                                     )}
                                 </Box>
 
-                                {/* 🆕 Timeline Visual Horizontal - TODAS LAS ETAPAS */}
+                                {/* Timeline Visual Horizontal - TODAS LAS ETAPAS */}
                                 <Box sx={{
                                     display: 'flex',
                                     gap: 2,
@@ -418,7 +492,6 @@ const DetallePaciente = () => {
                                                             transform: 'translateY(-6px)',
                                                             boxShadow: 8,
                                                         },
-                                                        // Animación para la etapa actual
                                                         ...(etapa.es_actual && {
                                                             animation: 'pulse 2s ease-in-out infinite',
                                                             '@keyframes pulse': {
@@ -563,7 +636,7 @@ const DetallePaciente = () => {
                                                             </Typography>
                                                         )}
 
-                                                        {/* Observaciones si existen */}
+                                                        {/* Observaciones */}
                                                         {etapa.observaciones && (
                                                             <Typography
                                                                 variant="caption"
@@ -585,7 +658,7 @@ const DetallePaciente = () => {
                                     })}
                                 </Box>
 
-                                {/* 🆕 Leyenda de colores actualizada */}
+                                {/* Leyenda de colores */}
                                 <Box sx={{
                                     display: 'flex',
                                     justifyContent: 'center',
@@ -629,18 +702,6 @@ const DetallePaciente = () => {
                                         }} />
                                         <Typography variant="body2" fontWeight="500">
                                             Pendiente
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{
-                                            width: 20,
-                                            height: 20,
-                                            bgcolor: '#FAFAFA',
-                                            borderRadius: 1,
-                                            border: '2px solid #E0E0E0',
-                                        }} />
-                                        <Typography variant="body2" fontWeight="500">
-                                            Opcional
                                         </Typography>
                                     </Box>
                                 </Box>
