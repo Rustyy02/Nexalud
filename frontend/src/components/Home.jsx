@@ -280,8 +280,14 @@ const Home = () => {
           {/* ============================================
               TABLA ACTUALIZADA CON ETAPA ACTUAL
               ============================================ */}
-          <TableContainer>
-            <Table>
+          <TableContainer                        
+                    sx={{
+                          maxHeight: 400, // 🔹 altura máxima
+                          overflowY: 'auto', // 🔹 activa el scroll vertical
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                        }}>
+            <Table stickyHeader>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'grey.50' }}>
                   <TableCell sx={{ fontWeight: 600 }}>RUT</TableCell>

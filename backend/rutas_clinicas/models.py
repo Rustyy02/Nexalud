@@ -128,15 +128,18 @@ class RutaClinica(models.Model):
     # ============================================
     
     def iniciar_ruta(self, usuario=None):
-        """Inicia la ruta clínica con la primera etapa"""
-        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
-        
-        if not self.etapas_seleccionadas:
+        """
+        ✅ CORREGIDO: Inicia la ruta clínica con la primera etapa SELECCIONADA
+        """
+        # Si no hay etapas seleccionadas, usar todas
+        if not self.etapas_seleccionadas or len(self.etapas_seleccionadas) == 0:
+            todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
             self.etapas_seleccionadas = todas_etapas
         
+        # ✅ CAMBIO CRÍTICO: Usar la primera etapa SELECCIONADA, no todas las etapas
         self.estado = 'EN_PROGRESO'
         self.indice_etapa_actual = 0
-        self.etapa_actual = todas_etapas[0]
+        self.etapa_actual = self.etapas_seleccionadas[0]  # ← CORRECCIÓN AQUÍ
         
         # Registrar inicio de primera etapa
         ahora = timezone.now()
@@ -162,16 +165,15 @@ class RutaClinica(models.Model):
         return True
     
     def avanzar_etapa(self, observaciones="", usuario=None):
-        """
-        ✅ ACTUALIZADO: Avanza a la siguiente etapa y sincroniza con paciente
-        """
+ 
         if self.estado != 'EN_PROGRESO':
             return False
         
-        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        # ✅ USAR ETAPAS SELECCIONADAS
+        etapas = self.etapas_seleccionadas if self.etapas_seleccionadas else [key for key, _ in self.ETAPAS_CHOICES]
         
         # Verificar que no estemos en la última etapa
-        if self.indice_etapa_actual >= len(todas_etapas) - 1:
+        if self.indice_etapa_actual >= len(etapas) - 1:
             return False
         
         # Marcar etapa actual como completada
@@ -204,8 +206,8 @@ class RutaClinica(models.Model):
         etapa_anterior = self.etapa_actual
         
         # Actualizar la etapa actual
-        if self.indice_etapa_actual < len(todas_etapas):
-            self.etapa_actual = todas_etapas[self.indice_etapa_actual]
+        if self.indice_etapa_actual < len(etapas):
+            self.etapa_actual = etapas[self.indice_etapa_actual]  # ← CORRECCIÓN AQUÍ
             
             # Iniciar timestamp de nueva etapa
             self.timestamps_etapas[self.etapa_actual] = {
@@ -246,9 +248,10 @@ class RutaClinica(models.Model):
     
     def retroceder_etapa(self, motivo='', usuario=None):
         """
-        ✅ ACTUALIZADO: Retrocede a la etapa anterior y sincroniza con paciente
+        ✅ CORREGIDO: Retrocede a la etapa anterior SELECCIONADA
         """
-        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        # ✅ USAR ETAPAS SELECCIONADAS
+        etapas = self.etapas_seleccionadas if self.etapas_seleccionadas else [key for key, _ in self.ETAPAS_CHOICES]
         
         if self.indice_etapa_actual <= 0:
             return False
@@ -264,7 +267,7 @@ class RutaClinica(models.Model):
         # Retroceder
         etapa_anterior = self.etapa_actual
         self.indice_etapa_actual -= 1
-        self.etapa_actual = todas_etapas[self.indice_etapa_actual]
+        self.etapa_actual = etapas[self.indice_etapa_actual]  # ← CORRECCIÓN AQUÍ
         
         # Registrar en historial
         self._agregar_al_historial('RETROCEDER', self.etapa_actual, usuario, {
