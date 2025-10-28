@@ -128,8 +128,17 @@ export const boxesService = {
   getById: (id) => api.get(`/boxes/${id}/`),
   create: (data) => api.post('/boxes/', data),
   update: (id, data) => api.patch(`/boxes/${id}/`, data),
-  ocupar: (id, duracion_minutos, motivo = '') => 
-    api.post(`/boxes/${id}/ocupar/`, { duracion_minutos, motivo }),
+  ocupar: (id, duracion_minutos, motivo = '') => {
+    console.log('Servicio ocupar - Datos enviados:', {
+      duracion_minutos,
+      motivo
+    });
+    
+    return api.post(`/boxes/${id}/ocupar/`, { 
+      duracion_minutos: Number(duracion_minutos), // ✅ Asegurar que sea número
+      motivo 
+    });
+  },
   liberar: (id, timestamp = null) => 
     api.post(`/boxes/${id}/liberar/`, timestamp ? { timestamp } : {}),
   getDisponibles: (especialidad = null) => {

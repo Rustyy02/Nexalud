@@ -187,20 +187,6 @@ const Login = () => {
               {loading ? 'Ingresando...' : 'Ingresar'}
             </Button>
           </form>
-
-          {/* Footer con credenciales de prueba */}
-          <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-              Credenciales de prueba:
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              Usuario: <strong>admin</strong>
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              Contraseña: <strong>admin123</strong>
-            </Typography>
-          </Box>
-
           {/* Footer */}
           <Typography 
             variant="caption" 
