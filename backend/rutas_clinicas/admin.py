@@ -14,7 +14,7 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         'id_corto',
         'paciente_info',
         'etapa_actual_badge',
-        'progreso_bar',
+        'progreso_bar',  # <--- EL MÉTODO QUE CORREGIMOS
         'estado_badge',
         'pausado_badge',
         'fecha_inicio',
@@ -108,16 +108,23 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         )
     etapa_actual_badge.short_description = "Etapa Actual"
     
+    # --- MÉTODO CORREGIDO ---
     def progreso_bar(self, obj):
         progreso = obj.porcentaje_completado
         color = 'green' if progreso >= 75 else 'orange' if progreso >= 50 else 'red'
+
+        progreso_texto = f"{progreso:.1f}"  # formateamos antes de pasar a format_html
+
         return format_html(
             '<div style="width: 100px; background: #f0f0f0; border-radius: 3px;">'
             '<div style="width: {}%; background: {}; height: 20px; border-radius: 3px; '
             'text-align: center; color: white; font-size: 11px; line-height: 20px;">'
-            '{:.1f}%</div></div>',
-            progreso, color, progreso
+            '{}%</div></div>',
+            progreso_texto,  # ancho
+            color,           # color
+            progreso_texto   # texto mostrado
         )
+
     progreso_bar.short_description = "Progreso"
     
     def estado_badge(self, obj):
@@ -180,6 +187,10 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         
         for etapa in timeline:
             color = 'green' if etapa['estado'] == 'COMPLETADA' else 'blue' if etapa['estado'] == 'EN_PROCESO' else 'gray'
+            # Es vital usar format_html para que Django marque la cadena como segura,
+            # pero aquí el string formatting normal de Python está bien si es f-string.
+            # Sin embargo, para mayor seguridad en el admin, usaremos format_html para todo el bloque si es posible.
+            # En este caso, lo que hiciste con f-strings está bien siempre que uses format_html al final.
             html += f'<tr style="{"background: #e3f2fd;" if etapa["es_actual"] else ""}">'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;">{etapa["orden"]}</td>'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;"><strong>{etapa["etapa_label"]}</strong></td>'
@@ -233,6 +244,8 @@ class RutaClinicaAdmin(admin.ModelAdmin):
     
     def recalcular_progreso(self, request, queryset):
         for ruta in queryset:
+            # Dado que el modelo tiene lógica para guardar el progreso,
+            # llamamos al método que fuerza el recálculo y la actualización.
             ruta.calcular_progreso()
         self.message_user(request, f'Progreso recalculado para {queryset.count()} rutas.')
     recalcular_progreso.short_description = "Recalcular progreso"
