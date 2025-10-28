@@ -67,30 +67,44 @@ const DetallePaciente = () => {
     }, [id]);
 
     const cargarDatos = async () => {
-        try {
-            setError('');
-            setLoading(true);
+    try {
+        setError('');
+        setLoading(true);
 
-            const pacienteRes = await pacientesService.getById(id);
-            setPaciente(pacienteRes.data);
+        // ✅ NUEVO: Forzar bypass del caché
+        const timestamp = new Date().getTime();
+        const nocache = Math.random();
 
-            const rutasRes = await pacientesService.getRutasClinicas(id);
+        const pacienteRes = await pacientesService.getById(id, { 
+        _t: timestamp,
+        _nocache: nocache 
+        });
+        setPaciente(pacienteRes.data);
 
-            if (rutasRes.data && rutasRes.data.length > 0) {
-                const rutaActual = rutasRes.data[0];
-                const timelineRes = await rutasClinicasService.getTimeline(rutaActual.id);
-                setRutaClinica(timelineRes.data);
+        const rutasRes = await pacientesService.getRutasClinicas(id, {
+        _t: timestamp,
+        _nocache: nocache
+        });
 
-                const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
-                setHistorial(historialRes.data.historial || []);
-            }
+        if (rutasRes.data && rutasRes.data.length > 0) {
+        const rutaActual = rutasRes.data[0];
+        const timelineRes = await rutasClinicasService.getTimeline(rutaActual.id);
+        setRutaClinica(timelineRes.data);
 
-            setLoading(false);
-        } catch (err) {
-            setError('Error al cargar los datos del paciente');
-            setLoading(false);
-            console.error(err);
+        const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
+        setHistorial(historialRes.data.historial || []);
+        } else {
+        // ✅ IMPORTANTE: Limpiar ruta si no hay rutas activas
+        setRutaClinica(null);
+        setHistorial([]);
         }
+
+        setLoading(false);
+    } catch (err) {
+        setError('Error al cargar los datos del paciente');
+        setLoading(false);
+        console.error(err);
+    }
     };
 
     const handleAvanzarEtapa = () => {

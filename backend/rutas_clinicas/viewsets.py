@@ -64,6 +64,33 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-fecha_inicio')
     
+    def destroy(self, request, *args, **kwargs):
+        """
+        Override del método destroy para limpiar la etapa_actual del paciente
+        al eliminar una ruta clínica
+        """
+        instance = self.get_object()
+        paciente = instance.paciente
+        
+        # Guardar información antes de eliminar
+        ruta_id = instance.id
+        
+        # Eliminar la ruta clínica
+        self.perform_destroy(instance)
+        
+        # Limpiar el campo etapa_actual del paciente
+        paciente.etapa_actual = None
+        paciente.save(update_fields=['etapa_actual'])
+        
+        return Response(
+            {
+                'mensaje': 'Ruta clínica eliminada correctamente',
+                'paciente_actualizado': True,
+                'etapa_actual': None
+            },
+            status=status.HTTP_204_NO_CONTENT
+        )
+    
     # ============================================
     # ACCIONES PRINCIPALES
     # ============================================

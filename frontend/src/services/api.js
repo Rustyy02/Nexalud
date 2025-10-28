@@ -40,6 +40,7 @@ export const rutasClinicasService = {
   getAll: (params = {}) => api.get('/rutas-clinicas/', { params }),
   getById: (id) => api.get(`/rutas-clinicas/${id}/`),
   create: (data) => api.post('/rutas-clinicas/', data),
+  delete: (id) => api.delete(`/rutas-clinicas/${id}/`),
   
   // ============================================
   // NUEVO: Timeline completo con retrasos
@@ -106,7 +107,7 @@ export const rutasClinicasService = {
 
 export const pacientesService = {
   getAll: (params = {}) => api.get('/pacientes/', { params }),
-  getById: (id) => api.get(`/pacientes/${id}/`),
+  getById: (id, params = {}) => api.get(`/pacientes/${id}/`, { params }), // ✅ Agregado params
   create: (data) => api.post('/pacientes/', data),
   update: (id, data) => api.patch(`/pacientes/${id}/`, data),
   cambiarEstado: (id, estado) => 
@@ -114,7 +115,7 @@ export const pacientesService = {
   getActivos: () => api.get('/pacientes/activos/'),
   getEnEspera: () => api.get('/pacientes/en_espera/'),
   getEstadisticas: () => api.get('/pacientes/estadisticas/'),
-  getRutasClinicas: (id) => api.get(`/pacientes/${id}/rutas_clinicas/`),
+  getRutasClinicas: (id, params = {}) => api.get(`/pacientes/${id}/rutas_clinicas/`, { params }), // ✅ Agregado params
   getAtenciones: (id) => api.get(`/pacientes/${id}/atenciones/`),
 };
 

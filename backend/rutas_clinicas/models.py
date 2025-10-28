@@ -165,7 +165,9 @@ class RutaClinica(models.Model):
         return True
     
     def avanzar_etapa(self, observaciones="", usuario=None):
- 
+        """
+        ✅ CORREGIDO: Avanza a la siguiente etapa y sincroniza correctamente
+        """
         if self.estado != 'EN_PROGRESO':
             return False
         
@@ -207,7 +209,7 @@ class RutaClinica(models.Model):
         
         # Actualizar la etapa actual
         if self.indice_etapa_actual < len(etapas):
-            self.etapa_actual = etapas[self.indice_etapa_actual]  # ← CORRECCIÓN AQUÍ
+            self.etapa_actual = etapas[self.indice_etapa_actual]
             
             # Iniciar timestamp de nueva etapa
             self.timestamps_etapas[self.etapa_actual] = {
@@ -218,20 +220,20 @@ class RutaClinica(models.Model):
                 'observaciones': '',
                 'usuario_inicio': str(usuario) if usuario else None,
             }
+            
+            # ✅ SINCRONIZAR CON PACIENTE (etapa intermedia)
+            self._sincronizar_etapa_paciente()
+            
         else:
-            # Si llegamos al final, completar la ruta
+            # ✅ CORRECCIÓN CRÍTICA: Si llegamos al final, completar la ruta
             self.estado = 'COMPLETADA'
             self.fecha_fin_real = timezone.now()
-            self.etapa_actual = None
+            self.etapa_actual = None  # Ya no hay etapa actual
             
             # ✅ LIMPIAR ETAPA DEL PACIENTE AL COMPLETAR
-            self.paciente.limpiar_etapa()
+            self.paciente.etapa_actual = None
             self.paciente.estado_actual = 'ALTA_COMPLETA'
-            self.paciente.save()
-        
-        # ✅ SINCRONIZAR CON PACIENTE (si no está completada)
-        if self.estado != 'COMPLETADA':
-            self._sincronizar_etapa_paciente()
+            self.paciente.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
         
         # Recalcular progreso
         self.calcular_progreso()
@@ -239,7 +241,7 @@ class RutaClinica(models.Model):
         # Registrar en historial
         self._agregar_al_historial('AVANZAR', self.etapa_actual, usuario, {
             'desde': etapa_anterior,
-            'hacia': self.etapa_actual,
+            'hacia': self.etapa_actual if self.etapa_actual else 'COMPLETADA',
             'observaciones': observaciones,
         })
         
