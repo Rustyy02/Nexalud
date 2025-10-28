@@ -18,7 +18,16 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
     # Campo de selección múltiple para etapas
     etapas_seleccionadas = serializers.MultipleChoiceField(
         choices=RutaClinica.ETAPAS_CHOICES,
-        help_text="Seleccione las etapas del proceso clínico"
+        help_text="Seleccione las etapas del proceso clínico",
+        style={'base_template': 'checkbox_multiple.html'}
+    )
+    
+    # Campo editable para etapa_actual
+    etapa_actual = serializers.ChoiceField(
+        choices=RutaClinica.ETAPAS_CHOICES,
+        required=False,
+        allow_null=True,
+        help_text="Etapa actual del proceso"
     )
     
     # Información calculada
@@ -72,7 +81,6 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
-            'etapa_actual',
             'indice_etapa_actual',
             'etapas_completadas',
             'timestamps_etapas',
@@ -83,6 +91,37 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
             'historial_cambios',
         ]
     
+    def update(self, instance, validated_data):
+        """Permite actualizar etapa_actual manualmente"""
+        etapa_actual_nueva = validated_data.get('etapa_actual', instance.etapa_actual)
+        
+        # Si cambia la etapa_actual, actualizar el índice
+        if etapa_actual_nueva and etapa_actual_nueva != instance.etapa_actual:
+            etapas_seleccionadas = instance.etapas_seleccionadas or [key for key, _ in RutaClinica.ETAPAS_CHOICES]
+            try:
+                nuevo_indice = etapas_seleccionadas.index(etapa_actual_nueva)
+                instance.indice_etapa_actual = nuevo_indice
+                instance.etapa_actual = etapa_actual_nueva
+                
+                # Actualizar etapas completadas
+                instance.etapas_completadas = etapas_seleccionadas[:nuevo_indice]
+                
+                # Sincronizar con paciente
+                instance._sincronizar_etapa_paciente()
+            except ValueError:
+                pass
+        
+        # Actualizar el resto de campos
+        for attr, value in validated_data.items():
+            if attr not in ['etapa_actual', 'paciente']:
+                setattr(instance, attr, value)
+        
+        instance.calcular_progreso()
+        instance.save()
+        
+        return instance
+    
+    # ... resto de métodos igual que antes ...
     def get_etapas_disponibles(self, obj):
         """Retorna etapas disponibles con duraciones"""
         return [
@@ -106,8 +145,8 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         }
     
     def get_timeline(self, obj):
-        """🆕 ACTUALIZADO: Timeline estructurado con TODAS las etapas"""
-        return obj.obtener_timeline_completo()  # ← CAMBIO CLAVE
+        """Timeline estructurado con TODAS las etapas"""
+        return obj.obtener_timeline_completo()
     
     def get_etapa_siguiente(self, obj):
         """Siguiente etapa"""
@@ -122,7 +161,7 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         return None
     
     def get_total_etapas(self, obj):
-        """🆕 ACTUALIZADO: Total de TODAS las etapas disponibles"""
+        """Total de TODAS las etapas disponibles"""
         return len(RutaClinica.ETAPAS_CHOICES)
     
     def get_etapas_restantes(self, obj):
@@ -204,8 +243,16 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
     
     etapas_seleccionadas = serializers.MultipleChoiceField(
         choices=RutaClinica.ETAPAS_CHOICES,
-        help_text="Seleccione las etapas del proceso clínico",
-        required=False  # ← AHORA ES OPCIONAL
+        help_text="✓ Seleccione las etapas del proceso clínico (checkbox múltiple)",
+        required=False,
+        style={'base_template': 'checkbox_multiple.html'}
+    )
+    
+    etapa_actual = serializers.ChoiceField(
+        choices=RutaClinica.ETAPAS_CHOICES,
+        required=False,
+        allow_null=True,
+        help_text="Etapa inicial de la ruta (opcional, se seleccionará automáticamente si no se especifica)"
     )
     
     class Meta:
@@ -213,13 +260,13 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
         fields = [
             'paciente',
             'etapas_seleccionadas',
+            'etapa_actual',
             'fecha_estimada_fin',
             'metadatos_adicionales',
         ]
     
     def validate_etapas_seleccionadas(self, value):
         """Valida etapas seleccionadas"""
-        # Si no se proporcionan, usar todas
         if not value or len(value) == 0:
             return [key for key, _ in RutaClinica.ETAPAS_CHOICES]
         
@@ -227,6 +274,24 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
             value = list(value)
         
         return value
+    
+    def validate(self, attrs):
+        """Validación cruzada de etapa_actual con etapas_seleccionadas"""
+        etapa_actual = attrs.get('etapa_actual')
+        etapas_seleccionadas = attrs.get('etapas_seleccionadas', [])
+        
+        # Si no hay etapas seleccionadas, usar todas
+        if not etapas_seleccionadas:
+            etapas_seleccionadas = [key for key, _ in RutaClinica.ETAPAS_CHOICES]
+            attrs['etapas_seleccionadas'] = etapas_seleccionadas
+        
+        # Si se especifica etapa_actual, verificar que esté en las seleccionadas
+        if etapa_actual and etapa_actual not in etapas_seleccionadas:
+            raise serializers.ValidationError({
+                'etapa_actual': f'La etapa actual debe estar incluida en las etapas seleccionadas'
+            })
+        
+        return attrs
     
     def validate_paciente(self, value):
         """Valida que el paciente no tenga ya una ruta activa"""
@@ -244,12 +309,38 @@ class RutaClinicaCreateSerializer(serializers.ModelSerializer):
         return value
     
     def create(self, validated_data):
-        """Crea la ruta y calcula progreso inicial"""
+        """Crea la ruta con etapa_actual personalizada si se proporciona"""
+        etapa_actual = validated_data.pop('etapa_actual', None)
+        
         ruta = RutaClinica.objects.create(**validated_data)
+        
+        # Si se especificó una etapa_actual, configurarla antes de iniciar
+        if etapa_actual:
+            etapas_seleccionadas = ruta.etapas_seleccionadas or [key for key, _ in RutaClinica.ETAPAS_CHOICES]
+            try:
+                indice = etapas_seleccionadas.index(etapa_actual)
+                ruta.indice_etapa_actual = indice
+                ruta.etapa_actual = etapa_actual
+                
+                # Marcar etapas anteriores como completadas
+                ruta.etapas_completadas = etapas_seleccionadas[:indice]
+                
+                ruta.save()
+            except ValueError:
+                pass
+        
         ruta.calcular_progreso()
-        ruta.iniciar_ruta()
+        
+        # Solo iniciar si no se especificó etapa_actual
+        if not etapa_actual:
+            ruta.iniciar_ruta()
+        else:
+            # Sincronizar con paciente manualmente
+            ruta._sincronizar_etapa_paciente()
+            ruta.estado = 'EN_PROGRESO'
+            ruta.save()
+        
         return ruta
-
 
 class TimelineSerializer(serializers.Serializer):
     """Serializer mejorado para el timeline con todas las etapas"""

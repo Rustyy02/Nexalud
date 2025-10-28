@@ -1,4 +1,4 @@
-# backend/rutas_clinicas/viewsets.py - CORREGIDO - SIN ETAPAS_TIMELINE
+# backend/rutas_clinicas/viewsets.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -18,7 +18,7 @@ from .serializers import (
 class RutaClinicaViewSet(viewsets.ModelViewSet):
     """
     ViewSet mejorado para gestionar rutas clínicas.
-    🆕 Ahora muestra TODAS las etapas disponibles en el timeline.
+    🆕 Ahora con formulario mejorado en el browsable API
     """
     queryset = RutaClinica.objects.all()
     permission_classes = [IsAuthenticated]
@@ -193,23 +193,12 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
         """
-        ✅ CORREGIDO: Obtiene el timeline completo usando el método del modelo.
-        Ya no intenta acceder a la relación inexistente 'etapas_timeline'.
+        Obtiene el timeline completo usando el método del modelo.
         """
         try:
             ruta = self.get_object()
             
-            # DEBUG: Imprimir información de la ruta
-            print(f"\n=== DEBUG TIMELINE ===")
-            print(f"Ruta ID: {ruta.id}")
-            print(f"Estado: {ruta.estado}")
-            print(f"Índice actual: {ruta.indice_etapa_actual}")
-            print(f"Etapa actual: {ruta.etapa_actual}")
-            
-            # ✅ CORRECCIÓN PRINCIPAL: Usar el método del modelo
             timeline_data = ruta.obtener_timeline_completo()
-            
-            print(f"Total etapas en timeline: {len(timeline_data)}")
             
             # Calcular estadísticas
             etapas_completadas = sum(1 for etapa in timeline_data if etapa['estado'] == 'COMPLETADA')
@@ -217,11 +206,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             retrasos = []
             
             for etapa in timeline_data:
-                # Debug de cada etapa
-                print(f"  Etapa {etapa['orden']}: {etapa['etapa_label']}")
-                print(f"    Estado: {etapa['estado']}")
-                print(f"    Es actual: {etapa['es_actual']}")
-                
                 # Calcular tiempo real si existe
                 if etapa.get('fecha_inicio') and etapa.get('fecha_fin'):
                     try:
@@ -231,8 +215,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                         duracion_minutos = int(duracion.total_seconds() / 60)
                         tiempo_total_minutos += duracion_minutos
                         etapa['duracion_real'] = duracion_minutos
-                    except Exception as e:
-                        print(f"    Error calculando duración: {e}")
+                    except Exception:
                         etapa['duracion_real'] = None
                 else:
                     etapa['duracion_real'] = None
@@ -245,7 +228,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                         minutos_transcurridos = int(tiempo_transcurrido.total_seconds() / 60)
                         duracion_estimada = etapa.get('duracion_estimada', 30)
                         
-                        if minutos_transcurridos > duracion_estimada * 1.2:  # 20% de margen
+                        if minutos_transcurridos > duracion_estimada * 1.2:
                             etapa['retrasada'] = True
                             retrasos.append({
                                 'etapa': etapa['etapa_key'],
@@ -254,8 +237,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                             })
                         else:
                             etapa['retrasada'] = False
-                    except Exception as e:
-                        print(f"    Error detectando retraso: {e}")
+                    except Exception:
                         etapa['retrasada'] = False
                 else:
                     etapa['retrasada'] = False
@@ -297,7 +279,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             return Response(response_data)
             
         except Exception as e:
-            print(f"❌ Error en timeline: {str(e)}")
             import traceback
             traceback.print_exc()
             
@@ -313,7 +294,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         """Genera alertas basadas en el estado de la ruta"""
         alertas = []
         
-        # Alerta de ruta pausada
         if ruta.esta_pausado:
             alertas.append({
                 'tipo': 'warning',
@@ -321,7 +301,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                 'prioridad': 'alta'
             })
         
-        # Alertas de retrasos
         if retrasos:
             for retraso in retrasos:
                 alertas.append({
@@ -330,7 +309,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                     'prioridad': 'alta'
                 })
         
-        # Alerta de progreso lento
         if ruta.estado == 'EN_PROGRESO' and ruta.porcentaje_completado < 30 and tiempo_total_minutos > 120:
             alertas.append({
                 'tipo': 'warning',
@@ -342,9 +320,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['get'])
     def debug_estados(self, request, pk=None):
-        """
-        ✅ CORREGIDO: Endpoint de debug usando obtener_timeline_completo()
-        """
+        """Endpoint de debug usando obtener_timeline_completo()"""
         try:
             ruta = self.get_object()
             timeline_data = ruta.obtener_timeline_completo()
@@ -479,24 +455,20 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """🆕 ACTUALIZADO: Estadísticas generales con TODAS las etapas"""
+        """Estadísticas generales con TODAS las etapas"""
         queryset = self.get_queryset()
         
-        # Estadísticas básicas
         total = queryset.count()
         iniciadas = queryset.filter(estado='INICIADA').count()
         en_progreso = queryset.filter(estado='EN_PROGRESO').count()
         pausadas = queryset.filter(esta_pausado=True).count()
         completadas = queryset.filter(estado='COMPLETADA').count()
         
-        # Detectar rutas con retraso
         rutas_activas = queryset.filter(estado='EN_PROGRESO')
         con_retraso = sum(1 for ruta in rutas_activas if ruta.detectar_retrasos())
         
-        # Promedio de progreso
         progreso_promedio = queryset.aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
         
-        # Tiempo promedio de completitud
         rutas_completadas = queryset.filter(estado='COMPLETADA', fecha_fin_real__isnull=False)
         tiempo_promedio = 0
         if rutas_completadas.exists():
@@ -506,7 +478,6 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                 tiempos.append(tiempo.total_seconds() / 60)
             tiempo_promedio = sum(tiempos) / len(tiempos) if tiempos else 0
         
-        # Estadísticas por etapa actual
         por_etapa = {}
         for etapa_key, etapa_label in RutaClinica.ETAPAS_CHOICES:
             count = queryset.filter(etapa_actual=etapa_key).count()
@@ -538,8 +509,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             {
                 'key': key,
                 'label': label,
-                'duracion_estimada': RutaClinica.DURACIONES_ESTIMADAS.get(key, 30),
-                'estado_paciente': RutaClinica.ETAPA_A_ESTADO_PACIENTE.get(key, 'EN_CONSULTA')
+                'duracion_estimada': RutaClinica.DURACIONES_ESTIMADAS.get(key, 30)
             }
             for key, label in RutaClinica.ETAPAS_CHOICES
         ]
@@ -551,9 +521,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['get'])
     def debug_timeline(self, request, pk=None):
-        """
-        🔍 DEBUG: Muestra información detallada del timeline
-        """
+        """DEBUG: Muestra información detallada del timeline"""
         try:
             ruta = self.get_object()
             
