@@ -258,14 +258,23 @@ const EstadoBoxes = () => {
     if (!boxSeleccionado) return;
 
     try {
-      const response = await boxesService.ocupar(boxSeleccionado.id, {
-        duracion_minutos: duracionEstimada,
+      // ✅ ASEGURAR QUE SEA NÚMERO
+      const duracionNumerica = parseInt(duracionEstimada, 10);
+      
+      console.log('Enviando datos:', {
+        duracion_minutos: duracionNumerica,
         motivo: motivoOcupacion || 'Ocupación manual'
       });
 
+      const response = await boxesService.ocupar(
+        boxSeleccionado.id, 
+        duracionNumerica,  // ✅ Enviar como número
+        motivoOcupacion || 'Ocupación manual'
+      );
+
       if (response.data.success) {
         showSnackbar(
-          `Box ${boxSeleccionado.numero} ocupado por ${duracionEstimada} minutos`,
+          `Box ${boxSeleccionado.numero} ocupado por ${duracionNumerica} minutos`,
           'success'
         );
         handleCerrarDialogoOcupar();
@@ -274,12 +283,16 @@ const EstadoBoxes = () => {
         showSnackbar(response.data.mensaje || 'Error al ocupar el box', 'error');
       }
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.error) {
+      console.error('Error completo:', err);
+      console.error('Respuesta del servidor:', err.response?.data);
+      
+      if (err.response?.data?.error) {
         showSnackbar(err.response.data.error, 'error');
+      } else if (err.response?.data?.mensaje) {
+        showSnackbar(err.response.data.mensaje, 'error');
       } else {
         showSnackbar('Error al ocupar el box', 'error');
       }
-      console.error(err);
     }
   };
 

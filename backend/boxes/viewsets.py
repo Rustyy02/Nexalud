@@ -35,6 +35,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     - GET /api/boxes/por_especialidad/ - Agrupa por especialidad
     - POST /api/boxes/{id}/mantenimiento/ - Marca en mantenimiento
     - POST /api/boxes/reset_ocupacion/ - Resetea contadores diarios
+    - GET /api/boxes/sincronizar_estados/ - Sincroniza estados con atenciones
+    - GET/POST /api/boxes/verificar_y_liberar/ - Verifica y libera boxes según atenciones
+    - GET /api/boxes/estado_detallado/ - Estado detallado de boxes y atenciones
+    - GET/POST /api/boxes/liberar_ocupaciones_manuales/ - Libera ocupaciones manuales expiradas
     """
     queryset = Box.objects.all()
     permission_classes = [IsAuthenticated]
@@ -103,7 +107,15 @@ class BoxViewSet(viewsets.ModelViewSet):
         duracion_minutos = request.data.get('duracion_minutos', 30)
         motivo = request.data.get('motivo', 'Ocupación manual')
         
-        # Validar duración
+        # Validar duración - CONVERTIR A INT PRIMERO
+        try:
+            duracion_minutos = int(duracion_minutos)
+        except (ValueError, TypeError):
+            return Response({
+                'success': False,
+                'error': 'La duración debe ser un número válido'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         duraciones_validas = [15, 30, 45, 60, 75, 90, 105, 120]
         if duracion_minutos not in duraciones_validas:
             return Response({
