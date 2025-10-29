@@ -1,6 +1,8 @@
+# backend/dashboard/views.py - VERSIÓN CORREGIDA
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import status
 from django.db.models import Count, Avg, Q, Sum
 from django.utils import timezone
 from datetime import timedelta
@@ -10,12 +12,46 @@ from atenciones.models import Atencion, Medico
 from rutas_clinicas.models import RutaClinica
 from .insights_ml import NexaThinkAnalyzer
 
+# ============================================
+# 🆕 PERMISO PERSONALIZADO MEJORADO
+# ============================================
+from rest_framework import permissions
+
+class IsAdminOrStaff(permissions.BasePermission):
+    """
+    Permiso que permite acceso a:
+    - Superusuarios (is_superuser=True)
+    - Staff (is_staff=True)
+    - Usuarios con rol ADMINISTRADOR
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Permitir a superusuarios
+        if request.user.is_superuser:
+            return True
+        
+        # Permitir a staff
+        if request.user.is_staff:
+            return True
+        
+        # Permitir a usuarios con rol ADMINISTRADOR
+        if hasattr(request.user, 'rol') and request.user.rol == 'ADMINISTRADOR':
+            return True
+        
+        return False
+
+# ============================================
+# VISTAS DEL DASHBOARD
+# ============================================
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
 def dashboard_metricas_generales(request):
     """
     Endpoint principal del dashboard con todas las métricas.
-    Solo accesible para administradores.
+    Accesible para: Superusuarios, Staff, y usuarios con rol ADMINISTRADOR.
     """
     ahora = timezone.now()
     hoy = ahora.date()
@@ -263,7 +299,7 @@ def dashboard_metricas_generales(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
 def dashboard_metricas_tiempo_real(request):
     """
     Endpoint para actualización en tiempo real (polling cada 5-10 segundos).
@@ -342,7 +378,7 @@ def get_ultimo_paciente():
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
 def dashboard_estadisticas_detalladas(request):
     """
     Endpoint para estadísticas más detalladas (para gráficos avanzados).
@@ -399,8 +435,9 @@ def dashboard_estadisticas_detalladas(request):
         'por_especialidad': por_especialidad,
     })
     
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
 def nexathink_insights(request):
     """
     Endpoint para obtener insights inteligentes de NexaThink.

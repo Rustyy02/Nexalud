@@ -1,4 +1,4 @@
-# backend/users/models.py
+# backend/users/models.py - VERSIÓN CORREGIDA
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -54,9 +54,14 @@ class User(AbstractUser):
         # Si es superusuario, asignar rol ADMINISTRADOR automáticamente
         if self.is_superuser:
             self.rol = 'ADMINISTRADOR'
+            self.is_staff = True  # 🆕 AGREGADO: Superusuarios deben ser staff
         else:
             # Ejecutar validaciones solo si no es superusuario
             self.full_clean()
+            
+            # 🆕 AGREGADO: Si es administrador, debe tener is_staff=True
+            if self.rol == 'ADMINISTRADOR':
+                self.is_staff = True
         
         super().save(*args, **kwargs)
     
