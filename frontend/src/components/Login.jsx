@@ -1,3 +1,4 @@
+// frontend/src/components/Login.jsx
 import React, { useState } from 'react';
 import {
   Box,
@@ -11,7 +12,7 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  Person as PersonIcon,
+  Email as EmailIcon,
   Lock as LockIcon,
   Visibility,
   VisibilityOff,
@@ -37,7 +38,7 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-    setError(''); // Limpiar error al escribir
+    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -49,8 +50,15 @@ const Login = () => {
       const result = await login(formData.username, formData.password);
       
       if (result.success) {
-        // Redirigir a Home en lugar de /pacientes
-        navigate('/');
+        // ✅ CORRECCIÓN: Redirigir según el rol del usuario
+        const userRole = result.user?.rol;
+        
+        if (userRole === 'MEDICO') {
+          navigate('/boxes');
+        } else {
+          // Administradores y Secretarias van a Home
+          navigate('/pacientes');
+        }
       } else {
         setError(result.error || 'Usuario o contraseña incorrectos');
       }
@@ -107,7 +115,7 @@ const Login = () => {
                 margin: '8px auto 0',
               }}
             >
-              Inicie sesión con sus credenciales
+              Inicie sesión con su correo o usuario
             </Typography>
           </Box>
 
@@ -115,19 +123,19 @@ const Login = () => {
           <form onSubmit={handleSubmit}>
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" sx={{ mb: 1 }}>
-                Usuario
+                Correo o Usuario
               </Typography>
               <TextField
                 fullWidth
                 name="username"
-                placeholder="Ingrese su usuario"
+                placeholder="correo@nexalud.admin.com"
                 value={formData.username}
                 onChange={handleChange}
                 required
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <PersonIcon color="action" />
+                      <EmailIcon color="action" />
                     </InputAdornment>
                   ),
                 }}
@@ -187,6 +195,7 @@ const Login = () => {
               {loading ? 'Ingresando...' : 'Ingresar'}
             </Button>
           </form>
+          
           {/* Footer */}
           <Typography 
             variant="caption" 

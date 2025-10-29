@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Componentes
 import Login from './components/Login';
@@ -17,12 +18,12 @@ import NexaThink from './components/NexaThink';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2', // Azul
+      main: '#1976d2',
       light: '#42a5f5',
       dark: '#1565c0',
     },
     secondary: {
-      main: '#4caf50', // Verde
+      main: '#4caf50',
       light: '#81c784',
       dark: '#388e3c',
     },
@@ -72,15 +73,17 @@ const theme = createTheme({
   },
 });
 
-// Componente para proteger rutas
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// ✅ NUEVO: Componente para redirección según rol
+const RoleBasedRedirect = () => {
+  const { user } = useAuth();
 
-  if (loading) {
-    return <div>Cargando...</div>;
+  // Redirigir según el rol del usuario
+  if (user?.rol === 'MEDICO') {
+    return <Navigate to="/boxes" replace />;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  // Administradores y Secretarias van a Home
+  return <Navigate to="/pacientes" replace />;
 };
 
 function AppContent() {
@@ -90,63 +93,68 @@ function AppContent() {
         {/* Ruta pública */}
         <Route path="/login" element={<Login />} />
 
-        {/* Rutas protegidas */}
+        {/* Ruta raíz - Redirige según rol */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <Home />
+              <RoleBasedRedirect />
             </ProtectedRoute>
           }
         />
-        
+
+        {/* Rutas protegidas - INICIO (Administrador y Secretaria) */}
         <Route
           path="/pacientes"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'SECRETARIA']}>
               <Home />
             </ProtectedRoute>
           }
         />
         
+        {/* Detalle Paciente - Administrador y Secretaria */}
         <Route
           path="/pacientes/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'SECRETARIA']}>
               <DetallePaciente />
             </ProtectedRoute>
           }
         />
 
+        {/* Estado Boxes - Todos los roles */}
         <Route
           path="/boxes"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'SECRETARIA', 'MEDICO']}>
               <EstadoBoxes />
             </ProtectedRoute>
           }
         />
 
+        {/* Dashboard - Solo Administrador */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
               <Dashboard />
             </ProtectedRoute>
           }
         />
 
+        {/* NexaThink - Solo Administrador */}
         <Route
           path="/nexathink"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
               <NexaThink />
             </ProtectedRoute>
           }
         />
 
         {/* Redirección por defecto */}
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

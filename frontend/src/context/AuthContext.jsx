@@ -1,3 +1,4 @@
+// frontend/src/context/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/api';
 
@@ -9,12 +10,21 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Verificar si hay token al cargar
+    // Verificar si hay token y usuario al cargar
     const token = localStorage.getItem('token');
-    if (token) {
-      setIsAuthenticated(true);
-      // Aquí podrías hacer una llamada para obtener info del usuario
-      // Por ahora solo marcamos como autenticado
+    const storedUser = localStorage.getItem('user');
+    
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        console.log('Usuario cargado desde localStorage:', userData);
+        setUser(userData);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Error al parsear usuario:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
@@ -22,14 +32,29 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await authService.login(username, password);
-      setUser(response.data.user);
-      setIsAuthenticated(true);
-      return { success: true };
+      
+      console.log('Respuesta completa del login:', response);
+      
+      if (response.success) {
+        console.log('Usuario recibido del backend:', response.data.user);
+        console.log('Rol del usuario:', response.data.user?.rol);
+        
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        // Guardar usuario en localStorage
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return { success: true, user: response.data.user };
+      }
+      
+      return { 
+        success: false, 
+        error: response.error || 'Error al iniciar sesión' 
+      };
     } catch (error) {
       console.error('Error en login:', error);
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Error al iniciar sesión' 
+        error: 'Error al iniciar sesión' 
       };
     }
   };
@@ -38,6 +63,7 @@ export const AuthProvider = ({ children }) => {
     authService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('user');
   };
 
   const value = {
@@ -55,7 +81,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Hook personalizado para usar el contexto
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
