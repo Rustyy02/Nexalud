@@ -15,6 +15,7 @@ import {
   useTheme,
 } from '@mui/material';
 import {
+  Psychology as Brain,
   MedicalServices as MedicalIcon,
   Person as PersonIcon,
   Dashboard as DashboardIcon,
@@ -81,9 +82,14 @@ const Navbar = () => {
       icon: <MeetingRoomIcon />,
     },
     {
-    label: 'Dashboard', // NUEVO
-    path: '/dashboard',
-    icon: <MeetingRoomIcon />,
+      label: 'Dashboard',
+      path: '/dashboard',
+      icon: <MeetingRoomIcon />,
+    },
+    {
+      label: 'NexaThink',
+      path: '/nexathink',
+      icon: <Brain />,
     },
   ];
 

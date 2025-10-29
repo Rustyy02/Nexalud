@@ -16,4 +16,9 @@ urlpatterns = [
     path('estadisticas/', 
          views.dashboard_estadisticas_detalladas, 
          name='dashboard-estadisticas'),
+    
+    # Insights de NexaThink
+    path('nexathink-insights/', 
+         views.nexathink_insights, 
+         name='nexathink-insights'),
 ]

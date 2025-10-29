@@ -8,7 +8,7 @@ from pacientes.models import Paciente
 from boxes.models import Box
 from atenciones.models import Atencion, Medico
 from rutas_clinicas.models import RutaClinica
-
+from .insights_ml import NexaThinkAnalyzer
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
@@ -398,3 +398,28 @@ def dashboard_estadisticas_detalladas(request):
         'estadisticas_diarias': estadisticas_diarias,
         'por_especialidad': por_especialidad,
     })
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def nexathink_insights(request):
+    """
+    Endpoint para obtener insights inteligentes de NexaThink.
+    
+    GET /api/dashboard/nexathink-insights/
+    """
+    try:
+        analyzer = NexaThinkAnalyzer()
+        insights = analyzer.generar_insights()
+        
+        return Response({
+            'timestamp': timezone.now().isoformat(),
+            'total_insights': len(insights),
+            'insights': insights,
+            'status': 'success'
+        })
+    
+    except Exception as e:
+        return Response({
+            'error': str(e),
+            'status': 'error'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

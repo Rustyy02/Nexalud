@@ -31,9 +31,7 @@ api.interceptors.response.use(
   }
 );
 
-// ============================================
-// SERVICIOS DE RUTAS CLÍNICAS - MEJORADOS
-// ============================================
+// SERVICIOS DE RUTAS CLÍNICAS
 
 export const rutasClinicasService = {
   // Básicos
@@ -42,26 +40,16 @@ export const rutasClinicasService = {
   create: (data) => api.post('/rutas-clinicas/', data),
   delete: (id) => api.delete(`/rutas-clinicas/${id}/`),
   
-  // ============================================
-  // NUEVO: Timeline completo con retrasos
-  // ============================================
+  // Timeline completo con retrasos
   getTimeline: (id) => api.get(`/rutas-clinicas/${id}/timeline/`),
   
-  // ============================================
-  // MEJORADO: Avanzar con observaciones
-  // ============================================
+  // Avanzar con observaciones
   avanzar: (id, data = {}) => 
     api.post(`/rutas-clinicas/${id}/avanzar/`, data),
-  // Ejemplo de uso:
-  // avanzar(rutaId, { observaciones: "Paciente derivado a laboratorio" })
   
-  // ============================================
-  // MEJORADO: Retroceder con motivo
-  // ============================================
+  // Retroceder con motivo
   retroceder: (id, data = {}) => 
     api.post(`/rutas-clinicas/${id}/retroceder/`, data),
-  // Ejemplo de uso:
-  // retroceder(rutaId, { motivo: "Error en el registro" })
   
   // Control de ruta
   iniciar: (id) => api.post(`/rutas-clinicas/${id}/iniciar/`),
@@ -69,25 +57,17 @@ export const rutasClinicasService = {
   reanudar: (id) => api.post(`/rutas-clinicas/${id}/reanudar/`),
   completar: (id) => api.post(`/rutas-clinicas/${id}/completar/`),
   
-  // ============================================
-  // NUEVO: Observaciones
-  // ============================================
+  // Observaciones (o comentarios tambien)
   agregarObservacion: (id, observaciones) => 
     api.post(`/rutas-clinicas/${id}/agregar_observacion/`, { observaciones }),
   
-  // ============================================
-  // NUEVO: Historial completo
-  // ============================================
+  // Historial
   getHistorial: (id) => api.get(`/rutas-clinicas/${id}/historial/`),
   
-  // ============================================
-  // NUEVO: Detección de retrasos
-  // ============================================
+  // Retrasos
   getRetrasos: (id) => api.get(`/rutas-clinicas/${id}/retrasos/`),
   
-  // ============================================
-  // NUEVO: Listar rutas con retrasos
-  // ============================================
+  // Rutas con retrasos
   getConRetrasos: () => api.get('/rutas-clinicas/con_retrasos/'),
   
   // Listas
@@ -107,7 +87,7 @@ export const rutasClinicasService = {
 
 export const pacientesService = {
   getAll: (params = {}) => api.get('/pacientes/', { params }),
-  getById: (id, params = {}) => api.get(`/pacientes/${id}/`, { params }), // ✅ Agregado params
+  getById: (id, params = {}) => api.get(`/pacientes/${id}/`, { params }),
   create: (data) => api.post('/pacientes/', data),
   update: (id, data) => api.patch(`/pacientes/${id}/`, data),
   cambiarEstado: (id, estado) => 
@@ -115,7 +95,7 @@ export const pacientesService = {
   getActivos: () => api.get('/pacientes/activos/'),
   getEnEspera: () => api.get('/pacientes/en_espera/'),
   getEstadisticas: () => api.get('/pacientes/estadisticas/'),
-  getRutasClinicas: (id, params = {}) => api.get(`/pacientes/${id}/rutas_clinicas/`, { params }), // ✅ Agregado params
+  getRutasClinicas: (id, params = {}) => api.get(`/pacientes/${id}/rutas_clinicas/`, { params }),
   getAtenciones: (id) => api.get(`/pacientes/${id}/atenciones/`),
 };
 
@@ -135,7 +115,7 @@ export const boxesService = {
     });
     
     return api.post(`/boxes/${id}/ocupar/`, { 
-      duracion_minutos: Number(duracion_minutos), // ✅ Asegurar que sea número
+      duracion_minutos: Number(duracion_minutos), // Esto asegura de que sea numerico
       motivo 
     });
   },
@@ -247,6 +227,14 @@ export const dashboardService = {
   // Estadísticas detalladas (para gráficos)
   getEstadisticas: (periodo = 7) => 
     api.get('/dashboard/estadisticas/', { params: { periodo } }),
+};
+
+// ============================================
+// SERVICIO DE NEXATHINK
+// ============================================
+
+export const nexathinkService = {
+  getInsights: () => api.get('/dashboard/nexathink-insights/'),
 };
 
 export default api;
