@@ -1,4 +1,4 @@
-# 🏥 Nexalud - Sistema de apoyo a laGestión Hospitalaria
+# 🏥 Nexalud - Sistema de apoyo a la Gestión Hospitalaria
 
 ![Django](https://img.shields.io/badge/Django-5.2.6-green)
 ![React](https://img.shields.io/badge/React-18.2.0-blue)
@@ -44,7 +44,6 @@ npm start
 
 - [📖 Guía de Instalación Completa](INSTALLATION.md)
 - [🏗️ Arquitectura](ARCHITECTURE.md)
-- [🚀 Despliegue](DEPLOYMENT.md)
 
 ## Estructura del Proyecto
 
