@@ -262,5 +262,29 @@ graph TB
     E --> C
     G --> F
     I --> H
+```
 
+# Decisiones técnicas
+
+## ¿Por qué Django REST Framework?
+
+- Rápido desarrollo -> APIs -> CRUD en minutos con ModelViewSet
+- Serializers robustos -> Validación compleja de datos médicos
+- Autenticación integrada -> JWT + permisos por rol
+- Documentación automática -> Swagger/OpenAPI integrado
+- Comunidad activa -> Soluciones probadas y mantenidas
+
+## ¿Por qué React + Material-UI?
+
+- Componentes reutilizables -> Formularios médicos consistentes
+- Ecosistema rico -> Gráficos, tablas, formularios
+- Performance -> Virtual DOM para interfaces complejas
+- Developer Experience -> Hot reload, herramientas de debugging
+
+## ¿Por qué SQLite para Desarrollo?
+
+- Velocidad de desarrollo -> Sin configuración de base de datos
+- Portabilidad -> Todo el equipo usa misma configuración
+- Testing -> Bases de datos en memoria para tests
+- Migración futura -> Mismo ORM para SQLite y PostgreSQL
 
