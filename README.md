@@ -1,6 +1,6 @@
 # Nexalud
 
-Proyecto de innovación tecnológica para optimización de tiempos de espera y seguimiento de pacientes desarrollado con **Django + React + PostgreSQL**.  
+Proyecto de innovación tecnológica para optimización de tiempos de espera y seguimiento de pacientes desarrollado con **Django + React + SQLite.  
 Este repositorio contiene el backend en Django (API REST) y el frontend en React.
 
 ---
