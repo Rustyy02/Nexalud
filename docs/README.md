@@ -58,6 +58,6 @@ nexalud/
 └── docker-compose.yml
 
 ## Tecnologías
-- Backend: Django, Django REST Framework, PostgreSQL
+- Backend: Django, Django REST Framework, SQLite
 - Frontend: React, Material-UI, Axios
 - Herramientas: Docker, Git, GitHub Actions
