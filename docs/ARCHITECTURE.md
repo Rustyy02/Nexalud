@@ -3,7 +3,7 @@
 <div align="center">
 
 [🏠 Inicio](README.md) | 
-[👈 Anterior: Instalación](installation.md) | 
+[👈 Anterior: Instalación](INSTALLATION.md) | 
 
 </div>
 
@@ -205,6 +205,28 @@ sequenceDiagram
     R->>DB: Actualizar ruta
     R->>F: 200 OK
     F->>U: UI actualizada
+```
+
+## Diagrama de Secuencia - Dashboard
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant D as API Dashboard
+    participant A as API Atenciones
+    participant P as API Pacientes
+    participant B as API Boxes
+
+    Note over F: Cada 30 segundos
+    F->>D: GET /api/dashboard/metricas/
+    D->>A: Consultar atenciones hoy
+    A->>A: Contar atenciones
+    D->>P: Consultar pacientes activos
+    P->>P: Contar por estado
+    D->>B: Consultar boxes
+    B->>B: Calcular ocupación
+    D->>F: Métricas consolidadas
+    F->>F: Actualizar componentes
 ```
 
 ## Diagrama de Capas
