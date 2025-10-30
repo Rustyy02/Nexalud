@@ -9,10 +9,10 @@
 
 ## 📋 Tabla de Contenidos
 
-- [📐 Visión General](#visión-general)
-- [🏛️ Patrón Arquitectónico](#patrón-arquitectónico)
-- [🗄️ Capa de Datos](#capa-de-datos)
-- [🔮 Decisiones Técnicas](#decisiones-técnicas)
+- [📐 Visión General](#-visión-general)
+- [🏛️ Patrón Arquitectónico](#-patrón-arquitectónico)
+- [🗄️ Capa de Datos](#-capa-de-datos)
+- [🔮 Decisiones Técnicas](#-decisiones-técnicas)
 
 # 📐 Visión General
 
