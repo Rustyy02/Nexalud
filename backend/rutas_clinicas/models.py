@@ -129,20 +129,50 @@ class RutaClinica(models.Model):
     
     def iniciar_ruta(self, usuario=None):
         """
-        ✅ CORREGIDO: Inicia la ruta clínica con la primera etapa SELECCIONADA
+        ✅ CORREGIDO: Inicia la ruta con manejo correcto de etapas previas
         """
         # Si no hay etapas seleccionadas, usar todas
         if not self.etapas_seleccionadas or len(self.etapas_seleccionadas) == 0:
             todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
             self.etapas_seleccionadas = todas_etapas
         
-        # ✅ CAMBIO CRÍTICO: Usar la primera etapa SELECCIONADA, no todas las etapas
+        # ✅ NUEVO: Ordenar etapas según el orden fijo del sistema
+        orden_fijo = [key for key, _ in self.ETAPAS_CHOICES]
+        self.etapas_seleccionadas = sorted(
+            self.etapas_seleccionadas, 
+            key=lambda x: orden_fijo.index(x)
+        )
+        
+        # Configurar primera etapa
         self.estado = 'EN_PROGRESO'
         self.indice_etapa_actual = 0
-        self.etapa_actual = self.etapas_seleccionadas[0]  # ← CORRECCIÓN AQUÍ
+        self.etapa_actual = self.etapas_seleccionadas[0]
         
-        # Registrar inicio de primera etapa
+        # ✅ NUEVO: Marcar automáticamente como completadas las etapas anteriores
+        todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
+        indice_primera_etapa = todas_etapas.index(self.etapa_actual)
+        
+        # Completar etapas anteriores a la etapa inicial
         ahora = timezone.now()
+        for i in range(indice_primera_etapa):
+            etapa_previa = todas_etapas[i]
+            
+            # Agregar a completadas
+            if etapa_previa not in self.etapas_completadas:
+                self.etapas_completadas.append(etapa_previa)
+            
+            # Registrar timestamp (marcada como completada automáticamente)
+            self.timestamps_etapas[etapa_previa] = {
+                'fecha_inicio': ahora.isoformat(),
+                'fecha_fin': ahora.isoformat(),
+                'duracion_real': 0,
+                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(etapa_previa, 30),
+                'observaciones': 'Etapa completada automáticamente (anterior a etapa inicial)',
+                'usuario_inicio': 'Sistema',
+                'auto_completada': True,
+            }
+        
+        # Registrar inicio de primera etapa activa
         self.timestamps_etapas[self.etapa_actual] = {
             'fecha_inicio': ahora.isoformat(),
             'fecha_fin': None,
@@ -155,7 +185,7 @@ class RutaClinica(models.Model):
         # Registrar en historial
         self._agregar_al_historial('INICIO_RUTA', self.etapa_actual, usuario)
         
-        # ✅ SINCRONIZAR CON PACIENTE
+        # Sincronizar con paciente
         self._sincronizar_etapa_paciente()
         
         # Calcular fecha estimada de fin
@@ -163,6 +193,7 @@ class RutaClinica(models.Model):
         
         self.save()
         return True
+
     
     def avanzar_etapa(self, observaciones="", usuario=None):
         """
@@ -374,30 +405,50 @@ class RutaClinica(models.Model):
         return retrasos
     
     def obtener_timeline_completo(self):
-        """Retorna el timeline completo de todas las etapas"""
+        """
+        ✅ CORREGIDO: Timeline que respeta el orden fijo de etapas
+        """
         timeline = []
         
+        # ✅ ORDEN FIJO de todas las etapas del sistema
         todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
         
-        # Asegurar que etapas_completadas es una lista
+        # Asegurar que son listas
         if not isinstance(self.etapas_completadas, list):
             self.etapas_completadas = []
         
-        # Asegurar que etapas_seleccionadas es una lista
         if not isinstance(self.etapas_seleccionadas, list):
             self.etapas_seleccionadas = []
+        
+        # ✅ NUEVO: Encontrar el índice de la primera etapa seleccionada
+        indice_primera_seleccionada = float('inf')
+        if self.etapas_seleccionadas:
+            indice_primera_seleccionada = min(
+                todas_etapas.index(etapa) 
+                for etapa in self.etapas_seleccionadas
+            )
         
         for i, etapa_key in enumerate(todas_etapas):
             etapa_label = dict(self.ETAPAS_CHOICES).get(etapa_key, etapa_key)
             
-            # Determinar estado
-            if etapa_key in self.etapas_completadas:
+            # ✅ LÓGICA CORREGIDA: Determinar estado basado en posición
+            if i < indice_primera_seleccionada:
+                # Etapas anteriores a la primera seleccionada
                 estado = 'COMPLETADA'
-            elif etapa_key == self.etapa_actual:
+            elif etapa_key in self.etapas_completadas:
+                # Etapas explícitamente completadas
+                estado = 'COMPLETADA'
+            elif etapa_key == self.etapa_actual and self.estado == 'EN_PROGRESO':
+                # Etapa actual en proceso
                 estado = 'EN_CURSO'
             elif etapa_key in self.etapas_seleccionadas:
-                estado = 'PENDIENTE'
+                # Etapa seleccionada pero pendiente
+                if i > todas_etapas.index(self.etapa_actual):
+                    estado = 'PENDIENTE'
+                else:
+                    estado = 'COMPLETADA'
             else:
+                # Etapa no seleccionada
                 estado = 'NO_REQUERIDA'
             
             # Obtener timestamps y detalles
@@ -407,9 +458,14 @@ class RutaClinica(models.Model):
             retrasada = False
             if estado == 'EN_CURSO' and etapa_data.get('fecha_inicio'):
                 try:
-                    inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'])
+                    inicio = timezone.datetime.fromisoformat(
+                        etapa_data['fecha_inicio'].replace('Z', '+00:00')
+                    )
                     duracion_actual = (timezone.now() - inicio).total_seconds() / 60
-                    duracion_estimada = etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30))
+                    duracion_estimada = etapa_data.get(
+                        'duracion_estimada', 
+                        self.DURACIONES_ESTIMADAS.get(etapa_key, 30)
+                    )
                     retrasada = duracion_actual > duracion_estimada * 1.2
                 except Exception:
                     retrasada = False
@@ -424,15 +480,19 @@ class RutaClinica(models.Model):
                 'fecha_inicio': etapa_data.get('fecha_inicio'),
                 'fecha_fin': etapa_data.get('fecha_fin'),
                 'duracion_real': etapa_data.get('duracion_real'),
-                'duracion_estimada': etapa_data.get('duracion_estimada', self.DURACIONES_ESTIMADAS.get(etapa_key, 30)),
+                'duracion_estimada': etapa_data.get(
+                    'duracion_estimada', 
+                    self.DURACIONES_ESTIMADAS.get(etapa_key, 30)
+                ),
                 'observaciones': etapa_data.get('observaciones', ''),
                 'es_actual': es_actual,
                 'retrasada': retrasada,
                 'es_requerida': etapa_key in self.etapas_seleccionadas if self.etapas_seleccionadas else True,
+                'auto_completada': etapa_data.get('auto_completada', False),
             })
         
         return timeline
-    
+
     def obtener_info_timeline(self):
         """Retorna información estructurada para el timeline (método legacy)"""
         return self.obtener_timeline_completo()

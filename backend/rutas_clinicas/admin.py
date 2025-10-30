@@ -38,7 +38,9 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         'timestamps_etapas',
         'indice_etapa_actual',
         'tiempo_total_info',
+        'etapas_orden_display',
         'timeline_info'
+        
     ]
     date_hierarchy = 'fecha_inicio'
     
@@ -249,3 +251,36 @@ class RutaClinicaAdmin(admin.ModelAdmin):
             ruta.calcular_progreso()
         self.message_user(request, f'Progreso recalculado para {queryset.count()} rutas.')
     recalcular_progreso.short_description = "Recalcular progreso"
+    
+    def etapas_orden_display(self, obj):
+        #"""Muestra el orden correcto de las etapas"""
+        todas_etapas = [key for key, _ in RutaClinica.ETAPAS_CHOICES]
+        
+        html = '<div style="font-family: monospace; line-height: 2;">'
+        html += '<strong>Orden del Sistema (fijo):</strong><br>'
+        
+        for i, etapa_key in enumerate(todas_etapas):
+            label = dict(RutaClinica.ETAPAS_CHOICES).get(etapa_key)
+            
+            # Determinar color
+            if etapa_key in obj.etapas_completadas:
+                color = '#4CAF50'
+                icon = '✓'
+            elif etapa_key == obj.etapa_actual:
+                color = '#2196F3'
+                icon = '▶'
+            elif etapa_key in obj.etapas_seleccionadas:
+                color = '#FF9800'
+                icon = '○'
+            else:
+                color = '#9E9E9E'
+                icon = '—'
+            
+            html += f'<span style="color: {color};">'
+            html += f'{i+1}. {icon} {label}'
+            html += '</span><br>'
+        
+        html += '</div>'
+        return format_html(html)
+    
+    etapas_orden_display.short_description = "Orden de Etapas"
