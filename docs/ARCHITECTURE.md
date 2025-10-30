@@ -108,13 +108,18 @@ erDiagram
     PACIENTE ||--o{ RUTA_CLINICA : "sigue"
     MEDICO ||--o{ ATENCION : "realiza"
     BOX ||--o{ ATENCION : "utiliza"
+    USUARIO ||--o{ ATENCION : "gestiona"
     
     PACIENTE {
         uuid id PK
         string rut UK
         string nombre
+        string apellido_paterno
+        string apellido_materno
         string estado_actual
         string etapa_actual
+        json metadatos_adicionales
+        datetime fecha_ingreso
     }
     
     ATENCION {
@@ -123,7 +128,41 @@ erDiagram
         uuid medico_id FK
         uuid box_id FK
         datetime fecha_hora_inicio
+        datetime fecha_hora_fin
+        integer duracion_planificada
+        integer duracion_real
         string estado
+        string tipo_atencion
+        datetime inicio_cronometro
+        datetime fin_cronometro
+    }
+    
+    RUTA_CLINICA {
+        uuid id PK
+        uuid paciente_id FK
+        json etapas_seleccionadas
+        string etapa_actual
+        float porcentaje_completado
+        string estado
+        json timestamps_etapas
+    }
+    
+    MEDICO {
+        uuid id PK
+        string codigo_medico UK
+        string nombre
+        string apellido
+        string especialidad_principal
+        json especialidades_secundarias
+    }
+    
+    BOX {
+        uuid id PK
+        string numero UK
+        string nombre
+        string especialidad
+        string estado
+        integer capacidad_maxima
     }
 ```
 
