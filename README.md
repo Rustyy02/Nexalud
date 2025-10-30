@@ -11,7 +11,7 @@ Antes de empezar, asegúrate de tener instalado:
 
 - [Python 3.11+](https://www.python.org/downloads/)
 - [Node.js 18+](https://nodejs.org/en/download/)
-- [PostgreSQL 14+](https://www.postgresql.org/download/)
+- SQLite
 - [Git](https://git-scm.com/)
 
 ---
