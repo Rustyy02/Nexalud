@@ -1,0 +1,222 @@
+[
+  {
+    "paciente_id": "4b772554-3f79-4177-bb35-f826030ce817",
+    "paciente_rut": "24353207-8",
+    "paciente_nombre": "Francisco Gonz??lez",
+    "etapa_actual": "DIAGNOSTICO",
+    "estado": "EN_PROCESO",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-22T00:33:58.083148+00:00",
+    "edad": 27,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "0a4d6777-345e-4c5e-83d2-89ce813e9349",
+    "paciente_rut": "16446603-5",
+    "paciente_nombre": "Beatriz Gonz??lez",
+    "etapa_actual": "ALTA",
+    "estado": "EN_PROCESO",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-28T00:33:58.083148+00:00",
+    "edad": 19,
+    "seguro": "OTRO"
+  },
+  {
+    "paciente_id": "28626f83-11b9-407f-86e1-b7d6ab78c641",
+    "paciente_rut": "23870910-5",
+    "paciente_nombre": "Valentina Cruz",
+    "etapa_actual": "ESPERA_RESULTADOS",
+    "estado": "COMPLETADA",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-17T00:33:58.083148+00:00",
+    "edad": 10,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "f834fd3c-d134-4d08-835a-9f78e720a5d0",
+    "paciente_rut": "12669520-9",
+    "paciente_nombre": "Ana Hern??ndez",
+    "etapa_actual": "EN_ATENCION",
+    "estado": "COMPLETADA",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-23T00:33:58.083148+00:00",
+    "edad": 29,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "571782c3-6547-4576-b18a-bbe7f7af5ba1",
+    "paciente_rut": "24935395-7",
+    "paciente_nombre": "Francisco Ram??rez",
+    "etapa_actual": "ESPERA_RESULTADOS",
+    "estado": "EN_PROCESO",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-23T00:33:58.083148+00:00",
+    "edad": 30,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "3dc0b859-2655-4b72-897d-6e8fb95e48f0",
+    "paciente_rut": "24626094-K",
+    "paciente_nombre": "Camila Jim??nez",
+    "etapa_actual": "ESPERA_ATENCION",
+    "estado": "COMPLETADA",
+    "prioridad": "CRITICA",
+    "fecha_inicio": "2025-10-05T00:33:58.083148+00:00",
+    "edad": 38,
+    "seguro": "OTRO"
+  },
+  {
+    "paciente_id": "41c5004e-df4e-4acb-8c34-a63c430dd5a3",
+    "paciente_rut": "20065091-3",
+    "paciente_nombre": "Ana L??pez",
+    "etapa_actual": "EXAMENES",
+    "estado": "COMPLETADA",
+    "prioridad": "BAJA",
+    "fecha_inicio": "2025-10-20T00:33:58.083148+00:00",
+    "edad": 14,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "a0bfc27b-3fe2-44bd-ac28-cf3d39517a10",
+    "paciente_rut": "13983763-0",
+    "paciente_nombre": "Elena Gonz??lez",
+    "etapa_actual": "ESPERA_RESULTADOS",
+    "estado": "PAUSADA",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-18T00:33:58.083148+00:00",
+    "edad": 30,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "54bfe4df-58d3-4751-9dfd-f55796b01db9",
+    "paciente_rut": "15596606-8",
+    "paciente_nombre": "Mat??as P??rez",
+    "etapa_actual": "ESPERA_ATENCION",
+    "estado": "PAUSADA",
+    "prioridad": "CRITICA",
+    "fecha_inicio": "2025-10-23T00:33:58.083148+00:00",
+    "edad": 53,
+    "seguro": "ISAPRE"
+  },
+  {
+    "paciente_id": "4ff2aa99-c507-43e4-8b35-df62cdd820b5",
+    "paciente_rut": "13602644-5",
+    "paciente_nombre": "Carlos D??az",
+    "etapa_actual": "ESPERA_ATENCION",
+    "estado": "PAUSADA",
+    "prioridad": "BAJA",
+    "fecha_inicio": "2025-10-06T00:33:58.083148+00:00",
+    "edad": 90,
+    "seguro": "OTRO"
+  },
+  {
+    "paciente_id": "0ef456ae-565f-4b60-8d1b-409d7cf7c719",
+    "paciente_rut": "22382532-K",
+    "paciente_nombre": "Jos?? Garc??a",
+    "etapa_actual": "EXAMENES",
+    "estado": "COMPLETADA",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-16T00:33:58.083148+00:00",
+    "edad": 10,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "f9c12cd1-76d6-4e76-a50a-1615ae903653",
+    "paciente_rut": "11941473-3",
+    "paciente_nombre": "David Ram??rez",
+    "etapa_actual": "INGRESO",
+    "estado": "PAUSADA",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-01T00:33:58.083148+00:00",
+    "edad": 82,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "0c2bdcec-89b5-458d-b0cf-2520e36e2552",
+    "paciente_rut": "20609260-2",
+    "paciente_nombre": "Elena Ortiz",
+    "etapa_actual": "TRATAMIENTO",
+    "estado": "COMPLETADA",
+    "prioridad": "CRITICA",
+    "fecha_inicio": "2025-10-10T00:33:58.083148+00:00",
+    "edad": 49,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "3f33d358-a706-4bf3-8549-d323b85801e6",
+    "paciente_rut": "24665084-5",
+    "paciente_nombre": "David Hern??ndez",
+    "etapa_actual": "SEGUIMIENTO",
+    "estado": "PAUSADA",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-11T00:33:58.083148+00:00",
+    "edad": 8,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "37df5a49-ca73-4d87-9caf-bac5629289bb",
+    "paciente_rut": "18965643-2",
+    "paciente_nombre": "Isabel Ortiz",
+    "etapa_actual": "INGRESO",
+    "estado": "EN_PROCESO",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-02T00:33:58.083148+00:00",
+    "edad": 81,
+    "seguro": "ISAPRE"
+  },
+  {
+    "paciente_id": "bae57951-2260-4c88-bfc5-82fd81ebd15d",
+    "paciente_rut": "24028705-6",
+    "paciente_nombre": "Antonio Garc??a",
+    "etapa_actual": "ESPERA_ATENCION",
+    "estado": "COMPLETADA",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-24T00:33:58.083148+00:00",
+    "edad": 55,
+    "seguro": "PARTICULAR"
+  },
+  {
+    "paciente_id": "1eb0ec8e-67ef-489a-b3fc-95f5337b0ab2",
+    "paciente_rut": "12555482-2",
+    "paciente_nombre": "David Reyes",
+    "etapa_actual": "TRATAMIENTO",
+    "estado": "EN_PROCESO",
+    "prioridad": "ALTA",
+    "fecha_inicio": "2025-10-27T00:33:58.083148+00:00",
+    "edad": 80,
+    "seguro": "OTRO"
+  },
+  {
+    "paciente_id": "23fa6d24-420b-41f9-9f1a-fa2bbb7d6e3c",
+    "paciente_rut": "14400458-2",
+    "paciente_nombre": "Carmen Torres",
+    "etapa_actual": "SEGUIMIENTO",
+    "estado": "EN_PROCESO",
+    "prioridad": "MEDIA",
+    "fecha_inicio": "2025-10-09T00:33:58.083148+00:00",
+    "edad": 1,
+    "seguro": "FONASA"
+  },
+  {
+    "paciente_id": "2408fae7-ad32-4827-af57-b7957262ffe0",
+    "paciente_rut": "13133864-3",
+    "paciente_nombre": "Miguel Rivera",
+    "etapa_actual": "TRATAMIENTO",
+    "estado": "EN_PROCESO",
+    "prioridad": "BAJA",
+    "fecha_inicio": "2025-10-12T00:33:58.083148+00:00",
+    "edad": 77,
+    "seguro": "OTRO"
+  },
+  {
+    "paciente_id": "f0585fcc-6e47-4c0b-8fdb-a5ac17c02165",
+    "paciente_rut": "14199721-1",
+    "paciente_nombre": "Valentina Cruz",
+    "etapa_actual": "TRATAMIENTO",
+    "estado": "PAUSADA",
+    "prioridad": "CRITICA",
+    "fecha_inicio": "2025-10-30T00:33:58.083148+00:00",
+    "edad": 35,
+    "seguro": "OTRO"
+  }
+]

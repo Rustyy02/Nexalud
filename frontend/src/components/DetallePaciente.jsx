@@ -1,4 +1,4 @@
-// frontend/src/components/DetallePaciente.jsx - CON BARRA DE PROGRESO CONTINUA
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN FINAL COMBINADA
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -23,6 +23,12 @@ import {
     ListItem,
     ListItemText,
     Tooltip,
+    LinearProgress,
+    Stepper,
+    Step,
+    StepLabel,
+    styled,
+    keyframes,
 } from '@mui/material';
 import {
     Person as PersonIcon,
@@ -38,6 +44,19 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
 import Navbar from './Navbar';
+
+// ⭐ Animación de titineo para la etapa actual
+const pulseAnimation = keyframes`
+    0% {
+        box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+    }
+`;
 
 const DetallePaciente = () => {
     const { id } = useParams();
@@ -182,7 +201,7 @@ const DetallePaciente = () => {
             contacto: metadatos.contacto || paciente.telefono || '+56 9 0000 0000',
             direccion: metadatos.direccion || 
                     paciente.direccion_completa || 
-                    'Sin dirección registrada',
+                    'No especificada',
             seguro: metadatos.seguro || 
                     paciente.seguro_medico_display || 
                     'Sin seguro',
@@ -192,36 +211,114 @@ const DetallePaciente = () => {
         };
     };
 
-    // Función para obtener el icono según la etapa
-    const getStageIcon = (etapaKey) => {
-        const icons = {
-            'CONSULTA_MEDICA': '🩺',
-            'PROCESO_EXAMEN': '🧪',
+    // Función para obtener el emoji según la etapa
+    const getEmojiForEtapa = (etapaKey) => {
+        const emojis = {
+            'CONSULTA_MEDICA': '👨‍⚕️',
+            'PROCESO_EXAMEN': '🔬',
             'REVISION_EXAMEN': '📋',
             'HOSPITALIZACION': '🏥',
             'OPERACION': '⚕️',
             'ALTA': '✅',
         };
-        return icons[etapaKey] || '📌';
+        return emojis[etapaKey] || '📌';
+    };
+
+    // ⭐ Renderizar el icono de etapa con animación y emoji
+    const renderStepIcon = (etapa, index) => {
+        const { estado, es_actual, etapa_key } = etapa;
+        const emoji = getEmojiForEtapa(etapa_key);
+
+        if (estado === 'COMPLETADA') {
+            return (
+                <Box
+                    sx={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: '50%',
+                        backgroundColor: 'success.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 28,
+                        border: '3px solid white',
+                        boxShadow: '0 2px 8px rgba(76, 175, 80, 0.4)',
+                    }}
+                >
+                    {emoji}
+                </Box>
+            );
+        }
+
+        if (es_actual) {
+            return (
+                <Box
+                    sx={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: '50%',
+                        backgroundColor: 'primary.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 28,
+                        border: '3px solid white',
+                        animation: `${pulseAnimation} 2s infinite`,
+                        boxShadow: '0 4px 12px rgba(33, 150, 243, 0.6)',
+                    }}
+                >
+                    {emoji}
+                </Box>
+            );
+        }
+
+        return (
+            <Box
+                sx={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: '50%',
+                    backgroundColor: 'grey.300',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 28,
+                    border: '3px solid white',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    opacity: 0.6,
+                }}
+            >
+                {emoji}
+            </Box>
+        );
+    };
+
+    // ⭐ Calcular posición de la barra alineada con la etapa actual
+    const calcularPosicionBarra = () => {
+        if (!rutaClinica || !rutaClinica.timeline) return 0;
+
+        const timeline = rutaClinica.timeline;
+        const etapaActualIndex = timeline.findIndex(e => e.es_actual);
+
+        if (etapaActualIndex === -1) {
+            // Si no hay etapa actual, usar completadas
+            const completadas = timeline.filter(e => e.estado === 'COMPLETADA').length;
+            return (completadas / timeline.length) * 100;
+        }
+
+        // Posición de la etapa actual + 50% (mitad de la etapa)
+        const posicionEtapa = etapaActualIndex / timeline.length;
+        const mitadEtapa = 0.5 / timeline.length;
+        
+        return (posicionEtapa + mitadEtapa) * 100;
     };
 
     if (loading) {
         return (
             <>
                 <Navbar />
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 64px)' }}>
-                    <CircularProgress />
-                </Box>
-            </>
-        );
-    }
-
-    if (!paciente) {
-        return (
-            <>
-                <Navbar />
-                <Container maxWidth="xl" sx={{ py: 4 }}>
-                    <Alert severity="error">Paciente no encontrado</Alert>
+                <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+                    <CircularProgress size={60} />
                 </Container>
             </>
         );
@@ -232,514 +329,224 @@ const DetallePaciente = () => {
     return (
         <>
             <Navbar />
-            <Container maxWidth="xl" sx={{ py: 4 }}>
+            <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
                 {error && (
-                    <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
                         {error}
                     </Alert>
                 )}
 
-                {/* Alertas de Retrasos */}
-                {rutaClinica?.retrasos && rutaClinica.retrasos.length > 0 && (
-                    <Alert severity="error" icon={<WarningIcon />} sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" fontWeight="600">
-                            ⚠️ Se detectaron {rutaClinica.retrasos.length} etapa(s) con retraso
-                        </Typography>
-                        {rutaClinica.retrasos.map((retraso, index) => (
-                            <Typography key={index} variant="body2" sx={{ mt: 0.5 }}>
-                                • {retraso.etapa_label}: {retraso.retraso_minutos} minutos de retraso
-                            </Typography>
-                        ))}
-                    </Alert>
-                )}
-
-                {/* Card Principal del Paciente */}
-                <Card elevation={3} sx={{ mb: 3 }}>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', gap: 3, mb: 4 }}>
-                            <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main' }}>
-                                <PersonIcon sx={{ fontSize: 40 }} />
+                {/* Cabecera del Paciente con fondo degradado (diseño original) */}
+                <Paper elevation={3} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item>
+                            <Avatar sx={{ width: 80, height: 80, bgcolor: 'white', color: 'primary.main' }}>
+                                <PersonIcon sx={{ fontSize: 50 }} />
                             </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                                <Typography variant="h4" fontWeight="bold" gutterBottom>
-                                    {datos.nombre}
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
-                                    <Typography variant="body1" color="text.secondary">
-                                        <strong>RUT:</strong> {datos.rut}
-                                    </Typography>
-                                    <Typography variant="body1" color="text.secondary">
-                                        <strong>Edad:</strong> {datos.edad}
-                                    </Typography>
-                                    <Typography variant="body1" color="text.secondary">
-                                        <strong>Tipo de Sangre:</strong> {datos.tipoSangre}
+                        </Grid>
+                        <Grid item xs>
+                            <Typography variant="h4" fontWeight="700" color="white" gutterBottom>
+                                {datos.nombre}
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                <Chip
+                                    label={`RUT: ${datos.rut}`}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
+                                />
+                                <Chip
+                                    label={`${datos.edad} años`}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
+                                />
+                                <Chip
+                                    label={paciente?.genero_display || 'No especificado'}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
+                                />
+                                <Chip
+                                    label={`Tipo: ${datos.tipoSangre}`}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600 }}
+                                />
+                                <Chip
+                                    label={paciente?.estado_actual_display || 'Estado desconocido'}
+                                    color={getColorUrgencia(paciente?.nivel_urgencia)}
+                                />
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </Paper>
+
+                {/* Timeline de Ruta Clínica con diseño mejorado */}
+                {rutaClinica && (
+                    <Card elevation={3} sx={{ mb: 3 }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <TimelineIcon color="primary" sx={{ fontSize: 30 }} />
+                                    <Typography variant="h5" fontWeight="600">
+                                        Ruta Clínica
                                     </Typography>
                                 </Box>
-                                
-                                {/* Estado y Etapa Sincronizados */}
-                                <Alert 
-                                    severity="info" 
-                                    sx={{ 
-                                        mb: 2,
-                                        bgcolor: 'primary.50',
-                                        '& .MuiAlert-message': {
-                                            width: '100%'
+                                <Chip
+                                    label={rutaClinica.estado_actual}
+                                    color={rutaClinica.estado_actual === 'COMPLETADA' ? 'success' : 'primary'}
+                                    sx={{ fontWeight: 600 }}
+                                />
+                            </Box>
+
+                            {/* ⭐ Barra de progreso mejorada y alineada */}
+                            <Box sx={{ mb: 4 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Progreso General
+                                    </Typography>
+                                    <Typography variant="body2" fontWeight="600" color="primary">
+                                        {rutaClinica.etapas_completadas}/{rutaClinica.etapas_totales} etapas
+                                    </Typography>
+                                </Box>
+                                <LinearProgress
+                                    variant="determinate"
+                                    value={calcularPosicionBarra()}
+                                    sx={{
+                                        height: 12,
+                                        borderRadius: 2,
+                                        bgcolor: 'grey.200',
+                                        '& .MuiLinearProgress-bar': {
+                                            borderRadius: 2,
+                                            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                                        }
+                                    }}
+                                />
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                    {rutaClinica.progreso_general.toFixed(1)}% completado
+                                </Typography>
+                            </Box>
+
+                            {/* Timeline de Etapas con iconos animados */}
+                            <Box sx={{ mb: 3 }}>
+                                <Stepper 
+                                    activeStep={-1} 
+                                    alternativeLabel
+                                    sx={{
+                                        '& .MuiStepConnector-line': {
+                                            borderTopWidth: 3,
                                         }
                                     }}
                                 >
-                                    <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                                        Estado Actual del Paciente
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-                                        <Box>
-                                            <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                                                Estado del Sistema:
-                                            </Typography>
-                                            <Chip
-                                                label={paciente.estado_actual_display}
-                                                color={getColorUrgencia(paciente.estado_actual)}
-                                                size="small"
-                                                sx={{ fontWeight: 600 }}
-                                            />
-                                        </Box>
-                                        
-                                        {paciente.etapa_actual ? (
-                                            <Box>
-                                                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                                                    Etapa del Flujo Clínico:
-                                                </Typography>
-                                                <Chip
-                                                    icon={<TimelineIcon sx={{ fontSize: 14 }} />}
-                                                    label={paciente.etapa_actual_display}
-                                                    size="small"
-                                                    sx={{ 
-                                                        fontWeight: 600,
-                                                        bgcolor: '#2196F3',
-                                                        color: 'white',
-                                                        '& .MuiChip-icon': {
-                                                            color: 'white',
-                                                        }
-                                                    }}
-                                                />
-                                            </Box>
-                                        ) : (
-                                            <Box>
-                                                <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                                                    Etapa del Flujo Clínico:
-                                                </Typography>
-                                                <Chip
-                                                    label="Sin etapa asignada"
-                                                    size="small"
-                                                    variant="outlined"
-                                                    sx={{ fontWeight: 500 }}
-                                                />
-                                            </Box>
-                                        )}
-                                        
-                                        <Box>
-                                            <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                                                Urgencia:
-                                            </Typography>
-                                            <Chip
-                                                label={paciente.nivel_urgencia_display}
-                                                color={getColorUrgencia(paciente.nivel_urgencia)}
-                                                size="small"
-                                                sx={{ fontWeight: 600 }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                </Alert>
-                            </Box>
-
-                            <Button
-                                variant="outlined"
-                                startIcon={<HistoryIcon />}
-                                onClick={() => setDialogHistorial(true)}
-                                size="small"
-                            >
-                                Ver Historial
-                            </Button>
-                        </Box>
-
-                        <Divider sx={{ my: 3 }} />
-
-                        {/* ============================================
-                            NUEVA BARRA DE PROGRESO CONTINUA
-                            ============================================ */}
-                        {rutaClinica && rutaClinica.timeline && rutaClinica.timeline.length > 0 ? (
-                            <Box sx={{ mb: 4 }}>
-                                {/* Header */}
-                                <Box sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    mb: 3,
-                                    pb: 2,
-                                    borderBottom: '2px solid',
-                                    borderColor: 'primary.main',
-                                }}>
-                                    <Box>
-                                        <Typography variant="h5" fontWeight="700" color="primary.main">
-                                            Proceso de Atención Completo
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Seguimiento del flujo clínico • Sincronización automática
-                                        </Typography>
-                                    </Box>
-
-                                    {/* Botones de Control */}
-                                    {rutaClinica.ruta_clinica.estado === 'EN_PROGRESO' && (
-                                        <Box sx={{ display: 'flex', gap: 2 }}>
-                                            <Button
-                                                variant="outlined"
-                                                startIcon={<ArrowBackIcon />}
-                                                onClick={handleRetrocederEtapa}
-                                                disabled={actionLoading || rutaClinica.ruta_clinica.indice_etapa_actual === 0}
+                                    {rutaClinica.timeline && rutaClinica.timeline.map((etapa, index) => (
+                                        <Step 
+                                            key={etapa.etapa_key} 
+                                            completed={etapa.estado === 'COMPLETADA'}
+                                        >
+                                            <StepLabel
+                                                StepIconComponent={() => renderStepIcon(etapa, index)}
                                                 sx={{
-                                                    borderWidth: 2,
-                                                    '&:hover': { borderWidth: 2 }
+                                                    '& .MuiStepLabel-label': {
+                                                        fontWeight: etapa.es_actual ? 700 : 400,
+                                                        color: etapa.es_actual 
+                                                            ? 'primary.main' 
+                                                            : etapa.estado === 'COMPLETADA' 
+                                                            ? 'success.main' 
+                                                            : 'text.secondary',
+                                                    }
                                                 }}
                                             >
-                                                Retroceder
-                                            </Button>
-                                            <Button
-                                                variant="contained"
-                                                endIcon={<ArrowForwardIcon />}
-                                                onClick={handleAvanzarEtapa}
-                                                disabled={actionLoading}
-                                                size="large"
-                                                sx={{ px: 3, fontWeight: 600 }}
-                                            >
-                                                Avanzar Etapa
-                                            </Button>
-                                        </Box>
-                                    )}
-
-                                    {rutaClinica.ruta_clinica.estado === 'COMPLETADA' && (
-                                        <Chip
-                                            label="✓ Proceso Completado"
-                                            color="success"
-                                            size="medium"
-                                            sx={{ fontWeight: 600, fontSize: '0.9rem' }}
-                                        />
-                                    )}
-                                </Box>
-
-                                {/* BARRA DE PROGRESO CONTINUA */}
-                                <Box sx={{ position: 'relative', width: '100%', mb: 4, px: 2 }}>
-                                    {/* Barra base de fondo */}
-                                    <Box sx={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: 20,
-                                        right: 20,
-                                        height: 8,
-                                        bgcolor: '#E0E0E0',
-                                        borderRadius: 10,
-                                        transform: 'translateY(-50%)',
-                                        zIndex: 0
-                                    }} />
-
-                                    {/* Barra de progreso activa */}
-                                    <Box sx={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: 20,
-                                        height: 8,
-                                        width: `calc((100% - 40px) * ${rutaClinica.progreso_general / 100})`,
-                                        bgcolor: '#4CAF50',
-                                        borderRadius: 10,
-                                        transform: 'translateY(-50%)',
-                                        transition: 'width 0.5s ease-in-out',
-                                        zIndex: 1,
-                                        boxShadow: '0 0 10px rgba(76, 175, 80, 0.5)'
-                                    }} />
-
-                                    {/* Etapas sobre la barra */}
-                                    <Box sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        position: 'relative',
-                                        zIndex: 2,
-                                    }}>
-                                        {rutaClinica.timeline.map((etapa, index) => {
-                                            const isCompleted = etapa.estado === 'COMPLETADA';
-                                            const isCurrent = etapa.es_actual;
-                                            const isPending = etapa.estado === 'PENDIENTE';
-
-                                            const getStageColor = () => {
-                                                if (isCompleted) return '#2196F3';
-                                                if (isCurrent) return '#4CAF50';
-                                                return '#E0E0E0';
-                                            };
-
-                                            const getTextColor = () => {
-                                                if (isCompleted || isCurrent) return 'white';
-                                                return '#757575';
-                                            };
-
-                                            return (
-                                                <Tooltip 
-                                                    key={etapa.orden}
-                                                    title={
-                                                        <Box sx={{ p: 1 }}>
-                                                            <Typography variant="subtitle2" fontWeight="600">
-                                                                {etapa.etapa_label}
-                                                            </Typography>
-                                                            {etapa.fecha_inicio && (
-                                                                <Typography variant="caption" display="block">
-                                                                    Inicio: {new Date(etapa.fecha_inicio).toLocaleString('es-CL')}
-                                                                </Typography>
-                                                            )}
-                                                            {etapa.fecha_fin && (
-                                                                <Typography variant="caption" display="block">
-                                                                    Fin: {new Date(etapa.fecha_fin).toLocaleString('es-CL')}
-                                                                </Typography>
-                                                            )}
-                                                            {etapa.duracion_real && (
-                                                                <Typography variant="caption" display="block">
-                                                                    Duración: {etapa.duracion_real} min
-                                                                </Typography>
-                                                            )}
-                                                            <Typography variant="caption" display="block" sx={{ mt: 0.5, fontWeight: 600 }}>
-                                                                Estado: {isCompleted ? 'Completada' : isCurrent ? 'En Curso' : 'Pendiente'}
-                                                            </Typography>
-                                                            {etapa.observaciones && (
-                                                                <Typography variant="caption" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                                                                    "{etapa.observaciones}"
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    }
-                                                    arrow
-                                                    placement="top"
-                                                >
-                                                    <Box sx={{
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        alignItems: 'center',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.3s ease',
-                                                        '&:hover': {
-                                                            transform: 'translateY(-6px)',
-                                                        }
-                                                    }}>
-                                                        {/* Círculo con ícono */}
-                                                        <Box sx={{
-                                                            width: isCurrent ? 70 : 60,
-                                                            height: isCurrent ? 70 : 60,
-                                                            borderRadius: '50%',
-                                                            bgcolor: getStageColor(),
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            border: isCurrent ? '4px solid #388E3C' : '3px solid white',
-                                                            boxShadow: isCurrent 
-                                                                ? '0 4px 12px rgba(76, 175, 80, 0.6)' 
-                                                                : isCompleted 
-                                                                ? '0 2px 8px rgba(33, 150, 243, 0.4)'
-                                                                : '0 2px 8px rgba(0,0,0,0.1)',
-                                                            transition: 'all 0.3s ease',
-                                                            fontSize: isCurrent ? '32px' : '28px',
-                                                            mb: 1.5,
-                                                            ...(isCurrent && {
-                                                                animation: 'pulse 2s ease-in-out infinite',
-                                                                '@keyframes pulse': {
-                                                                    '0%, 100%': {
-                                                                        boxShadow: '0 4px 12px rgba(76, 175, 80, 0.6)',
-                                                                    },
-                                                                    '50%': {
-                                                                        boxShadow: '0 4px 20px rgba(76, 175, 80, 0.9)',
-                                                                    },
-                                                                },
-                                                            }),
-                                                        }}>
-                                                            {getStageIcon(etapa.etapa_key)}
-                                                        </Box>
-
-                                                        {/* Número de orden */}
-                                                        <Box sx={{
-                                                            bgcolor: getStageColor(),
-                                                            color: getTextColor(),
-                                                            borderRadius: '50%',
-                                                            width: 24,
-                                                            height: 24,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            fontWeight: 'bold',
-                                                            fontSize: '0.75rem',
-                                                            mb: 0.5,
-                                                            border: '2px solid white',
-                                                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                                        }}>
-                                                            {etapa.orden}
-                                                        </Box>
-
-                                                        {/* Nombre de la etapa */}
-                                                        <Typography
-                                                            variant="body2"
-                                                            fontWeight={isCurrent ? 700 : 600}
-                                                            sx={{
-                                                                color: isCompleted || isCurrent ? 'text.primary' : 'text.secondary',
-                                                                textAlign: 'center',
-                                                                maxWidth: 100,
-                                                                lineHeight: 1.3,
-                                                                mb: 0.5,
-                                                                fontSize: isCurrent ? '0.875rem' : '0.8rem'
-                                                            }}
-                                                        >
-                                                            {etapa.etapa_label}
-                                                        </Typography>
-
-                                                        {/* Badge de estado */}
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
+                                                            fontWeight: etapa.es_actual ? 700 : 400,
+                                                            color: etapa.es_actual 
+                                                                ? 'primary.main' 
+                                                                : etapa.estado === 'COMPLETADA' 
+                                                                ? 'success.main' 
+                                                                : 'text.secondary',
+                                                        }}
+                                                    >
+                                                        {etapa.etapa_label}
+                                                    </Typography>
+                                                    {etapa.es_actual && (
                                                         <Chip
-                                                            label={
-                                                                isCompleted ? 'Completada' : 
-                                                                isCurrent ? 'En Curso' : 
-                                                                'Pendiente'
-                                                            }
+                                                            label="En Curso"
                                                             size="small"
-                                                            sx={{
-                                                                height: 22,
-                                                                fontSize: '0.65rem',
-                                                                fontWeight: 600,
-                                                                bgcolor: isCompleted ? '#E3F2FD' : 
-                                                                        isCurrent ? '#E8F5E9' : 
-                                                                        '#F5F5F5',
-                                                                color: isCompleted ? '#1976D2' : 
-                                                                       isCurrent ? '#388E3C' : 
-                                                                       '#757575',
-                                                            }}
+                                                            color="primary"
+                                                            sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
                                                         />
-
-                                                        {/* Alerta de retraso */}
-                                                        {etapa.retrasada && (
-                                                            <Chip
-                                                                icon={<WarningIcon sx={{ fontSize: 14 }} />}
-                                                                label="Retrasada"
-                                                                size="small"
-                                                                color="error"
-                                                                sx={{
-                                                                    mt: 0.5,
-                                                                    height: 20,
-                                                                    fontSize: '0.6rem',
-                                                                    fontWeight: 600,
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </Box>
-                                                </Tooltip>
-                                            );
-                                        })}
-                                    </Box>
-                                </Box>
-
-                                {/* Información de progreso */}
-                                <Box sx={{
-                                    mt: 3,
-                                    p: 2,
-                                    bgcolor: 'grey.50',
-                                    borderRadius: 2,
-                                    display: 'flex',
-                                    justifyContent: 'space-around',
-                                    flexWrap: 'wrap',
-                                    gap: 2,
-                                }}>
-                                    <Box sx={{ textAlign: 'center' }}>
-                                        <Typography variant="h4" fontWeight="700" color="primary.main">
-                                            {rutaClinica.etapas_completadas}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Etapas Completadas
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ textAlign: 'center' }}>
-                                        <Typography variant="h4" fontWeight="700" color="success.main">
-                                            {Math.round(rutaClinica.progreso_general)}%
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Progreso Total
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ textAlign: 'center' }}>
-                                        <Typography variant="h4" fontWeight="700" color="info.main">
-                                            {Math.floor(rutaClinica.tiempo_transcurrido_minutos / 60)}h {rutaClinica.tiempo_transcurrido_minutos % 60}m
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            Tiempo Transcurrido
-                                        </Typography>
-                                    </Box>
-                                </Box>
-
-                                {/* Leyenda de colores */}
-                                <Box sx={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    gap: 4,
-                                    mt: 3,
-                                    pt: 2,
-                                    borderTop: '1px solid',
-                                    borderColor: 'divider',
-                                }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{
-                                            width: 16,
-                                            height: 16,
-                                            bgcolor: '#2196F3',
-                                            borderRadius: '50%',
-                                        }} />
-                                        <Typography variant="body2" fontWeight="500">
-                                            Completada
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{
-                                            width: 16,
-                                            height: 16,
-                                            bgcolor: '#4CAF50',
-                                            borderRadius: '50%',
-                                        }} />
-                                        <Typography variant="body2" fontWeight="500">
-                                            En Curso
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{
-                                            width: 16,
-                                            height: 16,
-                                            bgcolor: '#E0E0E0',
-                                            borderRadius: '50%',
-                                        }} />
-                                        <Typography variant="body2" fontWeight="500">
-                                            Pendiente
-                                        </Typography>
-                                    </Box>
-                                </Box>
+                                                    )}
+                                                </Box>
+                                            </StepLabel>
+                                        </Step>
+                                    ))}
+                                </Stepper>
                             </Box>
-                        ) : (
-                            <Alert severity="info" sx={{ mb: 3 }}>
-                                No hay ruta clínica registrada para este paciente
-                            </Alert>
-                        )}
 
-                        <Divider sx={{ my: 3 }} />
+                            {/* Botones de Acción */}
+                            {rutaClinica.estado_actual !== 'COMPLETADA' && (
+                                <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<ArrowBackIcon />}
+                                        onClick={handleRetrocederEtapa}
+                                        disabled={actionLoading || rutaClinica.ruta_clinica?.indice_etapa_actual === 0}
+                                    >
+                                        Retroceder
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        endIcon={<ArrowForwardIcon />}
+                                        onClick={handleAvanzarEtapa}
+                                        disabled={actionLoading}
+                                        sx={{ flexGrow: 1 }}
+                                    >
+                                        Avanzar Etapa
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<HistoryIcon />}
+                                        onClick={() => setDialogHistorial(true)}
+                                    >
+                                        Ver Historial
+                                    </Button>
+                                </Box>
+                            )}
 
-                        {/* Datos del Paciente */}
+                            {/* Alertas de Retrasos */}
+                            {rutaClinica.retrasos && rutaClinica.retrasos.length > 0 && (
+                                <Alert severity="warning" sx={{ mt: 2 }}>
+                                    <Typography variant="subtitle2" fontWeight="600">
+                                        ⚠️ Retrasos Detectados:
+                                    </Typography>
+                                    <List dense>
+                                        {rutaClinica.retrasos.map((retraso, idx) => (
+                                            <ListItem key={idx} sx={{ py: 0.5 }}>
+                                                <ListItemText
+                                                    primary={`${retraso.etapa}: +${retraso.retraso_minutos} minutos de retraso`}
+                                                    secondary={`Duración: ${retraso.duracion_real_minutos} min (estimado: ${retraso.duracion_estimada_minutos} min)`}
+                                                />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </Alert>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Información del Paciente */}
+                <Card elevation={3}>
+                    <CardContent>
                         <Typography variant="h6" fontWeight="600" gutterBottom>
-                            Datos del paciente
+                            Información del Paciente
                         </Typography>
 
-                        <Grid container spacing={3} sx={{ mt: 1 }}>
+                        <Grid container spacing={2} sx={{ mt: 2 }}>
                             <Grid item xs={12} sm={4}>
                                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                         <PhoneIcon sx={{ color: 'primary.main', fontSize: 32 }} />
                                         <Box>
                                             <Typography variant="caption" color="text.secondary">
-                                                Contacto</Typography>
-                                            <Typography variant="body1" fontWeight="600">
+                                                Contacto
+                                            </Typography>
+                                            <Typography variant="body2" fontWeight="600">
                                                 {datos.contacto}
                                             </Typography>
                                         </Box>
