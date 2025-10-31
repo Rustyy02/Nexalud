@@ -126,17 +126,16 @@ const Home = () => {
   };
 
   const getColorEstado = (estado) => {
-    const colores = {
-      'EN_ESPERA': 'warning',
-      'ACTIVO': 'success',
-      'PROCESO_PAUSADO': 'default',
-      'ALTA_COMPLETA': 'success',
-      'ALTA_MEDICA': 'success',
-      'PROCESO_INCOMPLETO': 'error',
-      'INACTIVO': 'default',
+      const colores = {
+        'EN_ESPERA': 'warning',
+        'ACTIVO': 'success', // ACTIVO en Paciente ahora es 'Activo en Proceso'
+        'PROCESO_PAUSADO': 'default',
+        'ALTA_COMPLETA': 'success',
+        'PROCESO_CANCELADO': 'error', // 🆕 Nuevo estado
+        'INACTIVO': 'default',
+      };
+      return colores[estado] || 'default';
     };
-    return colores[estado] || 'default';
-  };
 
   const getColorUrgencia = (urgencia) => {
     const colores = {

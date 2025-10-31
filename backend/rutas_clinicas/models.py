@@ -117,15 +117,26 @@ class RutaClinica(models.Model):
     # ============================================
     
     def _sincronizar_etapa_paciente(self):
-        """
-        Sincroniza la etapa actual de la ruta con el paciente.
-        Este método se llama automáticamente al cambiar de etapa.
-        """
-        if self.etapa_actual:
-            self.paciente.actualizar_etapa(self.etapa_actual)
-        else:
-            # Si no hay etapa actual (completada/cancelada), limpiar etapa del paciente
-            self.paciente.limpiar_etapa()
+            """
+            Sincroniza la etapa actual y el estado de la ruta con el paciente.
+            """
+            # Determinar el estado que debe reflejar el paciente
+            if self.estado == 'COMPLETADA':
+                self.paciente.limpiar_etapa('ALTA_COMPLETA')
+            elif self.estado == 'CANCELADA':
+                self.paciente.limpiar_etapa('CANCELADA')
+            elif self.estado == 'PAUSADA':
+                # Mantiene la etapa, pero cambia el estado general a PROCESO_PAUSADO
+                if self.etapa_actual:
+                    self.paciente.actualizar_etapa(self.etapa_actual, 'PAUSADA')
+                else:
+                    self.paciente.limpiar_etapa('PAUSADA')
+            elif self.estado == 'EN_PROGRESO' and self.etapa_actual:
+                # Sincroniza la etapa y establece el estado general a ACTIVO
+                self.paciente.actualizar_etapa(self.etapa_actual, 'EN_PROGRESO')
+            elif not self.etapa_actual:
+                # Caso raro o justo antes de iniciar, limpia.
+                self.paciente.limpiar_etapa('EN_ESPERA')
     
     # ============================================
     # MÉTODOS PRINCIPALES (ACTUALIZADOS)
@@ -331,9 +342,9 @@ class RutaClinica(models.Model):
         self.motivo_pausa = motivo
         self.metadatos_adicionales['fecha_pausa'] = timezone.now().isoformat()
         
-        # Actualizar estado del paciente (mantiene la etapa)
-        self.paciente.estado_actual = 'PROCESO_PAUSADO'
-        self.paciente.save()
+        # ✅ SINCRONIZAR ESTADO PAUSADO CON PACIENTE
+        self._sincronizar_etapa_paciente()
+
         
         self._agregar_al_historial('PAUSAR', self.etapa_actual, usuario, {
             'motivo': motivo

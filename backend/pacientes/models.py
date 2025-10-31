@@ -22,15 +22,13 @@ class Paciente(models.Model):
     # ESTADOS DEL SISTEMA (Estado General)
     # ============================================
     ESTADO_CHOICES = [
-        ('EN_ESPERA', 'En Espera'),           # Paciente esperando atención
-        ('ACTIVO', 'Activo'),                 # Paciente en proceso activo
-        ('PROCESO_PAUSADO', 'Proceso Pausado'), # Proceso temporalmente detenido
-        ('ALTA_COMPLETA', 'Alta Completa'),   # Proceso completado exitosamente
-        ('ALTA_MEDICA', 'Alta Médica'),       # Alta por decisión médica
-        ('PROCESO_INCOMPLETO', 'Proceso Incompleto'), # Proceso no completado
-        ('INACTIVO', 'Inactivo'),             # Paciente inactivo en el sistema
+        ('EN_ESPERA', 'En Espera'),             # Paciente esperando iniciar una ruta
+        ('ACTIVO', 'Activo en Proceso'),        # Paciente con RutaClinica EN_PROGRESO o en etapa intermedia
+        ('PROCESO_PAUSADO', 'Proceso Pausado'), # Proceso clínico temporalmente detenido
+        ('ALTA_COMPLETA', 'Alta Completa'),     # Ruta Clínica COMPLETADA (salida exitosa)
+        ('PROCESO_CANCELADO', 'Proceso Cancelado'), # Ruta Clínica CANCELADA
+        ('INACTIVO', 'Inactivo/Historial'),     # Paciente inactivo en el sistema
     ]
-    
     # ============================================
     # ETAPAS DEL FLUJO CLÍNICO (Sincronizado con RutaClinica)
     # ============================================
@@ -392,28 +390,43 @@ class Paciente(models.Model):
     # ✅ NUEVOS MÉTODOS PARA GESTIÓN DE ETAPA
     # ============================================
     
-    def actualizar_etapa(self, nueva_etapa):
-        """
-        Actualiza la etapa actual del paciente.
-        Este método es llamado desde RutaClinica cuando avanza/retrocede.
-        """
-        if nueva_etapa in dict(self.ETAPA_CHOICES):
-            self.etapa_actual = nueva_etapa
-            
-            # Actualizar estado_actual según la etapa
-            if nueva_etapa == 'ALTA':
-                self.estado_actual = 'ALTA_COMPLETA'
-            else:
-                self.estado_actual = 'ACTIVO'
-            
-            self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
-            return True
-        return False
+    def actualizar_etapa(self, nueva_etapa, estado_ruta='ACTIVO'): # ✅ Nuevo argumento estado_ruta
+            """
+            Actualiza la etapa actual del paciente y su estado general.
+            Este método es llamado desde RutaClinica.
+            """
+            if nueva_etapa in dict(self.ETAPA_CHOICES):
+                self.etapa_actual = nueva_etapa
+                
+                # Actualizar estado_actual basado en la etapa y el estado de la ruta
+                if estado_ruta == 'COMPLETADA':
+                    self.estado_actual = 'ALTA_COMPLETA'
+                elif estado_ruta == 'CANCELADA':
+                    self.estado_actual = 'PROCESO_CANCELADO'
+                elif estado_ruta == 'PAUSADA':
+                    self.estado_actual = 'PROCESO_PAUSADO'
+                else: # EN_PROGRESO o INICIADA
+                    self.estado_actual = 'ACTIVO' 
+                
+                self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
+                return True
+            return False
     
-    def limpiar_etapa(self):
-        """Limpia la etapa cuando se completa o cancela la ruta"""
-        self.etapa_actual = None
-        self.save(update_fields=['etapa_actual', 'fecha_actualizacion'])
+    def limpiar_etapa(self, estado_final='ALTA_COMPLETA'): # ✅ Nuevo argumento estado_final
+            """Limpia la etapa cuando se completa o cancela la ruta"""
+            self.etapa_actual = None
+            
+            # Actualizar estado general según la acción final
+            if estado_final == 'ALTA_COMPLETA':
+                self.estado_actual = 'ALTA_COMPLETA'
+            elif estado_final == 'CANCELADA':
+                self.estado_actual = 'PROCESO_CANCELADO'
+            elif estado_final == 'PAUSADA':
+                self.estado_actual = 'PROCESO_PAUSADO'
+            else:
+                self.estado_actual = 'EN_ESPERA' # Por defecto, si se limpia sin una ruta activa.
+            
+            self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion']) # ✅ Agregar estado_actual
     
     def esta_en_proceso_clinico(self):
         """Verifica si el paciente está en un proceso clínico activo"""
