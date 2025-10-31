@@ -209,9 +209,11 @@ class RutaClinica(models.Model):
         # ✅ USAR ETAPAS SELECCIONADAS
         etapas = self.etapas_seleccionadas if self.etapas_seleccionadas else [key for key, _ in self.ETAPAS_CHOICES]
         
-        # Verificar que no estemos en la última etapa
-        if self.indice_etapa_actual >= len(etapas) - 1:
-            return False
+        # ✅ BUG FIX: Eliminada validación que impedía avanzar desde la última etapa
+        # Antes había: if self.indice_etapa_actual >= len(etapas) - 1: return False
+        # Esto impedía completar la ruta. Ahora el flujo natural maneja correctamente
+        # el avance a través de todas las etapas y la completitud final.
+        
         
         # Marcar etapa actual como completada
         if self.etapa_actual:
