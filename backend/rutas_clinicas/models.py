@@ -83,6 +83,10 @@ class RutaClinica(models.Model):
     esta_pausado = models.BooleanField(default=False)
     motivo_pausa = models.TextField(blank=True)
     
+    tiempo_pausado_acumulado = models.DurationField(
+        default=timezone.timedelta(0),
+        help_text="Tiempo total que la ruta ha estado en PAUSA (para cálculos de precisión)."
+    )
     # Metadatos
     metadatos_adicionales = models.JSONField(default=dict, blank=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
