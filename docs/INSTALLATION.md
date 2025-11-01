@@ -1,5 +1,12 @@
 # 📖 Guía de Instalación - Nexalud
 
+<div align="center">
+
+[🏠 Inicio](README.md) | 
+[👈 Anterior: Arquitectura](ARCHITECTURE.md) | 
+
+</div>
+
 ## 🛠️ Requisitos del Sistema
 
 ### Software Requerido
