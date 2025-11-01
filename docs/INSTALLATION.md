@@ -24,17 +24,13 @@ python --version
 # Verificar Node.js
 node --version
 # v16.14.0
-
-# Verificar PostgreSQL
-psql --version
-# psql (PostgreSQL) 13.4
 ```
 
 ## 🏗️ Instalación Manual
 1. Clonar Repositorio
 
 ```bash
-git clone https://github.com/tuusuario/nexalud.git
+git clone https://github.com/Rustyy02/nexalud.git
 cd nexalud
 ```
 
