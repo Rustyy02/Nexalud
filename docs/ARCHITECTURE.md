@@ -289,6 +289,48 @@ graph TB
 - Testing -> Bases de datos en memoria para tests
 - Migración futura -> Mismo ORM para SQLite y PostgreSQL
 
+# 🛡️ Seguridad
+
+## Tokenización y validación de usuarios
+
+```bash
+# config/settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+```
+
+## Para protección de datos sensibles (RUT)
+
+```bash
+
+class Paciente(models.Model):
+    identificador_hash = models.CharField(
+        max_length=64, 
+        unique=True,
+        editable=False,
+        help_text="Hash SHA-256 del RUT para proteger privacidad"
+    )
+    
+    def save(self, *args, **kwargs):
+        if self.rut and not self.identificador_hash:
+            self.identificador_hash = self.generar_hash_rut(self.rut)
+        super().save(*args, **kwargs)
+```
+
+## Validaciones Multi-nivel
+
+- Frontend: Validación en tiempo real con React
+- Serializers: Validación de datos en Django REST
+- Modelos: Validaciones en base de datos
+- Base de datos: Constraints y tipos de datos
+
 # 🎯 Resumen de Arquitectura
 
 ## Fortalezas
