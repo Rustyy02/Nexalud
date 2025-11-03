@@ -13,6 +13,7 @@ import EstadoBoxes from './components/EstadoBoxes';
 import DetallePaciente from './components/DetallePaciente';
 import Dashboard from './components/Dashboard';
 import NexaThink from './components/NexaThink';
+import Medicoconsultas from './components/Medicoconsultas'; 
 
 // Tema personalizado de Material UI
 const theme = createTheme({
@@ -153,6 +154,18 @@ function AppContent() {
           }
         />
 
+        {/* ========== RUTAS PARA MÉDICOS ========== */}
+        
+        {/* Panel principal del médico con cronómetro */}
+        <Route
+          path="/medico/consultas"
+          element={
+            <ProtectedRoute allowedRoles={['MEDICO']}>
+              <Medicoconsultas />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
@@ -170,5 +183,6 @@ function App() {
     </ThemeProvider>
   );
 }
+
 
 export default App;

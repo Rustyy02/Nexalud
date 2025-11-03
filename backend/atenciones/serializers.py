@@ -4,10 +4,10 @@ from pacientes.serializers import PacienteListSerializer
 from boxes.serializers import BoxListSerializer
 
 
-# ==================== SERIALIZERS DE MÉDICO ====================
+# ==================== SERIALIZERS DE MÉDICO (LEGACY) ====================
 
 class MedicoSerializer(serializers.ModelSerializer):
-    """Serializer completo para Medico"""
+    """Serializer completo para Medico (legacy)"""
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -39,20 +39,17 @@ class MedicoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'fecha_ingreso']
     
     def get_tiempo_promedio_atencion(self, obj):
-        """Tiempo promedio de atención en minutos"""
         return round(obj.calcular_tiempo_promedio_atencion(), 2)
     
     def get_eficiencia(self, obj):
-        """Métricas de eficiencia del médico"""
         return obj.obtener_eficiencia()
     
     def get_atenciones_hoy_count(self, obj):
-        """Cantidad de atenciones del día"""
         return obj.obtener_atenciones_dia().count()
 
 
 class MedicoListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listar médicos"""
+    """Serializer simplificado para listar médicos (legacy)"""
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -72,7 +69,7 @@ class MedicoListSerializer(serializers.ModelSerializer):
 
 
 class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer para crear y actualizar médicos"""
+    """Serializer para crear y actualizar médicos (legacy)"""
     
     class Meta:
         model = Medico
@@ -88,16 +85,30 @@ class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
         ]
     
     def validate_codigo_medico(self, value):
-        """Valida que el código no esté vacío"""
         if not value or len(value.strip()) == 0:
             raise serializers.ValidationError("El código del médico no puede estar vacío.")
         return value.strip().upper()
     
     def validate_especialidades_secundarias(self, value):
-        """Valida que especialidades_secundarias sea una lista"""
         if not isinstance(value, list):
             raise serializers.ValidationError("Las especialidades secundarias deben ser una lista.")
         return value
+
+
+# ✅ NUEVO: Serializer para Médico (User)
+class MedicoUserSerializer(serializers.Serializer):
+    """
+    Serializer para representar usuarios con rol MEDICO como médicos.
+    """
+    id = serializers.UUIDField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    nombre_completo = serializers.SerializerMethodField()
+    email = serializers.EmailField(read_only=True)
+    first_name = serializers.CharField(read_only=True)
+    last_name = serializers.CharField(read_only=True)
+    
+    def get_nombre_completo(self, obj):
+        return obj.get_full_name() or obj.username
 
 
 # ==================== SERIALIZERS DE ATENCIÓN ====================
@@ -116,7 +127,8 @@ class AtencionSerializer(serializers.ModelSerializer):
     
     # Relaciones anidadas (solo lectura)
     paciente_info = PacienteListSerializer(source='paciente', read_only=True)
-    medico_info = MedicoListSerializer(source='medico', read_only=True)
+    # ✅ Actualizado: ahora usa MedicoUserSerializer
+    medico_info = MedicoUserSerializer(source='medico', read_only=True)
     box_info = BoxListSerializer(source='box', read_only=True)
     
     # IDs para escritura
@@ -126,8 +138,9 @@ class AtencionSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
+    # ✅ Actualizado: ahora filtra User con rol MEDICO
     medico_id = serializers.PrimaryKeyRelatedField(
-        queryset=Medico.objects.all(),
+        queryset=__import__('users.models', fromlist=['User']).User.objects.filter(rol='MEDICO'),
         source='medico',
         write_only=True,
         required=False
@@ -146,6 +159,11 @@ class AtencionSerializer(serializers.ModelSerializer):
     diferencia_duracion = serializers.SerializerMethodField()
     metricas = serializers.SerializerMethodField()
     tiempo_restante_minutos = serializers.SerializerMethodField()
+    
+    # ✅ NUEVO: Información útil para médicos
+    puede_iniciar = serializers.SerializerMethodField()
+    puede_finalizar = serializers.SerializerMethodField()
+    minutos_hasta_inicio = serializers.SerializerMethodField()
     
     class Meta:
         model = Atencion
@@ -179,6 +197,9 @@ class AtencionSerializer(serializers.ModelSerializer):
             'diferencia_duracion',
             'metricas',
             'tiempo_restante_minutos',
+            'puede_iniciar',  # ✅ NUEVO
+            'puede_finalizar',  # ✅ NUEVO
+            'minutos_hasta_inicio',  # ✅ NUEVO
         ]
         read_only_fields = [
             'id',
@@ -190,35 +211,41 @@ class AtencionSerializer(serializers.ModelSerializer):
         ]
     
     def get_tiempo_restante_minutos(self, obj):
-        """Tiempo restante en minutos para completar la atención"""
         tiempo = obj.obtener_tiempo_restante()
         if tiempo:
             return int(tiempo.total_seconds() / 60)
         return None
     
     def get_retraso_minutos(self, obj):
-        """Retraso en minutos respecto a la hora programada"""
         return obj.calcular_retraso()
     
     def get_tiempo_transcurrido_minutos(self, obj):
-        """Tiempo transcurrido desde el inicio en minutos"""
         tiempo = obj.obtener_tiempo_transcurrido()
         if tiempo:
             return int(tiempo.total_seconds() / 60)
         return None
     
     def get_esta_retrasada(self, obj):
-        """Indica si la atención está retrasada"""
         return obj.is_retrasada()
     
     def get_diferencia_duracion(self, obj):
-        """Diferencia entre duración planificada y real"""
         return obj.calcular_diferencia_duracion()
     
     def get_metricas(self, obj):
-        """Métricas completas de la atención"""
         return obj.generar_metricas()
-
+    
+    # ✅ NUEVOS MÉTODOS
+    def get_puede_iniciar(self, obj):
+        return obj.puede_iniciar()
+    
+    def get_puede_finalizar(self, obj):
+        return obj.puede_finalizar()
+    
+    def get_minutos_hasta_inicio(self, obj):
+        tiempo = obj.tiempo_hasta_inicio()
+        if tiempo:
+            return int(tiempo.total_seconds() / 60)
+        return 0
 
 
 class AtencionListSerializer(serializers.ModelSerializer):
@@ -227,10 +254,8 @@ class AtencionListSerializer(serializers.ModelSerializer):
         source='paciente.identificador_hash',
         read_only=True
     )
-    medico_nombre = serializers.CharField(
-        source='medico.nombre_completo',
-        read_only=True
-    )
+    # ✅ Actualizado: ahora obtiene nombre de User
+    medico_nombre = serializers.SerializerMethodField()
     box_numero = serializers.CharField(
         source='box.numero',
         read_only=True
@@ -262,6 +287,9 @@ class AtencionListSerializer(serializers.ModelSerializer):
             'esta_retrasada',
         ]
     
+    def get_medico_nombre(self, obj):
+        return obj.medico.get_full_name() or obj.medico.username
+    
     def get_esta_retrasada(self, obj):
         return obj.is_retrasada()
 
@@ -273,7 +301,7 @@ class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
         model = Atencion
         fields = [
             'paciente',
-            'medico',
+            'medico',  # ✅ Ahora apunta a User
             'box',
             'fecha_hora_inicio',
             'fecha_hora_fin',
@@ -284,13 +312,17 @@ class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
         ]
     
     def validate_duracion_planificada(self, value):
-        """Valida que la duración sea mayor a 0"""
         if value <= 0:
             raise serializers.ValidationError("La duración planificada debe ser mayor a 0 minutos.")
         return value
     
+    def validate_medico(self, value):
+        """✅ NUEVO: Validar que el médico tenga rol MEDICO"""
+        if value.rol != 'MEDICO':
+            raise serializers.ValidationError("El usuario seleccionado debe tener rol de médico.")
+        return value
+    
     def validate(self, data):
-        """Validaciones cruzadas"""
         # Validar que fecha_fin sea posterior a fecha_inicio
         if data.get('fecha_hora_fin') and data.get('fecha_hora_inicio'):
             if data['fecha_hora_fin'] <= data['fecha_hora_inicio']:

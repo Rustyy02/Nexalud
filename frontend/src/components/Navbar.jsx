@@ -24,6 +24,7 @@ import {
   ExitToApp as ExitIcon,
   Menu as MenuIcon,
   Home as HomeIcon,
+  LocalHospital as HospitalIcon, // ✅ NUEVO
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -72,13 +73,13 @@ const Navbar = () => {
     return location.pathname.startsWith(path);
   };
 
-  // Definir elementos de navegación según el rol
+  // ✅ Definir elementos de navegación según el rol
   const getNavigationItems = () => {
     const rol = user?.rol;
     
     if (rol === 'ADMINISTRADOR') {
       return [
-        { label: 'Inicio', path: '/', icon: <HomeIcon /> },
+        { label: 'Inicio', path: '/pacientes', icon: <HomeIcon /> },
         { label: 'Gestión de Boxes', path: '/boxes', icon: <MeetingRoomIcon /> },
         { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
         { label: 'NexaThink', path: '/nexathink', icon: <Brain /> },
@@ -87,13 +88,15 @@ const Navbar = () => {
     
     if (rol === 'SECRETARIA') {
       return [
-        { label: 'Inicio', path: '/', icon: <HomeIcon /> },
+        { label: 'Inicio', path: '/pacientes', icon: <HomeIcon /> },
         { label: 'Gestión de Boxes', path: '/boxes', icon: <MeetingRoomIcon /> },
       ];
     }
     
+    // ✅ NUEVO: Navegación para médicos
     if (rol === 'MEDICO') {
       return [
+        { label: 'Mis Consultas', path: '/medico/consultas', icon: <HospitalIcon /> },
         { label: 'Estado de Boxes', path: '/boxes', icon: <MeetingRoomIcon /> },
       ];
     }

@@ -6,6 +6,10 @@ from .models import Medico, Atencion
 
 @admin.register(Medico)
 class MedicoAdmin(admin.ModelAdmin):
+    """
+    Admin para el modelo Medico (legacy).
+    Este modelo se mantiene para compatibilidad con datos históricos.
+    """
     list_display = [
         'codigo_medico', 
         'nombre_completo_display', 
@@ -113,10 +117,14 @@ class MedicoAdmin(admin.ModelAdmin):
 
 @admin.register(Atencion)
 class AtencionAdmin(admin.ModelAdmin):
+    """
+    Admin para Atenciones.
+    El campo médico ahora apunta a User con rol MEDICO.
+    """
     list_display = [
         'id_corto',
         'paciente_info',
-        'medico_info',
+        'medico_info',  # ✅ Actualizado para mostrar User
         'box',
         'tipo_atencion',
         'estado_badge',
@@ -128,15 +136,14 @@ class AtencionAdmin(admin.ModelAdmin):
         'estado',
         'tipo_atencion',
         'fecha_hora_inicio',
-        'medico__especialidad_principal',
         'box__especialidad'
     ]
     search_fields = [
         'id',
         'paciente__identificador_hash',
-        'medico__nombre',
-        'medico__apellido',
-        'medico__codigo_medico',
+        'medico__username',  # ✅ Actualizado
+        'medico__first_name',  # ✅ Actualizado
+        'medico__last_name',  # ✅ Actualizado
         'box__numero'
     ]
     readonly_fields = [
@@ -148,11 +155,18 @@ class AtencionAdmin(admin.ModelAdmin):
     ]
     date_hierarchy = 'fecha_hora_inicio'
     
+    # ✅ Filtrar solo usuarios con rol MEDICO
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "medico":
+            from users.models import User
+            kwargs["queryset"] = User.objects.filter(rol='MEDICO')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
     fieldsets = (
         ('Información General', {
             'fields': (
                 'paciente',
-                'medico',
+                'medico',  # ✅ Ahora apunta a User
                 'box',
                 'tipo_atencion',
                 'estado',
@@ -199,11 +213,12 @@ class AtencionAdmin(admin.ModelAdmin):
         )
     paciente_info.short_description = "Paciente"
     
+    # ✅ Actualizado para mostrar información de User
     def medico_info(self, obj):
+        nombre = obj.medico.get_full_name() or obj.medico.username
         return format_html(
-            '<strong>{}</strong><br><small>{}</small>',
-            obj.medico.nombre_completo,
-            obj.medico.get_especialidad_principal_display()
+            '<strong>{}</strong><br><small>Médico</small>',
+            nombre
         )
     medico_info.short_description = "Médico"
     

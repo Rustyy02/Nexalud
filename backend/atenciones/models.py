@@ -2,12 +2,15 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from django.conf import settings
 from pacientes.models import Paciente
 from boxes.models import Box
 
 class Medico(models.Model):
     """
     Modelo para gestionar médicos y prestadores de salud.
+    NOTA: Este modelo se mantiene para compatibilidad con datos históricos.
+    Las nuevas atenciones usan directamente el modelo User con rol MEDICO.
     """
     
     ESPECIALIDAD_CHOICES = [
@@ -49,14 +52,12 @@ class Medico(models.Model):
         default='MEDICINA_GENERAL'
     )
     
-    # Especialidades secundarias (JSON para flexibilidad)
     especialidades_secundarias = models.JSONField(
         default=list,
         blank=True,
         help_text="Lista de especialidades secundarias"
     )
     
-    # Horarios de atención
     horarios_atencion = models.JSONField(
         default=dict,
         blank=True,
@@ -66,7 +67,6 @@ class Medico(models.Model):
     activo = models.BooleanField(default=True)
     fecha_ingreso = models.DateField(auto_now_add=True)
     
-    # Configuraciones personales
     configuraciones_personales = models.JSONField(
         default=dict,
         blank=True,
@@ -130,11 +130,11 @@ class Medico(models.Model):
     
     def _calcular_score_eficiencia(self):
         """Cálculo interno del score de eficiencia"""
-        # Implementación básica, se puede mejorar con más métricas
         tiempo_promedio = self.calcular_tiempo_promedio_atencion()
         if tiempo_promedio > 0:
-            return min(100, (30 / tiempo_promedio) * 100)  # 30 min como referencia
+            return min(100, (30 / tiempo_promedio) * 100)
         return 0
+
 
 class Atencion(models.Model):
     """
@@ -171,11 +171,16 @@ class Atencion(models.Model):
         on_delete=models.CASCADE,
         related_name='atenciones'
     )
+    
+    # ✅ CAMPO ACTUALIZADO: Ahora apunta a User con rol MEDICO
     medico = models.ForeignKey(
-        Medico, 
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='atenciones'
+        related_name='atenciones_medico',
+        limit_choices_to={'rol': 'MEDICO'},
+        help_text="Usuario con rol de médico asignado a esta atención"
     )
+    
     box = models.ForeignKey(
         Box, 
         on_delete=models.CASCADE,
@@ -252,7 +257,12 @@ class Atencion(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.tipo_atencion} - {self.paciente} con {self.medico} ({self.estado})"
+        medico_nombre = self.medico.get_full_name() or self.medico.username
+        return f"{self.tipo_atencion} - {self.paciente} con {medico_nombre} ({self.estado})"
+    
+    # ========================================
+    # FUNCIONES DE CRONÓMETRO - NO MODIFICAR
+    # ========================================
     
     def iniciar_cronometro(self):
         """
@@ -374,3 +384,42 @@ class Atencion(models.Model):
             self.save()
             return True
         return False
+    
+    # ✅ NUEVAS FUNCIONES PARA MÉDICOS
+    
+    def marcar_no_presentado(self):
+        """
+        Marca la atención como 'No se presentó' y libera el box.
+        """
+        if self.estado in ['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO']:
+            self.estado = 'NO_PRESENTADO'
+            
+            # Si el box está ocupado, liberarlo
+            if self.box.estado == 'OCUPADO':
+                self.box.liberar()
+            
+            self.save()
+            return True
+        return False
+    
+    def puede_iniciar(self):
+        """
+        Verifica si la atención puede ser iniciada por el médico.
+        """
+        return self.estado in ['PROGRAMADA', 'EN_ESPERA']
+    
+    def puede_finalizar(self):
+        """
+        Verifica si la atención puede ser finalizada.
+        """
+        return self.estado == 'EN_CURSO'
+    
+    def tiempo_hasta_inicio(self):
+        """
+        Calcula el tiempo restante hasta la hora programada.
+        Retorna None si ya pasó la hora o timedelta si falta tiempo.
+        """
+        ahora = timezone.now()
+        if ahora < self.fecha_hora_inicio:
+            return self.fecha_hora_inicio - ahora
+        return None

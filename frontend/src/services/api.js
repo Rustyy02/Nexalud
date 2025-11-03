@@ -162,25 +162,6 @@ export const atencionesService = {
 };
 
 // ============================================
-// SERVICIOS DE MÉDICOS
-// ============================================
-
-export const medicosService = {
-  getAll: (params = {}) => api.get('/medicos/', { params }),
-  getById: (id) => api.get(`/medicos/${id}/`),
-  create: (data) => api.post('/medicos/', data),
-  update: (id, data) => api.patch(`/medicos/${id}/`, data),
-  getAtencionesHoy: (id) => api.get(`/medicos/${id}/atenciones_hoy/`),
-  getAgendaSemanal: (id) => api.get(`/medicos/${id}/agenda_semanal/`),
-  getMetricas: (id) => api.get(`/medicos/${id}/metricas/`),
-  getActivos: () => api.get('/medicos/activos/'),
-  getPorEspecialidad: () => api.get('/medicos/por_especialidad/'),
-  getEstadisticas: () => api.get('/medicos/estadisticas/'),
-  activar: (id) => api.post(`/medicos/${id}/activar/`),
-  desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
-};
-
-// ============================================
 // SERVICIO DE AUTENTICACIÓN
 // ============================================
 
@@ -236,5 +217,51 @@ export const dashboardService = {
 export const nexathinkService = {
   getInsights: () => api.get('/dashboard/nexathink-insights/'),
 };
+
+// ✅ NUEVO: SERVICIO PARA MÉDICOS
+export const medicoAtencionesService = {
+  // Obtener todas las atenciones del médico
+  getAll: (params = {}) => api.get('/medico/atenciones/', { params }),
+  
+  // Obtener una atención específica
+  getById: (id) => api.get(`/medico/atenciones/${id}/`),
+  
+  // Obtener atenciones de hoy
+  getHoy: () => api.get('/medico/atenciones/hoy/'),
+  
+  // Obtener próximas atenciones
+  getProximas: (limite = 5) => api.get('/medico/atenciones/proximas/', { params: { limite } }),
+  
+  // Obtener atención actual (en curso o próxima)
+  getActual: () => api.get('/medico/atenciones/actual/'),
+  
+  // Iniciar una atención
+  iniciar: (id) => api.post(`/medico/atenciones/${id}/iniciar/`),
+  
+  // Finalizar una atención
+  finalizar: (id, data = {}) => api.post(`/medico/atenciones/${id}/finalizar/`, data),
+  
+  // Marcar como no presentado
+  noPresentado: (id, data = {}) => api.post(`/medico/atenciones/${id}/no_se_presento/`, data),
+  
+  // Obtener estadísticas
+  getEstadisticas: (periodo = 30) => api.get('/medico/atenciones/estadisticas/', { params: { periodo } }),
+};
+
+export const medicosService = {
+  getAll: (params = {}) => api.get('/medicos/', { params }),
+  getById: (id) => api.get(`/medicos/${id}/`),
+  create: (data) => api.post('/medicos/', data),
+  update: (id, data) => api.patch(`/medicos/${id}/`, data),
+  getAtencionesHoy: (id) => api.get(`/medicos/${id}/atenciones_hoy/`),
+  getAgendaSemanal: (id) => api.get(`/medicos/${id}/agenda_semanal/`),
+  getMetricas: (id) => api.get(`/medicos/${id}/metricas/`),
+  getActivos: () => api.get('/medicos/activos/'),
+  getPorEspecialidad: () => api.get('/medicos/por_especialidad/'),
+  getEstadisticas: () => api.get('/medicos/estadisticas/'),
+  activar: (id) => api.post(`/medicos/${id}/activar/`),
+  desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
+};
+
 
 export default api;
