@@ -8,7 +8,8 @@ from django.utils import timezone
 from datetime import timedelta
 from pacientes.models import Paciente
 from boxes.models import Box
-from atenciones.models import Atencion, Medico
+from atenciones.models import Atencion
+from users.models import User
 from rutas_clinicas.models import RutaClinica
 from .insights_ml import NexaThinkAnalyzer
 
@@ -171,18 +172,24 @@ def dashboard_metricas_generales(request):
     ).aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
 
     # ===== MÉTRICAS DE MÉDICOS =====
-    medicos_activos = Medico.objects.filter(activo=True).count()
-    medicos_atendiendo_hoy = Medico.objects.filter(
-        atenciones__fecha_hora_inicio__date=hoy,
-        activo=True
+    medicos_activos = User.objects.filter(
+        rol='MEDICO',
+        is_active=True
+    ).count()
+    # Cantidad de médicos que atendieron hoy
+    medicos_atendiendo_hoy = User.objects.filter(
+        rol='MEDICO',
+        is_active=True,
+        atenciones_medico__fecha_hora_inicio__date=hoy
     ).distinct().count()
 
     # Top 5 médicos por atenciones hoy
-    top_medicos_hoy = Medico.objects.filter(
-        atenciones__fecha_hora_inicio__date=hoy,
-        activo=True
+    top_medicos_hoy = User.objects.filter(
+        rol='MEDICO',
+        is_active=True,
+        atenciones_medico__fecha_hora_inicio__date=hoy
     ).annotate(
-        total_atenciones=Count('atenciones')
+        total_atenciones=Count('atenciones_medico')
     ).order_by('-total_atenciones')[:5]
     
     top_medicos_data = []
@@ -411,29 +418,29 @@ def dashboard_estadisticas_detalladas(request):
             ).count(),
         })
     
-    # Estadísticas por especialidad médica
-    por_especialidad = {}
-    for esp_key, esp_label in Medico.ESPECIALIDAD_CHOICES:
-        atenciones = Atencion.objects.filter(
-            medico__especialidad_principal=esp_key,
-            fecha_hora_inicio__gte=fecha_inicio
-        )
+    # # Estadísticas por especialidad médica
+    # por_especialidad = {}
+    # for esp_key, esp_label in Medico.ESPECIALIDAD_CHOICES:
+    #     atenciones = Atencion.objects.filter(
+    #         medico__especialidad_principal=esp_key,
+    #         fecha_hora_inicio__gte=fecha_inicio
+    #     )
         
-        por_especialidad[esp_key] = {
-            'label': esp_label,
-            'atenciones': atenciones.count(),
-            'tiempo_promedio': atenciones.filter(
-                duracion_real__isnull=False
-            ).aggregate(promedio=Avg('duracion_real'))['promedio'] or 0
-        }
+    #     por_especialidad[esp_key] = {
+    #         'label': esp_label,
+    #         'atenciones': atenciones.count(),
+    #         'tiempo_promedio': atenciones.filter(
+    #             duracion_real__isnull=False
+    #         ).aggregate(promedio=Avg('duracion_real'))['promedio'] or 0
+    #     }
     
-    return Response({
-        'periodo_dias': dias,
-        'fecha_inicio': fecha_inicio.date().isoformat(),
-        'fecha_fin': timezone.now().date().isoformat(),
-        'estadisticas_diarias': estadisticas_diarias,
-        'por_especialidad': por_especialidad,
-    })
+    # return Response({
+    #     'periodo_dias': dias,
+    #     'fecha_inicio': fecha_inicio.date().isoformat(),
+    #     'fecha_fin': timezone.now().date().isoformat(),
+    #     'estadisticas_diarias': estadisticas_diarias,
+    #     'por_especialidad': por_especialidad,
+    # })
     
 
 @api_view(['GET'])

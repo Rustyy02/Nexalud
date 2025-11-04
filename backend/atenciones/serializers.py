@@ -211,9 +211,13 @@ class AtencionSerializer(serializers.ModelSerializer):
         ]
     
     def get_tiempo_restante_minutos(self, obj):
-        tiempo = obj.obtener_tiempo_restante()
-        if tiempo:
-            return int(tiempo.total_seconds() / 60)
+        """Calcula el tiempo restante para la atención"""
+        if obj.estado == 'EN_CURSO' and obj.inicio_cronometro:
+            from django.utils import timezone
+            ahora = timezone.now()
+            tiempo_transcurrido = (ahora - obj.inicio_cronometro).total_seconds() / 60
+            tiempo_restante = obj.duracion_planificada - tiempo_transcurrido
+            return max(0, int(tiempo_restante))
         return None
     
     def get_retraso_minutos(self, obj):

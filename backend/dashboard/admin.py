@@ -120,11 +120,11 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
         
         medicos_total = Medico.objects.filter(activo=True).count()
         
-        # Etapas con retraso
-        etapas_retrasadas = EtapaRuta.objects.filter(
-            estado='EN_PROCESO',
-            fecha_inicio__isnull=False
-        ).count()
+        # # Etapas con retraso
+        # etapas_retrasadas = EtapaRuta.objects.filter(
+        #     estado='EN_PROCESO',
+        #     fecha_inicio__isnull=False
+        # ).count()
         
         # Atenciones por tipo
         atenciones_por_tipo = Atencion.objects.filter(
@@ -177,7 +177,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             'medicos_total': medicos_total,
             
             # Detallado
-            'etapas_retrasadas': etapas_retrasadas,
+            # 'etapas_retrasadas': etapas_retrasadas,
             'atenciones_por_tipo': atenciones_por_tipo,
             'top_medicos': top_medicos,
             'top_boxes': top_boxes,

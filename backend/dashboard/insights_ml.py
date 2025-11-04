@@ -9,6 +9,7 @@ from datetime import timedelta
 from atenciones.models import Atencion, Medico
 from boxes.models import Box
 from pacientes.models import Paciente
+from users.models import User
 from rutas_clinicas.models import RutaClinica
 
 
@@ -54,10 +55,13 @@ class NexaThinkAnalyzer:
     
     def _analizar_medicos(self):
         """Analiza el desempeño de los médicos"""
+        # ✅ CORREGIDO: Usar User con rol MEDICO
+        from users.models import User
+        
         # Tiempo promedio por médico (últimos 30 días)
         hace_30_dias = self.ahora - timedelta(days=30)
         
-        medicos = Medico.objects.filter(activo=True)
+        medicos = User.objects.filter(rol='MEDICO', is_active=True)
         
         for medico in medicos:
             atenciones = Atencion.objects.filter(
@@ -72,17 +76,19 @@ class NexaThinkAnalyzer:
                     promedio=Avg('duracion_real')
                 )['promedio']
                 
+                nombre_completo = medico.get_full_name() or medico.username
+                
                 # Baseline: 20 minutos es lo esperado
                 if tiempo_promedio > 30:
                     self.insights.append({
                         'type': 'warning',
                         'icon': 'Clock',
-                        'message': f'El {medico.nombre_completo} está tardando más de lo normal en sus atenciones ({tiempo_promedio:.0f} min promedio)',
+                        'message': f'{nombre_completo} está tardando más de lo normal en sus atenciones ({tiempo_promedio:.0f} min promedio)',
                         'recommendation': 'Considerar revisión de carga de trabajo o capacitación en eficiencia',
                         'priority': 'alta',
                         'data': {
                             'medico_id': str(medico.id),
-                            'medico_nombre': medico.nombre_completo,
+                            'medico_nombre': nombre_completo,
                             'tiempo_promedio': round(tiempo_promedio, 1),
                             'atenciones_analizadas': atenciones.count()
                         }
@@ -91,12 +97,12 @@ class NexaThinkAnalyzer:
                     self.insights.append({
                         'type': 'success',
                         'icon': 'CheckCircle',
-                        'message': f'El {medico.nombre_completo} mantiene tiempos óptimos de atención ({tiempo_promedio:.0f} min)',
+                        'message': f'{nombre_completo} mantiene tiempos óptimos de atención ({tiempo_promedio:.0f} min)',
                         'recommendation': 'Considerar como referencia de buenas prácticas',
                         'priority': 'baja',
                         'data': {
                             'medico_id': str(medico.id),
-                            'medico_nombre': medico.nombre_completo,
+                            'medico_nombre': nombre_completo,
                             'tiempo_promedio': round(tiempo_promedio, 1)
                         }
                     })

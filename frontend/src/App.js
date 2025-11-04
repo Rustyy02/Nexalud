@@ -160,7 +160,7 @@ function AppContent() {
         <Route
           path="/medico/consultas"
           element={
-            <ProtectedRoute allowedRoles={['MEDICO']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR','MEDICO']}>
               <Medicoconsultas />
             </ProtectedRoute>
           }
