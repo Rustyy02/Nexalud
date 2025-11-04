@@ -1,4 +1,4 @@
-# backend/dashboard/views.py - VERSIÓN CORREGIDA PARA USER
+# backend/dashboard/views.py - VERSIÓN ACTUALIZADA CON ESPECIALIDADES
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -159,6 +159,12 @@ def dashboard_metricas_generales(request):
         estado__in=['INICIADA', 'EN_PROGRESO']
     ).aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
 
+    # ✅ ACTUALIZADO: Etapas con retraso (detectar rutas con retrasos)
+    rutas_con_retraso = 0
+    for ruta in RutaClinica.objects.filter(estado='EN_PROGRESO'):
+        if ruta.detectar_retrasos():
+            rutas_con_retraso += 1
+
     # ===== MÉTRICAS DE MÉDICOS =====
     medicos_activos = User.objects.filter(
         rol='MEDICO',
@@ -234,6 +240,14 @@ def dashboard_metricas_generales(request):
             'mensaje': f'{rutas_pausadas} rutas clínicas están pausadas',
             'prioridad': 'baja'
         })
+    
+    if rutas_con_retraso > 0:
+        alertas.append({
+            'tipo': 'warning',
+            'titulo': 'Rutas con Retraso',
+            'mensaje': f'{rutas_con_retraso} rutas clínicas presentan retrasos',
+            'prioridad': 'alta'
+        })
 
     # ===== RESPONSE =====
     return Response({
@@ -269,6 +283,7 @@ def dashboard_metricas_generales(request):
             'completadas_hoy': rutas_completadas_hoy,
             'pausadas': rutas_pausadas,
             'progreso_promedio': round(progreso_promedio_rutas, 1),
+            'con_retraso': rutas_con_retraso,
         },
         
         'medicos': {
@@ -356,7 +371,7 @@ def get_ultimo_paciente():
 @permission_classes([IsAuthenticated, IsAdminOrStaff])
 def dashboard_estadisticas_detalladas(request):
     """
-    Endpoint para estadísticas detalladas.
+    Endpoint para estadísticas detalladas con análisis por especialidad.
     """
     periodo = request.GET.get('periodo', '7')
     dias = int(periodo)
@@ -384,11 +399,36 @@ def dashboard_estadisticas_detalladas(request):
             ).count(),
         })
     
+    # ✅ NUEVO: Estadísticas por especialidad médica
+    por_especialidad = {}
+    for esp_key, esp_label in User.ESPECIALIDAD_CHOICES:
+        atenciones = Atencion.objects.filter(
+            medico__especialidad=esp_key,
+            medico__rol='MEDICO',
+            fecha_hora_inicio__gte=fecha_inicio
+        )
+        
+        tiempo_promedio = atenciones.filter(
+            duracion_real__isnull=False
+        ).aggregate(promedio=Avg('duracion_real'))['promedio'] or 0
+        
+        por_especialidad[esp_key] = {
+            'label': esp_label,
+            'atenciones': atenciones.count(),
+            'tiempo_promedio': round(tiempo_promedio, 1),
+            'medicos_activos': User.objects.filter(
+                rol='MEDICO',
+                especialidad=esp_key,
+                is_active=True
+            ).count()
+        }
+    
     return Response({
         'periodo_dias': dias,
         'fecha_inicio': fecha_inicio.date().isoformat(),
         'fecha_fin': timezone.now().date().isoformat(),
         'estadisticas_diarias': estadisticas_diarias,
+        'por_especialidad': por_especialidad,
     })
 
 

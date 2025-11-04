@@ -1,3 +1,4 @@
+# backend/dashboard/admin.py - VERSIÓN ACTUALIZADA
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
@@ -6,8 +7,9 @@ from django.shortcuts import render
 from django.db.models import Count, Avg, Sum, Q
 from pacientes.models import Paciente
 from boxes.models import Box
-from atenciones.models import Atencion, Medico
+from atenciones.models import Atencion
 from rutas_clinicas.models import RutaClinica
+from users.models import User
 
 
 class DashboardAdmin(admin.AdminSite):
@@ -112,19 +114,23 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             estado__in=['INICIADA', 'EN_PROGRESO']
         ).aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
         
-        # Médicos activos hoy
-        medicos_atendiendo = Medico.objects.filter(
-            atenciones__fecha_hora_inicio__date=hoy,
-            activo=True
+        # ✅ ACTUALIZADO: Médicos activos hoy (usando User con rol MEDICO)
+        medicos_atendiendo = User.objects.filter(
+            rol='MEDICO',
+            atenciones_medico__fecha_hora_inicio__date=hoy,
+            is_active=True
         ).distinct().count()
         
-        medicos_total = Medico.objects.filter(activo=True).count()
+        medicos_total = User.objects.filter(
+            rol='MEDICO',
+            is_active=True
+        ).count()
         
-        # # Etapas con retraso
-        # etapas_retrasadas = EtapaRuta.objects.filter(
-        #     estado='EN_PROCESO',
-        #     fecha_inicio__isnull=False
-        # ).count()
+        # ✅ ACTUALIZADO: Etapas con retraso (detectar rutas con retrasos)
+        etapas_retrasadas = 0
+        for ruta in RutaClinica.objects.filter(estado='EN_PROGRESO'):
+            if ruta.detectar_retrasos():
+                etapas_retrasadas += 1
         
         # Atenciones por tipo
         atenciones_por_tipo = Atencion.objects.filter(
@@ -133,12 +139,13 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             total=Count('id')
         )
         
-        # Top 5 médicos por atenciones
-        top_medicos = Medico.objects.filter(
-            atenciones__fecha_hora_inicio__date=hoy,
-            activo=True
+        # ✅ ACTUALIZADO: Top 5 médicos por atenciones (usando User)
+        top_medicos = User.objects.filter(
+            rol='MEDICO',
+            atenciones_medico__fecha_hora_inicio__date=hoy,
+            is_active=True
         ).annotate(
-            total_atenciones=Count('atenciones')
+            total_atenciones=Count('atenciones_medico')
         ).order_by('-total_atenciones')[:5]
         
         # Boxes más utilizados
@@ -177,7 +184,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             'medicos_total': medicos_total,
             
             # Detallado
-            # 'etapas_retrasadas': etapas_retrasadas,
+            'etapas_retrasadas': etapas_retrasadas,
             'atenciones_por_tipo': atenciones_por_tipo,
             'top_medicos': top_medicos,
             'top_boxes': top_boxes,
