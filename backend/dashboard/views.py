@@ -1,4 +1,4 @@
-# backend/dashboard/views.py - VERSIÓN CORREGIDA
+# backend/dashboard/views.py - VERSIÓN CORREGIDA PARA USER
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -14,7 +14,7 @@ from rutas_clinicas.models import RutaClinica
 from .insights_ml import NexaThinkAnalyzer
 
 # ============================================
-# 🆕 PERMISO PERSONALIZADO MEJORADO
+# PERMISO PERSONALIZADO
 # ============================================
 from rest_framework import permissions
 
@@ -29,15 +29,9 @@ class IsAdminOrStaff(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        # Permitir a superusuarios
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.is_staff:
             return True
         
-        # Permitir a staff
-        if request.user.is_staff:
-            return True
-        
-        # Permitir a usuarios con rol ADMINISTRADOR
         if hasattr(request.user, 'rol') and request.user.rol == 'ADMINISTRADOR':
             return True
         
@@ -48,16 +42,13 @@ class IsAdminOrStaff(permissions.BasePermission):
 # ============================================
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
+@permission_classes([IsAuthenticated, IsAdminOrStaff])
 def dashboard_metricas_generales(request):
     """
     Endpoint principal del dashboard con todas las métricas.
-    Accesible para: Superusuarios, Staff, y usuarios con rol ADMINISTRADOR.
     """
     ahora = timezone.now()
     hoy = ahora.date()
-    inicio_semana = hoy - timedelta(days=hoy.weekday())
-    inicio_mes = hoy.replace(day=1)
 
     # ===== MÉTRICAS DE PACIENTES =====
     total_pacientes = Paciente.objects.filter(activo=True).count()
@@ -122,14 +113,12 @@ def dashboard_metricas_generales(request):
         estado__in=['PROGRAMADA', 'EN_ESPERA']
     ).count()
     
-    # Tiempo promedio de atención (últimos 7 días)
     tiempo_promedio_atencion = Atencion.objects.filter(
         fecha_hora_inicio__gte=ahora - timedelta(days=7),
         estado='COMPLETADA',
         duracion_real__isnull=False
     ).aggregate(promedio=Avg('duracion_real'))['promedio'] or 0
     
-    # Atenciones por tipo (hoy)
     atenciones_por_tipo = {}
     for tipo_key, tipo_label in Atencion.TIPO_ATENCION_CHOICES:
         count = Atencion.objects.filter(
@@ -141,7 +130,6 @@ def dashboard_metricas_generales(request):
             'count': count
         }
 
-    # Detectar atenciones retrasadas
     atenciones_retrasadas = []
     atenciones_activas = Atencion.objects.filter(estado='EN_CURSO')
     for atencion in atenciones_activas:
@@ -176,7 +164,7 @@ def dashboard_metricas_generales(request):
         rol='MEDICO',
         is_active=True
     ).count()
-    # Cantidad de médicos que atendieron hoy
+    
     medicos_atendiendo_hoy = User.objects.filter(
         rol='MEDICO',
         is_active=True,
@@ -197,7 +185,7 @@ def dashboard_metricas_generales(request):
         top_medicos_data.append({
             'id': str(medico.id),
             'nombre': medico.nombre_completo,
-            'especialidad': medico.get_especialidad_principal_display(),
+            'especialidad': medico.get_especialidad_display() if medico.especialidad else 'Sin especialidad',
             'atenciones': medico.total_atenciones
         })
 
@@ -220,10 +208,9 @@ def dashboard_metricas_generales(request):
             ).count()
         })
 
-    # ===== ALERTAS Y NOTIFICACIONES =====
+    # ===== ALERTAS =====
     alertas = []
     
-    # Alerta: Atenciones retrasadas
     if len(atenciones_retrasadas) > 0:
         alertas.append({
             'tipo': 'warning',
@@ -232,7 +219,6 @@ def dashboard_metricas_generales(request):
             'prioridad': 'alta'
         })
     
-    # Alerta: Baja disponibilidad de boxes
     if tasa_ocupacion_boxes > 80:
         alertas.append({
             'tipo': 'warning',
@@ -241,7 +227,6 @@ def dashboard_metricas_generales(request):
             'prioridad': 'media'
         })
     
-    # Alerta: Rutas pausadas
     if rutas_pausadas > 5:
         alertas.append({
             'tipo': 'info',
@@ -250,12 +235,11 @@ def dashboard_metricas_generales(request):
             'prioridad': 'baja'
         })
 
-    # ===== RESPONSE COMPLETO =====
+    # ===== RESPONSE =====
     return Response({
         'timestamp': ahora.isoformat(),
         'fecha_hoy': hoy.isoformat(),
         
-        # Pacientes
         'pacientes': {
             'total': total_pacientes,
             'hoy': pacientes_hoy,
@@ -263,7 +247,6 @@ def dashboard_metricas_generales(request):
             'por_urgencia': pacientes_por_urgencia,
         },
         
-        # Boxes
         'boxes': {
             'total': total_boxes,
             'disponibles': boxes_disponibles,
@@ -271,7 +254,6 @@ def dashboard_metricas_generales(request):
             'tasa_ocupacion': tasa_ocupacion_boxes,
         },
         
-        # Atenciones
         'atenciones': {
             'hoy': atenciones_hoy,
             'completadas_hoy': atenciones_completadas_hoy,
@@ -282,7 +264,6 @@ def dashboard_metricas_generales(request):
             'retrasadas': atenciones_retrasadas,
         },
         
-        # Rutas Clínicas
         'rutas_clinicas': {
             'activas': rutas_activas,
             'completadas_hoy': rutas_completadas_hoy,
@@ -290,54 +271,41 @@ def dashboard_metricas_generales(request):
             'progreso_promedio': round(progreso_promedio_rutas, 1),
         },
         
-        # Médicos
         'medicos': {
             'total_activos': medicos_activos,
             'atendiendo_hoy': medicos_atendiendo_hoy,
             'top_5_hoy': top_medicos_data,
         },
         
-        # Tendencias
         'tendencias_7_dias': tendencias,
-        
-        # Alertas
         'alertas': alertas,
     })
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
+@permission_classes([IsAuthenticated, IsAdminOrStaff])
 def dashboard_metricas_tiempo_real(request):
     """
-    Endpoint para actualización en tiempo real (polling cada 5-10 segundos).
-    Solo datos críticos que cambian frecuentemente.
+    Endpoint para actualización en tiempo real.
     """
     ahora = timezone.now()
-    hoy = ahora.date()
     
     return Response({
         'timestamp': ahora.isoformat(),
-        
-        # Datos que cambian frecuentemente
         'boxes_disponibles': Box.objects.filter(
             estado='DISPONIBLE',
             activo=True
         ).count(),
-        
         'atenciones_en_curso': Atencion.objects.filter(
             estado='EN_CURSO'
         ).count(),
-        
         'pacientes_en_espera': Paciente.objects.filter(
             estado_actual='EN_ESPERA',
             activo=True
         ).count(),
-        
         'rutas_en_progreso': RutaClinica.objects.filter(
             estado='EN_PROGRESO'
         ).count(),
-        
-        # Última actividad
         'ultima_atencion': get_ultima_atencion(),
         'ultimo_paciente': get_ultimo_paciente(),
     })
@@ -385,17 +353,15 @@ def get_ultimo_paciente():
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
+@permission_classes([IsAuthenticated, IsAdminOrStaff])
 def dashboard_estadisticas_detalladas(request):
     """
-    Endpoint para estadísticas más detalladas (para gráficos avanzados).
+    Endpoint para estadísticas detalladas.
     """
-    periodo = request.GET.get('periodo', '7')  # días
+    periodo = request.GET.get('periodo', '7')
     dias = int(periodo)
-    
     fecha_inicio = timezone.now() - timedelta(days=dias)
     
-    # Estadísticas por día
     estadisticas_diarias = []
     for i in range(dias):
         dia = (timezone.now() - timedelta(days=dias-i-1)).date()
@@ -418,38 +384,19 @@ def dashboard_estadisticas_detalladas(request):
             ).count(),
         })
     
-    # # Estadísticas por especialidad médica
-    # por_especialidad = {}
-    # for esp_key, esp_label in Medico.ESPECIALIDAD_CHOICES:
-    #     atenciones = Atencion.objects.filter(
-    #         medico__especialidad_principal=esp_key,
-    #         fecha_hora_inicio__gte=fecha_inicio
-    #     )
-        
-    #     por_especialidad[esp_key] = {
-    #         'label': esp_label,
-    #         'atenciones': atenciones.count(),
-    #         'tiempo_promedio': atenciones.filter(
-    #             duracion_real__isnull=False
-    #         ).aggregate(promedio=Avg('duracion_real'))['promedio'] or 0
-    #     }
-    
-    # return Response({
-    #     'periodo_dias': dias,
-    #     'fecha_inicio': fecha_inicio.date().isoformat(),
-    #     'fecha_fin': timezone.now().date().isoformat(),
-    #     'estadisticas_diarias': estadisticas_diarias,
-    #     'por_especialidad': por_especialidad,
-    # })
-    
+    return Response({
+        'periodo_dias': dias,
+        'fecha_inicio': fecha_inicio.date().isoformat(),
+        'fecha_fin': timezone.now().date().isoformat(),
+        'estadisticas_diarias': estadisticas_diarias,
+    })
+
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminOrStaff])  # 🆕 PERMISO MEJORADO
+@permission_classes([IsAuthenticated, IsAdminOrStaff])
 def nexathink_insights(request):
     """
-    Endpoint para obtener insights inteligentes de NexaThink.
-    
-    GET /api/dashboard/nexathink-insights/
+    Endpoint para insights de NexaThink.
     """
     try:
         analyzer = NexaThinkAnalyzer()

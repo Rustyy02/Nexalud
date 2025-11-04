@@ -1,91 +1,148 @@
-# backend/users/admin.py
+# backend/users/admin.py - VERSIÓN SIMPLIFICADA
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django import forms
 from .models import User
 
-class CustomUserCreationForm(UserCreationForm):
+class CustomUserCreationForm(forms.ModelForm):
     """Formulario personalizado para crear usuarios"""
+    password1 = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput,
+        help_text='Ingrese una contraseña segura'
+    )
+    password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput,
+        help_text='Ingrese la misma contraseña para verificación'
+    )
+    
     email = forms.EmailField(
         required=True,
         help_text='Requerido. Use un dominio válido: @nexalud.admin.com, @nexalud.secretario.com, @nexalud.medico.com'
     )
     
+    especialidad = forms.ChoiceField(
+        choices=[('', '---------')] + User.ESPECIALIDAD_CHOICES,
+        required=False,
+        help_text='Solo requerido para médicos'
+    )
+    
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name')
+        fields = ('username', 'first_name', 'last_name', 'email', 'rut', 'especialidad')
+    
+    def _get_rol_from_email(self, email):
+        """Determinar el rol basado en el dominio del email"""
+        if not email:
+            return None
+        
+        if '@nexalud.admin.com' in email:
+            return 'ADMINISTRADOR'
+        elif '@nexalud.secretario.com' in email:
+            return 'SECRETARIA'
+        elif '@nexalud.medico.com' in email:
+            return 'MEDICO'
+        return None
+    
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('Las contraseñas no coinciden.')
+        
+        return password2
     
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if email:
-            # Permitir cualquier correo para superusuarios
             if User.objects.filter(email=email).exists():
                 raise forms.ValidationError('Este correo ya está registrado.')
+            
+            dominios_validos = ['@nexalud.admin.com', '@nexalud.secretario.com', '@nexalud.medico.com']
+            if not any(dominio in email for dominio in dominios_validos):
+                raise forms.ValidationError('Debe usar un dominio válido.')
+        
         return email
-
-class CustomUserChangeForm(UserChangeForm):
-    """Formulario personalizado para editar usuarios"""
-    class Meta:
-        model = User
-        fields = '__all__'
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        especialidad = cleaned_data.get('especialidad')
+        
+        rol = self._get_rol_from_email(email)
+        
+        if email and rol:
+            if rol == 'MEDICO':
+                if not especialidad:
+                    self.add_error('especialidad', 'La especialidad es obligatoria para médicos.')
+            else:
+                if especialidad:
+                    self.add_error('especialidad', 'Solo los médicos pueden tener especialidad.')
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
+        
+        email = self.cleaned_data.get('email')
+        rol = self._get_rol_from_email(email)
+        
+        if rol:
+            user.rol = rol
+            if rol != 'MEDICO':
+                user.especialidad = None
+        
+        if commit:
+            user.save()
+        
+        return user
 
 class CustomUserAdmin(BaseUserAdmin):
-    form = CustomUserChangeForm
     add_form = CustomUserCreationForm
     
-    # Campos a mostrar en la lista
-    list_display = ('username', 'email', 'rol', 'first_name', 'last_name', 'is_staff', 'is_active')
-    list_filter = ('rol', 'is_staff', 'is_superuser', 'is_active')
-    
-    # Campos de búsqueda
-    search_fields = ('username', 'email', 'first_name', 'last_name')
-    
-    # Ordenamiento
+    list_display = ('username', 'email', 'rol', 'get_especialidad_medico', 'first_name', 'last_name', 'is_staff', 'is_active')
+    list_filter = ('rol', 'especialidad', 'is_staff', 'is_superuser', 'is_active')
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'rut')
     ordering = ('username',)
     
-    # Configuración de los fieldsets (vista de edición)
-    fieldsets = (
-        (None, {
-            'fields': ('username', 'password')
-        }),
-        ('Información Personal', {
-            'fields': ('first_name', 'last_name', 'email', 'rut')
-        }),
-        ('Rol y Permisos', {
-            'fields': ('rol', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
-            'description': 'El rol se asigna automáticamente según el dominio del correo.'
-        }),
-        ('Fechas Importantes', {
-            'fields': ('last_login', 'date_joined'),
-            'classes': ('collapse',)
-        }),
-    )
+    def get_especialidad_medico(self, obj):
+        if obj.rol == 'MEDICO' and obj.especialidad:
+            return obj.get_especialidad_display()
+        return '-'
+    get_especialidad_medico.short_description = 'Especialidad'
     
-    # Configuración para agregar usuario (vista de creación)
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'email', 'password1', 'password2'),
+            'fields': ('username', 'password1', 'password2'),
         }),
         ('Información Personal', {
-            'fields': ('first_name', 'last_name', 'rut'),
+            'classes': ('wide',),
+            'fields': ('first_name', 'last_name', 'email', 'rut'),
+        }),
+        ('Especialidad Médica', {
+            'classes': ('wide',),
+            'fields': ('especialidad',),
+            'description': 'El rol se asigna automáticamente. Si usa @nexalud.medico.com, debe seleccionar especialidad.',
         }),
         ('Permisos', {
-            'fields': ('is_staff', 'is_superuser'),
-            'description': 'El rol se asignará automáticamente según el dominio del correo.'
+            'classes': ('wide',),
+            'fields': ('is_active', 'is_staff', 'is_superuser'),
         }),
     )
     
-    readonly_fields = ('last_login', 'date_joined', 'rol')
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Información Personal', {'fields': ('first_name', 'last_name', 'email', 'rut')}),
+        ('Rol y Especialidad', {'fields': ('rol', 'especialidad')}),
+        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Fechas importantes', {'fields': ('last_login', 'date_joined')}),
+    )
     
-    def get_readonly_fields(self, request, obj=None):
-        """Hacer el rol de solo lectura ya que se asigna automáticamente"""
-        readonly = list(super().get_readonly_fields(request, obj))
-        if obj:  # Si estamos editando
-            readonly.append('rol')
-        return readonly
+    readonly_fields = ('last_login', 'date_joined')
 
-# Registrar el modelo con la configuración personalizada
 admin.site.unregister(User) if admin.site.is_registered(User) else None
 admin.site.register(User, CustomUserAdmin)
