@@ -69,11 +69,29 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     def hoy(self, request):
         """
         Retorna las atenciones del médico para el día actual.
-        
-        GET /api/medico/atenciones/hoy/
+        ✅ CORREGIDO: Usa timezone.localtime para manejar correctamente la zona horaria
         """
-        hoy = timezone.now().date()
-        atenciones = self.get_queryset().filter(fecha_hora_inicio__date=hoy)
+        from django.utils import timezone
+        
+        # Obtener la fecha actual en la zona horaria local configurada
+        ahora_local = timezone.localtime(timezone.now())
+        hoy = ahora_local.date()
+        
+        print(f"\n🔍 DEBUG HOY:")
+        print(f"   Ahora UTC: {timezone.now()}")
+        print(f"   Ahora Local: {ahora_local}")
+        print(f"   Fecha HOY: {hoy}")
+        print(f"   Usuario: {request.user.username}")
+        
+        # Filtrar atenciones del día
+        atenciones = self.get_queryset().filter(
+            fecha_hora_inicio__date=hoy
+        ).order_by('fecha_hora_inicio')
+        
+        print(f"   Atenciones encontradas: {atenciones.count()}")
+        for a in atenciones:
+            print(f"      - {a.id}: {timezone.localtime(a.fecha_hora_inicio)} | {a.paciente.identificador_hash[:8]}")
+        
         serializer = self.get_serializer(atenciones, many=True)
         
         # Calcular estadísticas del día

@@ -254,11 +254,13 @@ class AtencionSerializer(serializers.ModelSerializer):
 
 class AtencionListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listar atenciones"""
+    # ✅ NUEVO: Mostrar nombre completo del paciente
+    paciente_nombre = serializers.SerializerMethodField()
     paciente_hash = serializers.CharField(
         source='paciente.identificador_hash',
         read_only=True
     )
-    # ✅ Actualizado: ahora obtiene nombre de User
+    # ✅ Actualizado: nombre del médico
     medico_nombre = serializers.SerializerMethodField()
     box_numero = serializers.CharField(
         source='box.numero',
@@ -278,6 +280,7 @@ class AtencionListSerializer(serializers.ModelSerializer):
         model = Atencion
         fields = [
             'id',
+            'paciente_nombre',  # ✅ NUEVO: Nombre completo
             'paciente_hash',
             'medico_nombre',
             'box_numero',
@@ -291,12 +294,25 @@ class AtencionListSerializer(serializers.ModelSerializer):
             'esta_retrasada',
         ]
     
+    def get_paciente_nombre(self, obj):
+        """✅ NUEVO: Retorna nombre completo del paciente"""
+        try:
+            # Intentar obtener nombre completo
+            if hasattr(obj.paciente, 'nombres') and hasattr(obj.paciente, 'apellido_paterno'):
+                nombre = f"{obj.paciente.nombres} {obj.paciente.apellido_paterno}"
+                if obj.paciente.apellido_materno:
+                    nombre += f" {obj.paciente.apellido_materno}"
+                return nombre.strip()
+            # Fallback al hash si no tiene nombre
+            return obj.paciente.identificador_hash[:12] + "..."
+        except Exception as e:
+            return obj.paciente.identificador_hash[:12] + "..."
+    
     def get_medico_nombre(self, obj):
         return obj.medico.get_full_name() or obj.medico.username
     
     def get_esta_retrasada(self, obj):
         return obj.is_retrasada()
-
 
 class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer para crear y actualizar atenciones"""

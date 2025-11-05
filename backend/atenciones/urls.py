@@ -3,11 +3,16 @@ from rest_framework.routers import DefaultRouter
 from .viewsets import MedicoViewSet, AtencionViewSet
 from .viewsets_medico import MedicoAtencionesViewSet
 
+# Router principal
 router = DefaultRouter()
 router.register(r'medicos', MedicoViewSet, basename='medico')
 router.register(r'atenciones', AtencionViewSet, basename='atencion')
 
-# ✅ NUEVO: Endpoint para vista de médicos
-router.register(r'medico/atenciones', MedicoAtencionesViewSet, basename='medico-atenciones')
+# Router separado para endpoints de médicos
+medico_router = DefaultRouter()
+medico_router.register(r'atenciones', MedicoAtencionesViewSet, basename='medico-atenciones')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('', include(router.urls)),
+    path('medico/', include(medico_router.urls)),
+]

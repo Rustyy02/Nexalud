@@ -1,4 +1,4 @@
-// frontend/src/components/MedicoConsultas.jsx
+// frontend/src/components/MedicoConsultas.jsx - VERSIÓN CORREGIDA
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
@@ -19,8 +19,14 @@ import {
   DialogActions,
   TextField,
   Paper,
-  IconButton,
-  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Snackbar,
+  Stack,
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -30,33 +36,46 @@ import {
   Person as PersonIcon,
   MeetingRoom as BoxIcon,
   CheckCircle as CheckIcon,
-  Info as InfoIcon,
-  Schedule as ScheduleIcon,
+  Warning as WarningIcon,
+  Timer as TimerIcon,
+  EventNote as EventIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { medicoAtencionesService } from '../services/api';
 import Navbar from './Navbar';
 
 const MedicoConsultas = () => {
-  // Estados
+  // Estados principales
   const [atencionActual, setAtencionActual] = useState(null);
-  const [tipoAtencion, setTipoAtencion] = useState(null); // 'en_curso', 'proxima', 'ninguna'
+  const [tipoAtencion, setTipoAtencion] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
   const [atencionesHoy, setAtencionesHoy] = useState([]);
   const [estadisticasHoy, setEstadisticasHoy] = useState(null);
   
-  // Diálogos
+  // Estados de cronómetro
+  const [tiempoRestante, setTiempoRestante] = useState(0);
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
+  
+  // Estados de diálogos
   const [dialogFinalizar, setDialogFinalizar] = useState(false);
   const [dialogNoPresentado, setDialogNoPresentado] = useState(false);
+  const [dialogAtraso, setDialogAtraso] = useState(false);
   const [observaciones, setObservaciones] = useState('');
+  const [motivoAtraso, setMotivoAtraso] = useState('');
   
   // Snackbar
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({ 
+    open: false, 
+    message: '', 
+    severity: 'success' 
+  });
 
-  // Cargar atención actual
+  // ==================== FUNCIONES DE CARGA ====================
+  
   const cargarAtencionActual = useCallback(async () => {
     try {
       const response = await medicoAtencionesService.getActual();
+      console.log('Atención actual:', response.data); // Debug
       setAtencionActual(response.data.atencion);
       setTipoAtencion(response.data.tipo);
       setLoading(false);
@@ -67,34 +86,49 @@ const MedicoConsultas = () => {
     }
   }, []);
 
-  // Cargar atenciones del día
   const cargarAtencionesHoy = useCallback(async () => {
     try {
       const response = await medicoAtencionesService.getHoy();
-      setAtencionesHoy(response.data.atenciones);
+      console.log('Respuesta de atenciones hoy:', response.data); // Debug
+      
+      // Asegurarse de que sea un array
+      const atenciones = Array.isArray(response.data.atenciones) 
+        ? response.data.atenciones 
+        : [];
+      
+      console.log('Atenciones procesadas:', atenciones); // Debug
+      
+      setAtencionesHoy(atenciones);
       setEstadisticasHoy({
-        total: response.data.total,
-        completadas: response.data.completadas,
-        pendientes: response.data.pendientes,
+        total: response.data.total || atenciones.length,
+        completadas: response.data.completadas || 0,
+        pendientes: response.data.pendientes || 0,
       });
     } catch (error) {
       console.error('Error al cargar atenciones del día:', error);
+      setAtencionesHoy([]);
     }
   }, []);
 
-  // Efecto para cargar datos iniciales
+  // ==================== EFECTOS ====================
+  
+  // Cargar datos iniciales y actualizar periódicamente
   useEffect(() => {
+    console.log('Componente montado, cargando datos...'); // Debug
     cargarAtencionActual();
     cargarAtencionesHoy();
     
-    // Recargar cada 30 segundos
     const interval = setInterval(() => {
+      console.log('Actualizando datos automáticamente...'); // Debug
       cargarAtencionActual();
       cargarAtencionesHoy();
-    }, 30000);
+    }, 10000); // Cada 10 segundos (más frecuente para testing)
     
-    return () => clearInterval(interval);
-  }, [cargarAtencionActual, cargarAtencionesHoy]);
+    return () => {
+      console.log('Limpiando intervalo...'); // Debug
+      clearInterval(interval);
+    };
+  }, []); // Array vacío para que solo se ejecute al montar
 
   // Cronómetro automático
   useEffect(() => {
@@ -104,19 +138,39 @@ const MedicoConsultas = () => {
       interval = setInterval(() => {
         const inicio = new Date(atencionActual.inicio_cronometro);
         const ahora = new Date();
-        const diff = Math.floor((ahora - inicio) / 1000);
-        setTiempoTranscurrido(diff);
+        const transcurrido = Math.floor((ahora - inicio) / 1000);
+        const duracionTotal = atencionActual.duracion_planificada * 60;
+        const restante = Math.max(0, duracionTotal - transcurrido);
+        
+        setTiempoTranscurrido(transcurrido);
+        setTiempoRestante(restante);
+      }, 1000);
+    } else if (tipoAtencion === 'proxima' && atencionActual?.fecha_hora_inicio) {
+      interval = setInterval(() => {
+        const ahora = new Date();
+        const inicio = new Date(atencionActual.fecha_hora_inicio);
+        const diferencia = Math.floor((inicio - ahora) / 1000);
+        
+        if (diferencia <= 0) {
+          setTiempoRestante(atencionActual.duracion_planificada * 60);
+          cargarAtencionActual();
+        } else {
+          setTiempoRestante(atencionActual.duracion_planificada * 60);
+        }
+        setTiempoTranscurrido(0);
       }, 1000);
     } else {
       setTiempoTranscurrido(0);
+      setTiempoRestante(0);
     }
     
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [tipoAtencion, atencionActual]);
+  }, [tipoAtencion, atencionActual, cargarAtencionActual]);
 
-  // Funciones auxiliares
+  // ==================== FUNCIONES AUXILIARES ====================
+  
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
@@ -125,23 +179,51 @@ const MedicoConsultas = () => {
     const horas = Math.floor(segundos / 3600);
     const minutos = Math.floor((segundos % 3600) / 60);
     const segs = segundos % 60;
-    return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
+    
+    if (horas > 0) {
+      return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
+    }
+    return `${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
+  };
+
+  const formatearHora = (fechaStr) => {
+    if (!fechaStr) return '--:--';
+    const fecha = new Date(fechaStr);
+    return fecha.toLocaleTimeString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const calcularProgreso = () => {
-    if (!atencionActual?.duracion_planificada) return 0;
-    const minutos = tiempoTranscurrido / 60;
-    return Math.min((minutos / atencionActual.duracion_planificada) * 100, 100);
+    if (!atencionActual?.duracion_planificada || tipoAtencion !== 'en_curso') return 0;
+    const duracionTotal = atencionActual.duracion_planificada * 60;
+    const progreso = (tiempoTranscurrido / duracionTotal) * 100;
+    return Math.min(progreso, 100);
   };
 
   const getColorProgreso = () => {
     const progreso = calcularProgreso();
-    if (progreso < 70) return 'success';
-    if (progreso < 90) return 'warning';
+    if (progreso < 80) return 'success';
+    if (progreso < 100) return 'warning';
     return 'error';
   };
 
-  // Acciones
+  const estaRetrasada = () => {
+    if (tipoAtencion !== 'en_curso') return false;
+    return tiempoRestante <= 0;
+  };
+
+  const calcularMinutosHastaInicio = () => {
+    if (!atencionActual?.fecha_hora_inicio) return 0;
+    const ahora = new Date();
+    const inicio = new Date(atencionActual.fecha_hora_inicio);
+    const diferencia = Math.floor((inicio - ahora) / (1000 * 60));
+    return Math.max(0, diferencia);
+  };
+
+  // ==================== ACCIONES ====================
+  
   const handleIniciarAtencion = async () => {
     if (!atencionActual) return;
     
@@ -202,11 +284,30 @@ const MedicoConsultas = () => {
     }
   };
 
-  // Render
+  const handleReportarAtraso = () => {
+    setDialogAtraso(true);
+  };
+
+  const confirmarReporteAtraso = () => {
+    showSnackbar(`Atraso reportado: ${motivoAtraso}`, 'warning');
+    setDialogAtraso(false);
+    setMotivoAtraso('');
+  };
+
+  const handleRefrescar = async () => {
+    console.log('Refrescando datos manualmente...'); // Debug
+    setLoading(true);
+    await Promise.all([cargarAtencionActual(), cargarAtencionesHoy()]);
+    setLoading(false);
+    showSnackbar('Datos actualizados', 'info');
+  };
+
+  // ==================== RENDER ====================
+  
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress />
+        <CircularProgress size={60} />
       </Box>
     );
   }
@@ -215,52 +316,96 @@ const MedicoConsultas = () => {
     <>
       <Navbar />
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" fontWeight="700" gutterBottom>
-            Mis Consultas
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Gestiona tus atenciones médicas en tiempo real
-          </Typography>
+        {/* Header con botón refrescar */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box>
+            <Typography variant="h4" fontWeight="700" gutterBottom>
+              Mis Consultas
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Gestiona tus atenciones médicas en tiempo real
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefrescar}
+          >
+            Actualizar
+          </Button>
         </Box>
+
+        {/* Debug info - REMOVER EN PRODUCCIÓN */}
+        {process.env.NODE_ENV === 'development' && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Debug: {atencionesHoy.length} atenciones cargadas. 
+            Última actualización: {new Date().toLocaleTimeString()}
+          </Alert>
+        )}
 
         {/* Estadísticas del día */}
         {estadisticasHoy && (
           <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid item xs={12} md={4}>
-              <Card>
+            <Grid item xs={12} sm={4}>
+              <Card sx={{ 
+                bgcolor: 'primary.main', 
+                color: 'white',
+                height: '100%'
+              }}>
                 <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Total Hoy
-                  </Typography>
-                  <Typography variant="h4" fontWeight="600">
-                    {estadisticasHoy.total}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <EventIcon sx={{ fontSize: 40 }} />
+                    <Box>
+                      <Typography variant="h3" fontWeight="700">
+                        {estadisticasHoy.total}
+                      </Typography>
+                      <Typography variant="body2">
+                        Atenciones Hoy
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
+            <Grid item xs={12} sm={4}>
+              <Card sx={{ 
+                bgcolor: 'success.main', 
+                color: 'white',
+                height: '100%'
+              }}>
                 <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Completadas
-                  </Typography>
-                  <Typography variant="h4" fontWeight="600" color="success.main">
-                    {estadisticasHoy.completadas}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CheckIcon sx={{ fontSize: 40 }} />
+                    <Box>
+                      <Typography variant="h3" fontWeight="700">
+                        {estadisticasHoy.completadas}
+                      </Typography>
+                      <Typography variant="body2">
+                        Completadas
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
+            <Grid item xs={12} sm={4}>
+              <Card sx={{ 
+                bgcolor: 'warning.main', 
+                color: 'white',
+                height: '100%'
+              }}>
                 <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Pendientes
-                  </Typography>
-                  <Typography variant="h4" fontWeight="600" color="warning.main">
-                    {estadisticasHoy.pendientes}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <ClockIcon sx={{ fontSize: 40 }} />
+                    <Box>
+                      <Typography variant="h3" fontWeight="700">
+                        {estadisticasHoy.pendientes}
+                      </Typography>
+                      <Typography variant="body2">
+                        Pendientes
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -268,259 +413,419 @@ const MedicoConsultas = () => {
         )}
 
         <Grid container spacing={3}>
-          {/* Panel Principal - Atención Actual */}
-          <Grid item xs={12} lg={8}>
-            <Card elevation={3} sx={{ minHeight: 500 }}>
-              <CardContent>
+          {/* PANEL PRINCIPAL - CRONÓMETRO Y ATENCIÓN ACTUAL */}
+          <Grid item xs={12} lg={6}>
+            <Card 
+              elevation={4} 
+              sx={{ 
+                minHeight: 500,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+              }}
+            >
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                
+                {/* SIN ATENCIONES */}
                 {tipoAtencion === 'ninguna' && (
-                  <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <ScheduleIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h5" gutterBottom>
-                      No hay atenciones programadas
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flex: 1,
+                    textAlign: 'center',
+                    py: 8 
+                  }}>
+                    <ClockIcon sx={{ fontSize: 100, mb: 3, opacity: 0.7 }} />
+                    <Typography variant="h4" fontWeight="600" gutterBottom>
+                      Sin Atenciones Programadas
                     </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                      No tienes atenciones pendientes para hoy
+                    <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                      No tienes consultas pendientes para hoy
                     </Typography>
                   </Box>
                 )}
 
+                {/* ATENCIÓN PRÓXIMA */}
                 {tipoAtencion === 'proxima' && atencionActual && (
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ mb: 3 }}>
+                      <Chip 
+                        label="PRÓXIMA ATENCIÓN" 
+                        sx={{ 
+                          bgcolor: 'rgba(255,255,255,0.3)',
+                          color: 'white',
+                          fontWeight: 600,
+                          mb: 2
+                        }}
+                      />
                       <Typography variant="h5" fontWeight="600">
-                        Próxima Atención
+                        Consulta Programada
                       </Typography>
-                      <Chip label="Programada" color="primary" />
                     </Box>
 
-                    <Paper sx={{ p: 3, bgcolor: 'grey.50', mb: 3 }}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <PersonIcon color="primary" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Paciente
-                            </Typography>
-                          </Box>
-                          <Typography variant="h6">
-                            {atencionActual.paciente_info?.identificador_hash || 'Paciente'}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <BoxIcon color="primary" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Box
-                            </Typography>
-                          </Box>
-                          <Typography variant="h6">
-                            {atencionActual.box_info?.numero || 'Sin box'}
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                      <Divider sx={{ my: 2 }} />
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Hora programada
-                          </Typography>
-                          <Typography variant="h6">
-                            {new Date(atencionActual.fecha_hora_inicio).toLocaleTimeString('es-CL', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Duración planificada
-                          </Typography>
-                          <Typography variant="h6">
-                            {atencionActual.duracion_planificada} minutos
-                          </Typography>
-                        </Grid>
-                      </Grid>
+                    <Paper sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255,255,255,0.15)',
+                      backdropFilter: 'blur(10px)',
+                      mb: 3,
+                      textAlign: 'center'
+                    }}>
+                      <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                        Inicia en
+                      </Typography>
+                      <Typography variant="h3" fontWeight="700">
+                        {calcularMinutosHastaInicio()} min
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
+                        Hora programada: {formatearHora(atencionActual.fecha_hora_inicio)}
+                      </Typography>
                     </Paper>
 
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <Button
-                        variant="contained"
-                        size="large"
-                        fullWidth
-                        startIcon={<PlayIcon />}
-                        onClick={handleIniciarAtencion}
-                        sx={{ py: 2 }}
-                      >
-                        Iniciar Consulta
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="large"
-                        startIcon={<CancelIcon />}
-                        onClick={() => setDialogNoPresentado(true)}
-                        sx={{ py: 2 }}
-                      >
-                        No se presentó
-                      </Button>
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={6}>
+                        <Paper sx={{ 
+                          p: 2, 
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(10px)',
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <PersonIcon />
+                            <Typography variant="caption">PACIENTE</Typography>
+                          </Box>
+                          <Typography variant="h6" fontWeight="600">
+                            {atencionActual.paciente_info?.identificador_hash?.substring(0, 12) || 'Paciente'}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Paper sx={{ 
+                          p: 2, 
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(10px)',
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <BoxIcon />
+                            <Typography variant="caption">BOX</Typography>
+                          </Box>
+                          <Typography variant="h6" fontWeight="600">
+                            {atencionActual.box_info?.numero || 'Sin box'}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+
+                    <Paper sx={{ 
+                      p: 2, 
+                      bgcolor: 'rgba(255,255,255,0.15)',
+                      backdropFilter: 'blur(10px)',
+                      mb: 3,
+                      textAlign: 'center'
+                    }}>
+                      <TimerIcon sx={{ fontSize: 30, mb: 1 }} />
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Duración Planificada
+                      </Typography>
+                      <Typography variant="h5" fontWeight="600">
+                        {atencionActual.duracion_planificada} minutos
+                      </Typography>
+                    </Paper>
+
+                    <Box sx={{ mt: 'auto' }}>
+                      <Stack spacing={2}>
+                        <Button
+                          variant="contained"
+                          size="large"
+                          fullWidth
+                          startIcon={<PlayIcon />}
+                          onClick={handleIniciarAtencion}
+                          disabled={calcularMinutosHastaInicio() > 15}
+                          sx={{ 
+                            py: 2,
+                            bgcolor: 'white',
+                            color: 'primary.main',
+                            '&:hover': {
+                              bgcolor: 'rgba(255,255,255,0.9)',
+                            }
+                          }}
+                        >
+                          {calcularMinutosHastaInicio() > 15 
+                            ? `Disponible en ${calcularMinutosHastaInicio()} min`
+                            : 'INICIAR CONSULTA'
+                          }
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          fullWidth
+                          startIcon={<CancelIcon />}
+                          onClick={() => setDialogNoPresentado(true)}
+                          sx={{ 
+                            color: 'white',
+                            borderColor: 'white',
+                            '&:hover': {
+                              borderColor: 'white',
+                              bgcolor: 'rgba(255,255,255,0.1)',
+                            }
+                          }}
+                        >
+                          NO SE PRESENTÓ
+                        </Button>
+                      </Stack>
                     </Box>
                   </Box>
                 )}
 
+                {/* ATENCIÓN EN CURSO */}
                 {tipoAtencion === 'en_curso' && atencionActual && (
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ mb: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Chip 
+                          label="EN CURSO" 
+                          icon={<ClockIcon />}
+                          sx={{ 
+                            bgcolor: estaRetrasada() ? 'error.main' : 'success.main',
+                            color: 'white',
+                            fontWeight: 600,
+                          }}
+                        />
+                        {estaRetrasada() && (
+                          <Chip 
+                            icon={<WarningIcon />}
+                            label="RETRASADA"
+                            color="error"
+                          />
+                        )}
+                      </Box>
                       <Typography variant="h5" fontWeight="600">
-                        Atención en Curso
+                        Consulta Activa
                       </Typography>
-                      <Chip label="En Curso" color="success" icon={<ClockIcon />} />
                     </Box>
 
-                    {/* Cronómetro */}
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 4,
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        textAlign: 'center',
-                        mb: 3,
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography variant="h2" fontWeight="700" sx={{ fontFamily: 'monospace', mb: 2 }}>
-                        {formatearTiempo(tiempoTranscurrido)}
+                    <Paper sx={{ 
+                      p: 4, 
+                      bgcolor: estaRetrasada() ? 'rgba(244,67,54,0.2)' : 'rgba(76,175,80,0.2)',
+                      backdropFilter: 'blur(10px)',
+                      mb: 3,
+                      textAlign: 'center',
+                      border: estaRetrasada() ? '2px solid rgba(244,67,54,0.5)' : '2px solid rgba(76,175,80,0.5)',
+                    }}>
+                      <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                        {estaRetrasada() ? 'TIEMPO EXCEDIDO' : 'TIEMPO RESTANTE'}
                       </Typography>
-                      <Typography variant="body1">
-                        Duración planificada: {atencionActual.duracion_planificada} minutos
+                      <Typography 
+                        variant="h1" 
+                        fontWeight="700" 
+                        sx={{ 
+                          fontFamily: 'monospace',
+                          fontSize: '4rem',
+                          mb: 1,
+                          color: estaRetrasada() ? 'error.light' : 'success.light'
+                        }}
+                      >
+                        {estaRetrasada() 
+                          ? `+${formatearTiempo(Math.abs(tiempoRestante))}`
+                          : formatearTiempo(tiempoRestante)
+                        }
                       </Typography>
-                      <Box sx={{ mt: 2 }}>
+                      
+                      <Box sx={{ mt: 2, mb: 2 }}>
                         <LinearProgress
                           variant="determinate"
                           value={calcularProgreso()}
                           color={getColorProgreso()}
                           sx={{
-                            height: 8,
-                            borderRadius: 1,
+                            height: 12,
+                            borderRadius: 2,
                             bgcolor: 'rgba(255, 255, 255, 0.3)',
                           }}
                         />
                       </Box>
+                      
+                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                        Tiempo transcurrido: {formatearTiempo(tiempoTranscurrido)} / {atencionActual.duracion_planificada} min
+                      </Typography>
                     </Paper>
 
-                    {/* Información del paciente */}
-                    <Paper sx={{ p: 3, bgcolor: 'grey.50', mb: 3 }}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <PersonIcon color="primary" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Paciente
-                            </Typography>
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={6}>
+                        <Paper sx={{ 
+                          p: 2, 
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(10px)',
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <PersonIcon />
+                            <Typography variant="caption">PACIENTE</Typography>
                           </Box>
-                          <Typography variant="h6">
-                            {atencionActual.paciente_info?.identificador_hash || 'Paciente'}
+                          <Typography variant="h6" fontWeight="600">
+                            {atencionActual.paciente_info?.identificador_hash?.substring(0, 12) || 'Paciente'}
                           </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <BoxIcon color="primary" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Box
-                            </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Paper sx={{ 
+                          p: 2, 
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(10px)',
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <BoxIcon />
+                            <Typography variant="caption">BOX</Typography>
                           </Box>
-                          <Typography variant="h6">
+                          <Typography variant="h6" fontWeight="600">
                             {atencionActual.box_info?.numero || 'Sin box'}
                           </Typography>
-                        </Grid>
+                        </Paper>
                       </Grid>
-                    </Paper>
+                    </Grid>
 
-                    {/* Botón finalizar */}
-                    <Button
-                      variant="contained"
-                      color="error"
-                      size="large"
-                      fullWidth
-                      startIcon={<StopIcon />}
-                      onClick={() => setDialogFinalizar(true)}
-                      sx={{ py: 2 }}
-                    >
-                      Finalizar Consulta
-                    </Button>
+                    <Box sx={{ mt: 'auto' }}>
+                      <Stack spacing={2}>
+                        <Button
+                          variant="contained"
+                          size="large"
+                          fullWidth
+                          startIcon={<StopIcon />}
+                          onClick={() => setDialogFinalizar(true)}
+                          sx={{ 
+                            py: 2,
+                            bgcolor: 'white',
+                            color: 'error.main',
+                            '&:hover': {
+                              bgcolor: 'rgba(255,255,255,0.9)',
+                            }
+                          }}
+                        >
+                          FINALIZAR CONSULTA
+                        </Button>
+                        {estaRetrasada() && (
+                          <Button
+                            variant="outlined"
+                            size="large"
+                            fullWidth
+                            startIcon={<WarningIcon />}
+                            onClick={handleReportarAtraso}
+                            sx={{ 
+                              color: 'white',
+                              borderColor: 'white',
+                              '&:hover': {
+                                borderColor: 'white',
+                                bgcolor: 'rgba(255,255,255,0.1)',
+                              }
+                            }}
+                          >
+                            REPORTAR ATRASO
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
                   </Box>
                 )}
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Panel Lateral - Lista de Atenciones */}
-          <Grid item xs={12} lg={4}>
-            <Card elevation={2}>
+          {/* PANEL DERECHO - LISTADO DE ATENCIONES */}
+          <Grid item xs={12} lg={6}>
+            <Card elevation={3} sx={{ minHeight: 500 }}>
               <CardContent>
-                <Typography variant="h6" fontWeight="600" gutterBottom>
-                  Atenciones de Hoy
+                <Typography variant="h5" fontWeight="600" gutterBottom sx={{ mb: 3 }}>
+                  Atenciones de Hoy ({atencionesHoy.length})
                 </Typography>
-                <Divider sx={{ mb: 2 }} />
                 
                 {atencionesHoy.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                    No hay atenciones programadas
-                  </Typography>
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No hay atenciones programadas para hoy
+                  </Alert>
                 ) : (
-                  <Box sx={{ maxHeight: 600, overflowY: 'auto' }}>
-                    {atencionesHoy.map((atencion) => (
-                      <Paper
-                        key={atencion.id}
-                        sx={{
-                          p: 2,
-                          mb: 2,
-                          borderLeft: '4px solid',
-                          borderLeftColor:
-                            atencion.estado === 'COMPLETADA'
-                              ? 'success.main'
-                              : atencion.estado === 'EN_CURSO'
-                              ? 'primary.main'
-                              : 'warning.main',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="subtitle2" fontWeight="600">
-                            {new Date(atencion.fecha_hora_inicio).toLocaleTimeString('es-CL', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </Typography>
-                          <Chip
-                            label={atencion.estado_display}
-                            size="small"
-                            color={
-                              atencion.estado === 'COMPLETADA'
-                                ? 'success'
-                                : atencion.estado === 'EN_CURSO'
-                                ? 'primary'
-                                : 'default'
-                            }
-                          />
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {atencion.paciente_hash}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {atencion.box_numero} • {atencion.duracion_planificada} min
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Box>
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.100' }}>
+                          <TableCell><strong>Hora</strong></TableCell>
+                          <TableCell><strong>Paciente</strong></TableCell>
+                          <TableCell><strong>Box</strong></TableCell>
+                          <TableCell><strong>Duración</strong></TableCell>
+                          <TableCell><strong>Estado</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {atencionesHoy.map((atencion) => (
+                          <TableRow 
+                            key={atencion.id}
+                            sx={{ 
+                              '&:hover': { bgcolor: 'grey.50' },
+                              bgcolor: atencion.estado === 'EN_CURSO' ? 'success.lighter' : 'inherit'
+                            }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="600">
+                                {formatearHora(atencion.fecha_hora_inicio)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {atencion.paciente_hash?.substring(0, 12) || 
+                                 atencion.paciente_info?.identificador_hash?.substring(0, 12) || 
+                                 'Sin paciente'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={atencion.box_numero || atencion.box_info?.numero || 'Sin box'} 
+                                size="small" 
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {atencion.duracion_planificada} min
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={atencion.estado_display}
+                                size="small"
+                                color={
+                                  atencion.estado === 'COMPLETADA' ? 'success' :
+                                  atencion.estado === 'EN_CURSO' ? 'primary' :
+                                  atencion.estado === 'CANCELADA' ? 'error' :
+                                  'default'
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 )}
               </CardContent>
             </Card>
           </Grid>
         </Grid>
 
+        {/* DIÁLOGOS */}
+        
         {/* Diálogo Finalizar */}
-        <Dialog open={dialogFinalizar} onClose={() => setDialogFinalizar(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Finalizar Consulta</DialogTitle>
+        <Dialog 
+          open={dialogFinalizar} 
+          onClose={() => setDialogFinalizar(false)} 
+          maxWidth="sm" 
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <StopIcon color="error" />
+              Finalizar Consulta
+            </Box>
+          </DialogTitle>
           <DialogContent>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              La atención será marcada como completada y el box será liberado.
+            </Alert>
             <TextField
               fullWidth
               multiline
@@ -528,20 +833,37 @@ const MedicoConsultas = () => {
               label="Observaciones finales (opcional)"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
+              placeholder="Diagnóstico, tratamiento, indicaciones..."
               sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogFinalizar(false)}>Cancelar</Button>
-            <Button onClick={handleFinalizarAtencion} variant="contained">
-              Finalizar
+            <Button onClick={() => setDialogFinalizar(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleFinalizarAtencion} 
+              variant="contained"
+              color="error"
+            >
+              Finalizar Consulta
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Diálogo No Presentado */}
-        <Dialog open={dialogNoPresentado} onClose={() => setDialogNoPresentado(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Paciente No se Presentó</DialogTitle>
+        <Dialog 
+          open={dialogNoPresentado} 
+          onClose={() => setDialogNoPresentado(false)} 
+          maxWidth="sm" 
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CancelIcon color="warning" />
+              Paciente No se Presentó
+            </Box>
+          </DialogTitle>
           <DialogContent>
             <Alert severity="warning" sx={{ mb: 2 }}>
               Esta acción marcará la atención como "No se presentó" y liberará el box.
@@ -553,16 +875,84 @@ const MedicoConsultas = () => {
               label="Observaciones (opcional)"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
+              placeholder="Motivo o detalles adicionales..."
               sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogNoPresentado(false)}>Cancelar</Button>
-            <Button onClick={handleNoPresentado} variant="contained" color="warning">
+            <Button onClick={() => setDialogNoPresentado(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleNoPresentado} 
+              variant="contained" 
+              color="warning"
+            >
               Confirmar
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Diálogo Reportar Atraso */}
+        <Dialog 
+          open={dialogAtraso} 
+          onClose={() => setDialogAtraso(false)} 
+          maxWidth="sm" 
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningIcon color="error" />
+              Reportar Atraso
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              La consulta ha excedido el tiempo planificado. Por favor, especifica el motivo del atraso.
+            </Alert>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Motivo del atraso *"
+              value={motivoAtraso}
+              onChange={(e) => setMotivoAtraso(e.target.value)}
+              placeholder="Ej: Complicaciones en el procedimiento, paciente requirió atención adicional..."
+              required
+              sx={{ mt: 2 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogAtraso(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmarReporteAtraso} 
+              variant="contained" 
+              color="error"
+              disabled={!motivoAtraso.trim()}
+            >
+              Reportar
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Snackbar */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={() => setSnackbar({ ...snackbar, open: false })} 
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </>
   );
