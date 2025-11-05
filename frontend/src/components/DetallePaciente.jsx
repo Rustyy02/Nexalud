@@ -1,4 +1,4 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN FINAL COMBINADA
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA FINAL
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -40,6 +40,8 @@ import {
     ArrowForward as ArrowForwardIcon,
     ArrowBack as ArrowBackIcon,
     Timeline as TimelineIcon,
+    AccessTime as AccessTimeIcon,
+    CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
@@ -103,6 +105,9 @@ const DetallePaciente = () => {
             if (rutasRes.data && rutasRes.data.length > 0) {
                 const rutaActual = rutasRes.data[0];
                 const timelineRes = await rutasClinicasService.getTimeline(rutaActual.id);
+                
+                console.log('✅ Timeline completo recibido:', timelineRes.data);
+                
                 setRutaClinica(timelineRes.data);
 
                 const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
@@ -301,12 +306,10 @@ const DetallePaciente = () => {
         const etapaActualIndex = timeline.findIndex(e => e.es_actual);
 
         if (etapaActualIndex === -1) {
-            // Si no hay etapa actual, usar completadas
             const completadas = timeline.filter(e => e.estado === 'COMPLETADA').length;
             return (completadas / timeline.length) * 100;
         }
 
-        // Posición de la etapa actual + 50% (mitad de la etapa)
         const posicionEtapa = etapaActualIndex / timeline.length;
         const mitadEtapa = 0.5 / timeline.length;
         
@@ -336,7 +339,7 @@ const DetallePaciente = () => {
                     </Alert>
                 )}
 
-                {/* Cabecera del Paciente con fondo degradado (diseño original) */}
+                {/* Cabecera del Paciente */}
                 <Paper elevation={3} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item>
@@ -374,7 +377,7 @@ const DetallePaciente = () => {
                     </Grid>
                 </Paper>
 
-                {/* Timeline de Ruta Clínica con diseño mejorado */}
+                {/* Timeline de Ruta Clínica */}
                 {rutaClinica && (
                     <Card elevation={3} sx={{ mb: 3 }}>
                         <CardContent>
@@ -392,7 +395,7 @@ const DetallePaciente = () => {
                                 />
                             </Box>
 
-                            {/* ⭐ Barra de progreso mejorada y alineada */}
+                            {/* Barra de progreso */}
                             <Box sx={{ mb: 4 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                     <Typography variant="body2" color="text.secondary">
@@ -420,7 +423,7 @@ const DetallePaciente = () => {
                                 </Typography>
                             </Box>
 
-                            {/* Timeline de Etapas con iconos animados */}
+                            {/* Timeline de Etapas */}
                             <Box sx={{ mb: 3 }}>
                                 <Stepper 
                                     activeStep={-1} 
@@ -463,12 +466,42 @@ const DetallePaciente = () => {
                                                     >
                                                         {etapa.etapa_label}
                                                     </Typography>
+                                                    
+                                                    {/* ✅ MEJORADO: Mostrar tiempo transcurrido para CUALQUIER etapa con fecha de inicio */}
+                                                    {etapa.fecha_inicio && (
+                                                        <Tooltip title={
+                                                            etapa.es_actual 
+                                                                ? "Tiempo en esta etapa (en curso)" 
+                                                                : etapa.estado === 'COMPLETADA'
+                                                                ? "Duración de la etapa"
+                                                                : "Tiempo en esta etapa"
+                                                        }>
+                                                            <Chip
+                                                                icon={etapa.es_actual ? <AccessTimeIcon sx={{ fontSize: 14 }} /> : <CheckCircleIcon sx={{ fontSize: 14 }} />}
+                                                                label={
+                                                                    etapa.tiempo_transcurrido_legible || 
+                                                                    etapa.duracion_real_legible || 
+                                                                    'Calculando...'
+                                                                }
+                                                                size="small"
+                                                                color={etapa.es_actual ? 'primary' : etapa.estado === 'COMPLETADA' ? 'success' : 'default'}
+                                                                variant="outlined"
+                                                                sx={{ 
+                                                                    fontWeight: 600, 
+                                                                    height: 24, 
+                                                                    fontSize: '0.7rem', 
+                                                                    mt: 0.5 
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                    )}
+                                                    
                                                     {etapa.es_actual && (
                                                         <Chip
                                                             label="En Curso"
                                                             size="small"
                                                             color="primary"
-                                                            sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
+                                                            sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem', mt: 0.5 }}
                                                         />
                                                     )}
                                                 </Box>
@@ -508,18 +541,42 @@ const DetallePaciente = () => {
                                 </Box>
                             )}
 
-                            {/* Alertas de Retrasos */}
+                            {/* ✅ ALERTAS DE RETRASOS CORREGIDAS */}
                             {rutaClinica.retrasos && rutaClinica.retrasos.length > 0 && (
-                                <Alert severity="warning" sx={{ mt: 2 }}>
-                                    <Typography variant="subtitle2" fontWeight="600">
+                                <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+                                    <Typography variant="subtitle2" fontWeight="600" gutterBottom>
                                         ⚠️ Retrasos Detectados:
                                     </Typography>
                                     <List dense>
                                         {rutaClinica.retrasos.map((retraso, idx) => (
-                                            <ListItem key={idx} sx={{ py: 0.5 }}>
+                                            <ListItem key={idx} sx={{ py: 0.5, px: 0 }}>
                                                 <ListItemText
-                                                    primary={`${retraso.etapa}: +${retraso.retraso_minutos} minutos de retraso`}
-                                                    secondary={`Duración: ${retraso.duracion_real_minutos} min (estimado: ${retraso.duracion_estimada_minutos} min)`}
+                                                    primary={
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                            <Typography variant="body2" fontWeight="600" color="error">
+                                                                {retraso.etapa_label || retraso.etapa}:
+                                                            </Typography>
+                                                            <Chip
+                                                                label={`Lleva ${retraso.duracion_actual_legible || `${retraso.duracion_actual_minutos} min`}`}
+                                                                size="small"
+                                                                color="warning"
+                                                                sx={{ fontWeight: 500 }}
+                                                            />
+                                                            <Chip
+                                                                label={`Retraso: ${retraso.retraso_legible || `${retraso.retraso_minutos} min`}`}
+                                                                size="small"
+                                                                color="error"
+                                                                sx={{ fontWeight: 600 }}
+                                                            />
+                                                        </Box>
+                                                    }
+                                                    secondary={
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            Estimado: {retraso.duracion_estimada_legible || `${retraso.duracion_estimada_minutos} min`} • 
+                                                            Máximo: {retraso.duracion_maxima_permitida_legible || `${retraso.duracion_maxima_permitida} min`}
+                                                            {retraso.margen_tolerancia && ` (${retraso.margen_tolerancia} margen)`}
+                                                        </Typography>
+                                                    }
                                                 />
                                             </ListItem>
                                         ))}

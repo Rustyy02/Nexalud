@@ -1,4 +1,4 @@
-# backend/rutas_clinicas/models.py - VERSIÓN CORREGIDA
+# backend/rutas_clinicas/models.py - VERSIÓN CON DURACIONES REALISTAS
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -8,13 +8,15 @@ from pacientes.models import Paciente
 
 class RutaClinica(models.Model):
     """
-    Modelo corregido para gestionar rutas clínicas de pacientes.
+    Modelo para gestionar rutas clínicas de pacientes con duraciones realistas.
     
-    ✅ CORRECCIONES IMPORTANTES:
-    - Flujo lineal sin saltos de etapas
-    - Manejo correcto del final de la ruta
-    - Prevención de estados inconsistentes
-    - Sincronización perfecta con Paciente
+    ✅ DURACIONES ACTUALIZADAS:
+    - CONSULTA_MEDICA: 1 día (primera evaluación médica)
+    - PROCESO_EXAMEN: 1 día (realización de exámenes)
+    - REVISION_EXAMEN: 1 semana (análisis de resultados)
+    - HOSPITALIZACION: 1 semana (internación si es necesario)
+    - OPERACION: 2 días (procedimiento quirúrgico y recuperación inmediata)
+    - ALTA: 2 días (preparación de documentos y seguimiento post-alta)
     """
     
     ESTADO_CHOICES = [
@@ -34,14 +36,25 @@ class RutaClinica(models.Model):
         ('ALTA', 'Alta Médica'),
     ]
     
-    # Duraciones estimadas por etapa (en minutos)
+    # ✅ DURACIONES ESTIMADAS REALISTAS POR ETAPA (en minutos)
     DURACIONES_ESTIMADAS = {
-        'CONSULTA_MEDICA': 30,
-        'PROCESO_EXAMEN': 45,
-        'REVISION_EXAMEN': 20,
-        'HOSPITALIZACION': 1440,  # 24 horas
-        'OPERACION': 120,
-        'ALTA': 15,
+        'CONSULTA_MEDICA': 1440,      # 1 día (24 horas) - Primera consulta y evaluación
+        'PROCESO_EXAMEN': 1440,        # 1 día (24 horas) - Realización de exámenes
+        'REVISION_EXAMEN': 10080,      # 1 semana (7 días) - Análisis de resultados
+        'HOSPITALIZACION': 10080,      # 1 semana (7 días) - Internación si es necesaria
+        'OPERACION': 2880,             # 2 días (48 horas) - Cirugía y recuperación inmediata
+        'ALTA': 2880,                  # 2 días (48 horas) - Preparación de alta y seguimiento
+    }
+    
+    # ✅ MARGEN DE TOLERANCIA POR ETAPA (porcentaje sobre la duración estimada)
+    # Después de este margen, se considera retrasada
+    MARGEN_TOLERANCIA = {
+        'CONSULTA_MEDICA': 0.20,      # 20% = ~5 horas extra
+        'PROCESO_EXAMEN': 0.20,        # 20% = ~5 horas extra
+        'REVISION_EXAMEN': 0.15,       # 15% = ~1 día extra
+        'HOSPITALIZACION': 0.25,       # 25% = ~2 días extra (puede variar más)
+        'OPERACION': 0.30,             # 30% = ~14 horas extra (puede haber complicaciones)
+        'ALTA': 0.20,                  # 20% = ~10 horas extra
     }
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -139,7 +152,85 @@ class RutaClinica(models.Model):
             self.paciente.limpiar_etapa('EN_ESPERA')
     
     # ============================================
-    # ✅ MÉTODOS PRINCIPALES CORREGIDOS
+    # ✅ MÉTODO MEJORADO PARA DETECTAR RETRASOS
+    # ============================================
+    
+    def detectar_retrasos(self):
+        """
+        Detecta si alguna etapa está retrasada usando duraciones realistas.
+        
+        Una etapa se considera retrasada cuando:
+        - Está en curso (no completada)
+        - Ha excedido su duración estimada + margen de tolerancia
+        
+        Returns:
+            list: Lista de diccionarios con información de retrasos
+        """
+        retrasos = []
+        ahora = timezone.now()
+        
+        for etapa_key, etapa_data in self.timestamps_etapas.items():
+            # Solo revisar etapas que no están completadas
+            if etapa_data.get('fecha_fin'):
+                continue
+            
+            # Verificar si tiene fecha de inicio
+            if not etapa_data.get('fecha_inicio'):
+                continue
+            
+            try:
+                # Convertir fecha de inicio a timezone-aware datetime
+                fecha_inicio_str = etapa_data['fecha_inicio']
+                if fecha_inicio_str.endswith('Z'):
+                    fecha_inicio_str = fecha_inicio_str.replace('Z', '+00:00')
+                
+                inicio = timezone.datetime.fromisoformat(fecha_inicio_str)
+                
+                # Si no es timezone-aware, hacerlo aware
+                if timezone.is_naive(inicio):
+                    inicio = timezone.make_aware(inicio)
+                
+                # Calcular tiempo transcurrido en minutos
+                duracion_actual = (ahora - inicio).total_seconds() / 60
+                
+                # Obtener duración estimada para esta etapa
+                duracion_estimada = self.DURACIONES_ESTIMADAS.get(etapa_key, 1440)  # Default 1 día
+                
+                # Obtener margen de tolerancia
+                margen = self.MARGEN_TOLERANCIA.get(etapa_key, 0.20)  # Default 20%
+                
+                # Calcular duración máxima permitida (estimada + margen)
+                duracion_maxima = duracion_estimada * (1 + margen)
+                
+                # Verificar si está retrasada
+                if duracion_actual > duracion_maxima:
+                    retraso_minutos = int(duracion_actual - duracion_estimada)
+                    
+                    # Convertir a formato más legible
+                    retraso_horas = retraso_minutos // 60
+                    retraso_dias = retraso_horas // 24
+                    
+                    retrasos.append({
+                        'etapa': etapa_key,
+                        'etapa_label': dict(self.ETAPAS_CHOICES).get(etapa_key),
+                        'duracion_actual_minutos': int(duracion_actual),
+                        'duracion_estimada_minutos': duracion_estimada,
+                        'retraso_minutos': retraso_minutos,
+                        'retraso_horas': retraso_horas,
+                        'retraso_dias': retraso_dias,
+                        'margen_tolerancia': f"{int(margen * 100)}%",
+                        'duracion_maxima_permitida': int(duracion_maxima),
+                    })
+            
+            except Exception as e:
+                # Si hay algún error al procesar, continuar con la siguiente etapa
+                print(f"Error al detectar retraso en etapa {etapa_key}: {e}")
+                continue
+        
+        return retrasos
+    
+    # ============================================
+    # MÉTODOS PRINCIPALES (sin cambios en lógica)
     # ============================================
     
     def iniciar_ruta(self, usuario=None, etapa_inicial=None):
@@ -196,7 +287,7 @@ class RutaClinica(models.Model):
                 'fecha_inicio': ahora.isoformat(),
                 'fecha_fin': ahora.isoformat(),
                 'duracion_real': 0,
-                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(etapa_previa, 30),
+                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(etapa_previa, 1440),
                 'observaciones': 'Etapa marcada como completada al iniciar la ruta',
                 'usuario_inicio': 'Sistema',
                 'auto_completada': True,
@@ -207,7 +298,7 @@ class RutaClinica(models.Model):
             'fecha_inicio': ahora.isoformat(),
             'fecha_fin': None,
             'duracion_real': None,
-            'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 30),
+            'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 1440),
             'observaciones': '',
             'usuario_inicio': str(usuario) if usuario else 'Sistema',
         }
@@ -299,7 +390,7 @@ class RutaClinica(models.Model):
                 'fecha_inicio': ahora.isoformat(),
                 'fecha_fin': None,
                 'duracion_real': None,
-                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 30),
+                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 1440),
                 'observaciones': '',
                 'usuario_inicio': str(usuario) if usuario else 'Sistema',
             }
@@ -352,7 +443,7 @@ class RutaClinica(models.Model):
                 'fecha_inicio': timezone.now().isoformat(),
                 'fecha_fin': None,
                 'duracion_real': None,
-                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 30),
+                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 1440),
                 'observaciones': 'Reactivado desde estado completado',
                 'usuario_inicio': str(usuario) if usuario else 'Sistema',
             }
@@ -381,7 +472,7 @@ class RutaClinica(models.Model):
                 'fecha_inicio': timezone.now().isoformat(),
                 'fecha_fin': None,
                 'duracion_real': None,
-                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 30),
+                'duracion_estimada': self.DURACIONES_ESTIMADAS.get(self.etapa_actual, 1440),
                 'observaciones': f'Retroceso desde {etapa_anterior}',
                 'usuario_inicio': str(usuario) if usuario else 'Sistema',
             }
@@ -476,31 +567,6 @@ class RutaClinica(models.Model):
             return self.fecha_fin_real - self.fecha_inicio
         return timezone.now() - self.fecha_inicio
     
-    def detectar_retrasos(self):
-        """Detecta si alguna etapa está retrasada"""
-        retrasos = []
-        ahora = timezone.now()
-        
-        for etapa_key, etapa_data in self.timestamps_etapas.items():
-            if etapa_data.get('fecha_fin'):
-                continue  # Etapa completada
-            
-            if etapa_data.get('fecha_inicio'):
-                inicio = timezone.datetime.fromisoformat(etapa_data['fecha_inicio'].replace('Z', '+00:00'))
-                duracion_actual = (ahora - inicio).total_seconds() / 60
-                duracion_estimada = etapa_data.get('duracion_estimada', 30)
-                
-                if duracion_actual > duracion_estimada * 1.2:  # 20% de margen
-                    retrasos.append({
-                        'etapa': etapa_key,
-                        'etapa_label': dict(self.ETAPAS_CHOICES).get(etapa_key),
-                        'duracion_actual': int(duracion_actual),
-                        'duracion_estimada': duracion_estimada,
-                        'retraso_minutos': int(duracion_actual - duracion_estimada),
-                    })
-        
-        return retrasos
-    
     def obtener_timeline_completo(self):
         """
         ✅ CORREGIDO: Timeline que muestra correctamente el flujo lineal
@@ -537,9 +603,11 @@ class RutaClinica(models.Model):
                     duracion_actual = (timezone.now() - inicio).total_seconds() / 60
                     duracion_estimada = etapa_data.get(
                         'duracion_estimada',
-                        self.DURACIONES_ESTIMADAS.get(etapa_key, 30)
+                        self.DURACIONES_ESTIMADAS.get(etapa_key, 1440)
                     )
-                    retrasada = duracion_actual > duracion_estimada * 1.2
+                    margen = self.MARGEN_TOLERANCIA.get(etapa_key, 0.20)
+                    duracion_maxima = duracion_estimada * (1 + margen)
+                    retrasada = duracion_actual > duracion_maxima
                 except Exception:
                     retrasada = False
             
@@ -555,7 +623,7 @@ class RutaClinica(models.Model):
                 'duracion_real': etapa_data.get('duracion_real'),
                 'duracion_estimada': etapa_data.get(
                     'duracion_estimada',
-                    self.DURACIONES_ESTIMADAS.get(etapa_key, 30)
+                    self.DURACIONES_ESTIMADAS.get(etapa_key, 1440)
                 ),
                 'observaciones': etapa_data.get('observaciones', ''),
                 'es_actual': es_actual,
@@ -608,7 +676,7 @@ class RutaClinica(models.Model):
         # Calcular solo para las etapas restantes
         etapas_restantes = self.etapas_seleccionadas[self.indice_etapa_actual:]
         duracion_total = sum(
-            self.DURACIONES_ESTIMADAS.get(etapa, 30)
+            self.DURACIONES_ESTIMADAS.get(etapa, 1440)
             for etapa in etapas_restantes
         )
         
