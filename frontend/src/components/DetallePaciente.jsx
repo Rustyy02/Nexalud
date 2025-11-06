@@ -1,4 +1,4 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA FINAL
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN MEJORADA CON TIEMPOS REALES
 import React, { useState, useEffect } from 'react';
 import {
     Box,
@@ -60,6 +60,33 @@ const pulseAnimation = keyframes`
     }
 `;
 
+// ✅ NUEVA: Función para calcular tiempo transcurrido
+const calcularTiempoTranscurrido = (fechaInicio, fechaFin = null) => {
+    try {
+        const inicio = new Date(fechaInicio);
+        const fin = fechaFin ? new Date(fechaFin) : new Date();
+        const diferenciaMs = fin - inicio;
+        const minutos = Math.floor(diferenciaMs / 60000);
+        
+        if (minutos < 60) {
+            return `${minutos} min`;
+        }
+        
+        const horas = Math.floor(minutos / 60);
+        if (horas < 24) {
+            const mins = minutos % 60;
+            return mins > 0 ? `${horas}h ${mins}min` : `${horas}h`;
+        }
+        
+        const dias = Math.floor(horas / 24);
+        const horasRestantes = horas % 24;
+        return horasRestantes > 0 ? `${dias}d ${horasRestantes}h` : `${dias} día${dias !== 1 ? 's' : ''}`;
+    } catch (error) {
+        console.error('Error calculando tiempo:', error);
+        return '0 min';
+    }
+};
+
 const DetallePaciente = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -77,11 +104,23 @@ const DetallePaciente = () => {
     const [observaciones, setObservaciones] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
+    // ✅ NUEVO: Estado para actualizar el tiempo en vivo
+    const [, forceUpdate] = useState(0);
+
     useEffect(() => {
         cargarDatos();
         const interval = setInterval(cargarDatos, 30000);
         return () => clearInterval(interval);
     }, [id]);
+
+    // ✅ NUEVO: Actualizar tiempo cada minuto para las etapas en curso
+    useEffect(() => {
+        const timerInterval = setInterval(() => {
+            forceUpdate(prev => prev + 1);
+        }, 60000); // Cada 60 segundos
+
+        return () => clearInterval(timerInterval);
+    }, []);
 
     const cargarDatos = async () => {
         try {
@@ -467,7 +506,7 @@ const DetallePaciente = () => {
                                                         {etapa.etapa_label}
                                                     </Typography>
                                                     
-                                                    {/* ✅ MEJORADO: Mostrar tiempo transcurrido para CUALQUIER etapa con fecha de inicio */}
+                                                    {/* ✅ MEJORADO: Calcular tiempo real para cada etapa */}
                                                     {etapa.fecha_inicio && (
                                                         <Tooltip title={
                                                             etapa.es_actual 
@@ -479,9 +518,10 @@ const DetallePaciente = () => {
                                                             <Chip
                                                                 icon={etapa.es_actual ? <AccessTimeIcon sx={{ fontSize: 14 }} /> : <CheckCircleIcon sx={{ fontSize: 14 }} />}
                                                                 label={
-                                                                    etapa.tiempo_transcurrido_legible || 
-                                                                    etapa.duracion_real_legible || 
-                                                                    'Calculando...'
+                                                                    etapa.es_actual
+                                                                        ? calcularTiempoTranscurrido(etapa.fecha_inicio)
+                                                                        : etapa.duracion_real_legible || 
+                                                                          calcularTiempoTranscurrido(etapa.fecha_inicio, etapa.fecha_fin)
                                                                 }
                                                                 size="small"
                                                                 color={etapa.es_actual ? 'primary' : etapa.estado === 'COMPLETADA' ? 'success' : 'default'}
@@ -541,45 +581,61 @@ const DetallePaciente = () => {
                                 </Box>
                             )}
 
-                            {/* ✅ ALERTAS DE RETRASOS CORREGIDAS */}
+                            {/* ✅ ALERTAS DE RETRASOS MEJORADAS - MOSTRAR EN DÍAS */}
                             {rutaClinica.retrasos && rutaClinica.retrasos.length > 0 && (
                                 <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
                                     <Typography variant="subtitle2" fontWeight="600" gutterBottom>
                                         ⚠️ Retrasos Detectados:
                                     </Typography>
                                     <List dense>
-                                        {rutaClinica.retrasos.map((retraso, idx) => (
-                                            <ListItem key={idx} sx={{ py: 0.5, px: 0 }}>
-                                                <ListItemText
-                                                    primary={
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                            <Typography variant="body2" fontWeight="600" color="error">
-                                                                {retraso.etapa_label || retraso.etapa}:
+                                        {rutaClinica.retrasos.map((retraso, idx) => {
+                                            // ✅ Calcular días del retraso
+                                            const diasRetraso = retraso.retraso_dias || Math.floor(retraso.retraso_minutos / 1440);
+                                            const horasRetraso = retraso.retraso_horas ? retraso.retraso_horas % 24 : Math.floor((retraso.retraso_minutos % 1440) / 60);
+                                            
+                                            return (
+                                                <ListItem key={idx} sx={{ py: 0.5, px: 0 }}>
+                                                    <ListItemText
+                                                        primary={
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                                <Typography variant="body2" fontWeight="600" color="error">
+                                                                    {retraso.etapa_label || retraso.etapa}:
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={`Lleva ${retraso.duracion_actual_legible || calcularTiempoTranscurrido(null, null)}`}
+                                                                    size="small"
+                                                                    color="warning"
+                                                                    sx={{ fontWeight: 500 }}
+                                                                />
+                                                                {/* ✅ CHIP GRANDE CON DÍAS DE RETRASO */}
+                                                                <Chip
+                                                                    label={
+                                                                        diasRetraso > 0 
+                                                                            ? `⚠️ ${diasRetraso} día${diasRetraso !== 1 ? 's' : ''} ${horasRetraso > 0 ? `${horasRetraso}h` : ''} de retraso`
+                                                                            : `⚠️ ${horasRetraso}h de retraso`
+                                                                    }
+                                                                    size="medium"
+                                                                    color="error"
+                                                                    sx={{ 
+                                                                        fontWeight: 700,
+                                                                        fontSize: '0.9rem',
+                                                                        height: 32,
+                                                                        px: 2
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        }
+                                                        secondary={
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Estimado: {retraso.duracion_estimada_legible || `${Math.floor(retraso.duracion_estimada_minutos / 1440)}d ${Math.floor((retraso.duracion_estimada_minutos % 1440) / 60)}h`} • 
+                                                                Máximo permitido: {retraso.duracion_maxima_permitida_legible || `${Math.floor(retraso.duracion_maxima_permitida / 1440)}d ${Math.floor((retraso.duracion_maxima_permitida % 1440) / 60)}h`}
+                                                                {retraso.margen_tolerancia && ` (${retraso.margen_tolerancia} margen)`}
                                                             </Typography>
-                                                            <Chip
-                                                                label={`Lleva ${retraso.duracion_actual_legible || `${retraso.duracion_actual_minutos} min`}`}
-                                                                size="small"
-                                                                color="warning"
-                                                                sx={{ fontWeight: 500 }}
-                                                            />
-                                                            <Chip
-                                                                label={`Retraso: ${retraso.retraso_legible || `${retraso.retraso_minutos} min`}`}
-                                                                size="small"
-                                                                color="error"
-                                                                sx={{ fontWeight: 600 }}
-                                                            />
-                                                        </Box>
-                                                    }
-                                                    secondary={
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            Estimado: {retraso.duracion_estimada_legible || `${retraso.duracion_estimada_minutos} min`} • 
-                                                            Máximo: {retraso.duracion_maxima_permitida_legible || `${retraso.duracion_maxima_permitida} min`}
-                                                            {retraso.margen_tolerancia && ` (${retraso.margen_tolerancia} margen)`}
-                                                        </Typography>
-                                                    }
-                                                />
-                                            </ListItem>
-                                        ))}
+                                                        }
+                                                    />
+                                                </ListItem>
+                                            );
+                                        })}
                                     </List>
                                 </Alert>
                             )}
@@ -783,7 +839,7 @@ const DetallePaciente = () => {
                                                 }
                                             />
                                         </ListItem>
-                                        {index < historial.length - 1 && <Divider />}
+                        {index < historial.length - 1 && <Divider />}
                                     </React.Fragment>
                                 ))}
                             </List>

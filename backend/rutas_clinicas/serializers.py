@@ -314,47 +314,38 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
         completadas = len([e for e in obj.etapas_completadas if e in obj.etapas_seleccionadas])
         return len(obj.etapas_seleccionadas) - completadas
     
+    
+    
     def get_retrasos_detectados(self, obj):
         """
-        Detecta retrasos y los formatea de manera legible
+        Detecta retrasos y los formatea de manera legible (días/horas)
         """
         try:
             retrasos_raw = obj.detectar_retrasos()
-            
-            # Formatear cada retraso
             retrasos_formateados = []
+
             for retraso in retrasos_raw:
                 retrasos_formateados.append({
                     'etapa': retraso['etapa'],
                     'etapa_label': retraso['etapa_label'],
-                    
-                    # Duración actual
-                    'duracion_actual_minutos': retraso['duracion_actual_minutos'],
-                    'duracion_actual_legible': minutos_a_formato_legible(retraso['duracion_actual_minutos']),
-                    
-                    # Duración estimada
-                    'duracion_estimada_minutos': retraso['duracion_estimada_minutos'],
-                    'duracion_estimada_legible': minutos_a_formato_legible(retraso['duracion_estimada_minutos']),
-                    
-                    # Retraso
-                    'retraso_minutos': retraso['retraso_minutos'],
-                    'retraso_legible': minutos_a_formato_legible(retraso['retraso_minutos']),
-                    'retraso_dias': retraso['retraso_dias'],
-                    'retraso_horas': retraso['retraso_horas'],
-                    
-                    # Información adicional
-                    'margen_tolerancia': retraso['margen_tolerancia'],
-                    'duracion_maxima_permitida': retraso['duracion_maxima_permitida'],
-                    'duracion_maxima_permitida_legible': minutos_a_formato_legible(
+
+                    # Duraciones (solo formato legible)
+                    'duracion_actual': minutos_a_formato_legible(retraso['duracion_actual_minutos']),
+                    'duracion_estimada': minutos_a_formato_legible(retraso['duracion_estimada_minutos']),
+                    'retraso': minutos_a_formato_legible(retraso['retraso_minutos']),
+                    'duracion_maxima_permitida': minutos_a_formato_legible(
                         retraso['duracion_maxima_permitida']
                     ),
+
+                    # Info adicional (mantienes si es útil)
+                    'margen_tolerancia': retraso.get('margen_tolerancia'),
                 })
-            
+
             return retrasos_formateados
         except Exception as e:
             print(f"Error al detectar retrasos: {e}")
             return []
-    
+
     def get_puede_avanzar(self, obj):
         """Indica si se puede avanzar a la siguiente etapa"""
         if obj.estado != 'EN_PROGRESO':
