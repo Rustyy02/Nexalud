@@ -452,19 +452,43 @@ const MedicoConsultas = () => {
       setLoading(false);
     }
   };
-
-  const handleReportarAtraso = () => {
-    if (!motivoAtraso.trim()) return;
+  
+  const handleReportarAtraso = async () => {
+    if (!motivoAtraso.trim() || !atencionActual) return;
     
-    // Solo agregar observación
-    setObservaciones((prev) => {
-      const nuevaObs = `[ATRASO] ${motivoAtraso}`;
-      return prev ? `${prev}\n${nuevaObs}` : nuevaObs;
-    });
-    
-    showSnackbar('Atraso registrado', 'warning');
-    setDialogAtraso(false);
-    setMotivoAtraso('');
+    try {
+      setLoading(true);
+      console.log('⚠️ Reportando atraso:', atencionActual.id);
+      
+      // ✅ Llamar al nuevo endpoint
+      const response = await medicoAtencionesService.reportarAtraso(
+        atencionActual.id,
+        { motivo: motivoAtraso }
+      );
+      
+      if (response.data.success) {
+        showSnackbar('Atraso reportado correctamente', 'warning');
+        
+        // ✅ Actualizar la atención actual con los datos del servidor
+        setAtencionActual(response.data.atencion);
+        
+        // Cerrar diálogo y limpiar
+        setDialogAtraso(false);
+        setMotivoAtraso('');
+        
+        // Recargar datos
+        await Promise.all([
+          sincronizarBoxes(),
+          cargarAtencionesHoy()
+        ]);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'Error al reportar atraso';
+      showSnackbar(errorMsg, 'error');
+      console.error('❌ Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefrescar = async () => {

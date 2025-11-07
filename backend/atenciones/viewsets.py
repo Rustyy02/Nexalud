@@ -616,3 +616,49 @@ class AtencionViewSet(viewsets.ModelViewSet):
                 'formateado': f"{horas}h {mins}m"
             }
         return None
+
+    @action(detail=False, methods=['get'])
+    def con_atraso_reportado(self, request):
+        """
+        Lista atenciones con atraso reportado por el médico.
+        Estas son las que aparecerán en EstadoBoxes.
+        
+        GET /api/atenciones/con_atraso_reportado/
+        """
+        from django.utils import timezone
+        ahora = timezone.now()
+        
+        # Buscar atenciones con atraso reportado que NO estén finalizadas
+        atenciones = self.get_queryset().filter(
+            atraso_reportado=True,
+            estado__in=['PROGRAMADA', 'EN_ESPERA'],
+            fecha_reporte_atraso__isnull=False
+        ).select_related('paciente', 'medico', 'box')
+        
+        # ✅ Marcar automáticamente como "No se presentó" si han pasado más de 5 minutos
+        atenciones_actualizadas = 0
+        for atencion in atenciones:
+            minutos_desde_reporte = (ahora - atencion.fecha_reporte_atraso).total_seconds() / 60
+            
+            if minutos_desde_reporte >= 5:
+                # Marcar como no presentado automáticamente
+                resultado = atencion.marcar_no_presentado()
+                if resultado:
+                    atencion.observaciones += "\n\n[AUTOMÁTICO] Marcado como no presentado después de 5 minutos de espera desde reporte de atraso."
+                    atencion.save()
+                    atenciones_actualizadas += 1
+        
+        # Recargar las atenciones después de la actualización automática
+        atenciones = self.get_queryset().filter(
+            atraso_reportado=True,
+            estado__in=['PROGRAMADA', 'EN_ESPERA'],
+            fecha_reporte_atraso__isnull=False
+        ).select_related('paciente', 'medico', 'box')
+        
+        serializer = self.get_serializer(atenciones, many=True)
+        
+        return Response({
+            'count': atenciones.count(),
+            'atenciones_marcadas_no_presentado': atenciones_actualizadas,
+            'atenciones': serializer.data
+        })

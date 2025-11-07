@@ -238,6 +238,21 @@ class Atencion(models.Model):
         help_text="Observaciones adicionales sobre la atención"
     )
     
+    # Control de atrasos
+    atraso_reportado = models.BooleanField(
+        default=False,
+        help_text="Indica si el médico reportó un atraso del paciente"
+    )
+    fecha_reporte_atraso = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Momento en que se reportó el atraso"
+    )
+    motivo_atraso = models.TextField(
+        blank=True,
+        help_text="Motivo del atraso reportado por el médico"
+    )
+    
     # Timestamps
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)

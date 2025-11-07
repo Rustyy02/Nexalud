@@ -159,6 +159,7 @@ export const atencionesService = {
   getRetrasadas: () => api.get('/atenciones/retrasadas/'),
   getEstadisticas: (params = {}) => api.get('/atenciones/estadisticas/', { params }),
   getMetricas: (id) => api.get(`/atenciones/${id}/metricas/`),
+  getConAtrasoReportado: () => api.get('/atenciones/con_atraso_reportado/'),
 };
 
 // ============================================
@@ -261,6 +262,7 @@ export const medicosService = {
   getEstadisticas: () => api.get('/medicos/estadisticas/'),
   activar: (id) => api.post(`/medicos/${id}/activar/`),
   desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
+  reportarAtraso: (id, data = {}) => api.post(`/medico/atenciones/${id}/reportar_atraso/`, data),
 };
 
 

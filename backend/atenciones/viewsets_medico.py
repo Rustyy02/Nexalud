@@ -348,3 +348,47 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
             'tiempo_promedio_minutos': round(tiempo_promedio, 1),
             'tasa_completado': round((completadas / total * 100) if total > 0 else 0, 1),
         })
+        
+    @action(detail=True, methods=['post'])
+    def reportar_atraso(self, request, pk=None):
+        """
+        Reporta que el paciente llegó con atraso.
+        
+        POST /api/medico/atenciones/{id}/reportar_atraso/
+        Body:
+        {
+            "motivo": "Paciente llegó 15 minutos tarde"
+        }
+        """
+        atencion = self.get_object()
+        
+        # Verificar que la atención no esté completada
+        if atencion.estado in ['COMPLETADA', 'CANCELADA', 'NO_PRESENTADO']:
+            return Response({
+                'success': False,
+                'error': f'Esta atención ya está en estado: {atencion.get_estado_display()}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Obtener motivo
+        motivo = request.data.get('motivo', 'Paciente llegó con retraso')
+        
+        # Registrar el atraso
+        from django.utils import timezone
+        atencion.atraso_reportado = True
+        atencion.fecha_reporte_atraso = timezone.now()
+        atencion.motivo_atraso = motivo
+        
+        # Agregar a observaciones
+        if atencion.observaciones:
+            atencion.observaciones += f"\n\n[ATRASO REPORTADO] {motivo}"
+        else:
+            atencion.observaciones = f"[ATRASO REPORTADO] {motivo}"
+        
+        atencion.save()
+        
+        serializer = self.get_serializer(atencion)
+        return Response({
+            'success': True,
+            'mensaje': 'Atraso reportado correctamente',
+            'atencion': serializer.data
+        })

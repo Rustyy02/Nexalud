@@ -163,6 +163,7 @@ class AtencionSerializer(serializers.ModelSerializer):
     # ✅ NUEVO: Información útil para médicos
     puede_iniciar = serializers.SerializerMethodField()
     puede_finalizar = serializers.SerializerMethodField()
+    minutos_desde_reporte_atraso = serializers.SerializerMethodField()
     minutos_hasta_inicio = serializers.SerializerMethodField()
     
     class Meta:
@@ -197,9 +198,13 @@ class AtencionSerializer(serializers.ModelSerializer):
             'diferencia_duracion',
             'metricas',
             'tiempo_restante_minutos',
-            'puede_iniciar',  # ✅ NUEVO
-            'puede_finalizar',  # ✅ NUEVO
-            'minutos_hasta_inicio',  # ✅ NUEVO
+            'puede_iniciar',  
+            'puede_finalizar',  
+            'minutos_hasta_inicio',  
+            'atraso_reportado',
+            'fecha_reporte_atraso',
+            'motivo_atraso',
+            'minutos_desde_reporte_atraso',
         ]
         read_only_fields = [
             'id',
@@ -207,8 +212,19 @@ class AtencionSerializer(serializers.ModelSerializer):
             'inicio_cronometro',
             'fin_cronometro',
             'fecha_creacion',
-            'fecha_actualizacion'
+            'fecha_actualizacion',
+            'atraso_reportado',
+            'fecha_reporte_atraso',
         ]
+        
+    def get_minutos_desde_reporte_atraso(self, obj):
+        """Calcula cuántos minutos han pasado desde que se reportó el atraso"""
+        if obj.atraso_reportado and obj.fecha_reporte_atraso:
+            from django.utils import timezone
+            ahora = timezone.now()
+            diferencia = ahora - obj.fecha_reporte_atraso
+            return int(diferencia.total_seconds() / 60)
+        return 0
     
     def get_tiempo_restante_minutos(self, obj):
         """Calcula el tiempo restante para la atención"""
@@ -313,6 +329,7 @@ class AtencionListSerializer(serializers.ModelSerializer):
     
     def get_esta_retrasada(self, obj):
         return obj.is_retrasada()
+
 
 class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer para crear y actualizar atenciones"""

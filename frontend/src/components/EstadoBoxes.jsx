@@ -1,4 +1,4 @@
-// frontend/src/components/EstadoBoxes.jsx - VERSIÓN CORREGIDA COMPLETA
+// frontend/src/components/EstadoBoxes.jsx - ACTUALIZACIÓN SOLO SECCIÓN ATRASOS
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -141,28 +141,35 @@ const EstadoBoxes = () => {
 
   const cargarDatos = async () => {
     try {
-      const [boxesRes, atencionesRes] = await Promise.all([
+      const [boxesRes, atrasosReportadosRes] = await Promise.all([
         boxesService.getAll(),
-        atencionesService.getRetrasadas()
+        atencionesService.getConAtrasoReportado() // ✅ NUEVO: Usar el endpoint correcto
       ]);
       
       setBoxes(boxesRes.data);
       
-      if (atencionesRes.data && atencionesRes.data.atenciones) {
-        const atrasosFormateados = atencionesRes.data.atenciones.map(atencion => {
-          const atrasoMinutos = calcularAtrasoMinutos(atencion);
+      // ✅ NUEVO: Procesar atrasos reportados
+      if (atrasosReportadosRes.data && atrasosReportadosRes.data.atenciones) {
+        const atrasosFormateados = atrasosReportadosRes.data.atenciones.map(atencion => {
+          // Calcular minutos desde el reporte
+          const minutosDesdeReporte = atencion.minutos_desde_reporte_atraso || 0;
+          
           return {
             id: atencion.id,
-            paciente: atencion.paciente_hash || 'Paciente sin identificar',
-            box: atencion.box_numero || 'Sin box asignado',
-            atrasoMinutos: atrasoMinutos,
+            paciente: obtenerNombrePaciente(atencion),
+            box: atencion.box_numero || atencion.box_info?.numero || 'Sin box',
+            minutosDesdeReporte: minutosDesdeReporte,
+            motivoAtraso: atencion.motivo_atraso,
+            fechaReporte: atencion.fecha_reporte_atraso,
             atencionId: atencion.id,
             horaInicioProgramada: atencion.fecha_hora_inicio,
             duracionPlanificada: atencion.duracion_planificada,
+            // ✅ Calcular tiempo restante hasta marcado automático (5 min)
+            tiempoRestanteAutoMarcar: Math.max(0, 5 - minutosDesdeReporte),
           };
         });
         
-        setAtrasosReales(atrasosFormateados.filter(a => a.atrasoMinutos > 0));
+        setAtrasosReales(atrasosFormateados);
       } else {
         setAtrasosReales([]);
       }
@@ -175,19 +182,42 @@ const EstadoBoxes = () => {
     }
   };
 
-  const calcularAtrasoMinutos = (atencion) => {
-    if (!atencion.fecha_hora_inicio) return 0;
+  // ✅ HELPER para obtener nombre del paciente
+  const obtenerNombrePaciente = (atencion) => {
+    if (!atencion) return 'Sin paciente';
     
-    const ahora = new Date();
-    const horaInicio = new Date(atencion.fecha_hora_inicio);
-    
-    if (!atencion.inicio_cronometro && ahora > horaInicio) {
-      const diferenciaMs = ahora - horaInicio;
-      const diferenciaMinutos = Math.floor(diferenciaMs / (1000 * 60));
-      return diferenciaMinutos;
+    if (atencion.paciente_nombre) {
+      return atencion.paciente_nombre;
     }
     
-    return 0;
+    if (atencion.paciente_info?.nombre_completo) {
+      return atencion.paciente_info.nombre_completo;
+    }
+    
+    const pacienteInfo = atencion.paciente_info;
+    if (pacienteInfo) {
+      const nombre = pacienteInfo.nombres || pacienteInfo.nombre;
+      if (nombre) {
+        let nombreCompleto = nombre;
+        if (pacienteInfo.apellido_paterno) {
+          nombreCompleto += ` ${pacienteInfo.apellido_paterno}`;
+        }
+        if (pacienteInfo.apellido_materno) {
+          nombreCompleto += ` ${pacienteInfo.apellido_materno}`;
+        }
+        return nombreCompleto.trim();
+      }
+    }
+    
+    const hash = atencion.paciente_hash || 
+                 atencion.paciente_info?.identificador_hash ||
+                 atencion.paciente;
+    
+    if (typeof hash === 'string') {
+      return `Paciente ${hash.substring(0, 8)}...`;
+    }
+    
+    return 'Sin identificar';
   };
 
   const showSnackbar = (message, severity = 'success') => {
@@ -258,17 +288,11 @@ const EstadoBoxes = () => {
     if (!boxSeleccionado) return;
 
     try {
-      // ✅ ASEGURAR QUE SEA NÚMERO
       const duracionNumerica = parseInt(duracionEstimada, 10);
       
-      console.log('Enviando datos:', {
-        duracion_minutos: duracionNumerica,
-        motivo: motivoOcupacion || 'Ocupación manual'
-      });
-
       const response = await boxesService.ocupar(
         boxSeleccionado.id, 
-        duracionNumerica,  // ✅ Enviar como número
+        duracionNumerica,
         motivoOcupacion || 'Ocupación manual'
       );
 
@@ -283,9 +307,6 @@ const EstadoBoxes = () => {
         showSnackbar(response.data.mensaje || 'Error al ocupar el box', 'error');
       }
     } catch (err) {
-      console.error('Error completo:', err);
-      console.error('Respuesta del servidor:', err.response?.data);
-      
       if (err.response?.data?.error) {
         showSnackbar(err.response.data.error, 'error');
       } else if (err.response?.data?.mensaje) {
@@ -593,25 +614,45 @@ const EstadoBoxes = () => {
           </Grid>
         </Paper>
 
-        {/* Atrasos */}
+        {/* ✅ SECCIÓN DE ATRASOS REPORTADOS - ACTUALIZADA */}
         <Paper elevation={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h5" fontWeight="600">
-              Atrasos en Atenciones
-            </Typography>
-            {atrasosReales.length > 0 && (
-              <Chip label={`${atrasosReales.length} atraso${atrasosReales.length > 1 ? 's' : ''}`} color="error" size="small" />
-            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h5" fontWeight="600">
+                ⚠️ Atrasos Reportados por Médicos
+              </Typography>
+              {atrasosReales.length > 0 && (
+                <Chip 
+                  label={`${atrasosReales.length} atraso${atrasosReales.length > 1 ? 's' : ''}`} 
+                  color="error" 
+                  size="small" 
+                />
+              )}
+            </Box>
           </Box>
+
+          <Alert severity="info" sx={{ mb: 2 }}>
+            ℹ️ Los pacientes serán marcados automáticamente como "No se presentó" después de 5 minutos de espera desde el reporte.
+          </Alert>
 
           {atrasosReales.length === 0 ? (
             <Alert severity="success" sx={{ mt: 2 }}>
-              ✓ No hay atrasos registrados.
+              ✓ No hay atrasos reportados.
             </Alert>
           ) : (
             <Box sx={{ mt: 2 }}>
               {atrasosReales.map((atraso) => (
-                <Card key={atraso.id} elevation={1} sx={{ mb: 2, p: 2, borderLeft: '4px solid', borderLeftColor: 'error.main' }}>
+                <Card 
+                  key={atraso.id} 
+                  elevation={1} 
+                  sx={{ 
+                    mb: 2, 
+                    p: 2, 
+                    borderLeft: '4px solid',
+                    borderLeftColor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.dark' : 'warning.main',
+                    bgcolor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.lighter' : 'warning.lighter'
+                  }}
+                >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Box sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -619,10 +660,20 @@ const EstadoBoxes = () => {
                         <Typography variant="subtitle1" fontWeight="600">
                           {atraso.paciente}
                         </Typography>
+                        {atraso.tiempoRestanteAutoMarcar === 0 && (
+                          <Chip 
+                            icon={<WarningIcon />}
+                            label="PROCESANDO..." 
+                            color="error" 
+                            size="small" 
+                          />
+                        )}
                       </Box>
+                      
                       <Typography variant="body2" color="text.secondary">
                         <strong>Box:</strong> {atraso.box}
                       </Typography>
+                      
                       <Typography variant="body2" color="text.secondary">
                         <strong>Hora programada:</strong>{' '}
                         {new Date(atraso.horaInicioProgramada).toLocaleTimeString('es-CL', {
@@ -630,12 +681,38 @@ const EstadoBoxes = () => {
                           minute: '2-digit',
                         })}
                       </Typography>
+                      
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                        <WarningIcon sx={{ color: 'error.main', fontSize: 20 }} />
-                        <Typography variant="body2" color="error.main" fontWeight="600">
-                          Atraso: {atraso.atrasoMinutos} minutos
+                        <AccessTimeIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+                        <Typography variant="body2" color="warning.main" fontWeight="600">
+                          Reportado hace {atraso.minutosDesdeReporte} minuto{atraso.minutosDesdeReporte !== 1 ? 's' : ''}
                         </Typography>
                       </Box>
+                      
+                      {atraso.motivoAtraso && (
+                        <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            <strong>Motivo:</strong> {atraso.motivoAtraso}
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {atraso.tiempoRestanteAutoMarcar > 0 && (
+                        <Box sx={{ mt: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <TimerIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                            <Typography variant="caption" color="error.main" fontWeight="600">
+                              Se marcará como "No se presentó" en {atraso.tiempoRestanteAutoMarcar} min
+                            </Typography>
+                          </Box>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={((5 - atraso.tiempoRestanteAutoMarcar) / 5) * 100}
+                            color="error"
+                            sx={{ height: 8, borderRadius: 1 }}
+                          />
+                        </Box>
+                      )}
                     </Box>
                     <Chip label={atraso.box} color="warning" size="small" />
                   </Box>
@@ -646,16 +723,18 @@ const EstadoBoxes = () => {
                       size="small"
                       fullWidth
                       onClick={() => iniciarAtencionAtrasada(atraso)}
+                      disabled={atraso.tiempoRestanteAutoMarcar === 0}
                     >
-                      Iniciar Ahora
+                      {atraso.tiempoRestanteAutoMarcar === 0 ? 'Procesando...' : 'Iniciar Ahora'}
                     </Button>
                     <Button
                       variant="outlined"
                       size="small"
                       fullWidth
                       onClick={() => notificarProfesional(atraso)}
+                      disabled={atraso.tiempoRestanteAutoMarcar === 0}
                     >
-                      Notificar
+                      Notificar Médico
                     </Button>
                   </Box>
                 </Card>
