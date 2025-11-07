@@ -298,8 +298,8 @@ class AtencionListSerializer(serializers.ModelSerializer):
         """✅ NUEVO: Retorna nombre completo del paciente"""
         try:
             # Intentar obtener nombre completo
-            if hasattr(obj.paciente, 'nombres') and hasattr(obj.paciente, 'apellido_paterno'):
-                nombre = f"{obj.paciente.nombres} {obj.paciente.apellido_paterno}"
+            if hasattr(obj.paciente, 'nombre') and hasattr(obj.paciente, 'apellido_paterno'):
+                nombre = f"{obj.paciente.nombre} {obj.paciente.apellido_paterno}"
                 if obj.paciente.apellido_materno:
                     nombre += f" {obj.paciente.apellido_materno}"
                 return nombre.strip()

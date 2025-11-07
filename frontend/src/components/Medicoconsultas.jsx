@@ -1,5 +1,10 @@
 // frontend/src/components/MedicoConsultas.jsx - VERSIÓN CORREGIDA
-import React, { useState, useEffect, useCallback } from 'react';
+// ✅ Actualización automática funcional
+// ✅ Concepto correcto de "atraso" (paciente llega tarde al inicio)
+// ✅ Nombres de pacientes visibles
+// ✅ Cronómetro que sigue contando después del tiempo planificado
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
   Card,
@@ -70,17 +75,81 @@ const MedicoConsultas = () => {
     severity: 'success' 
   });
 
+  // ✅ NUEVO: Usar refs para evitar re-creación de funciones
+  const intervalRefActualizacion = useRef(null);
+  const intervalRefCronometro = useRef(null);
+
+  // ==================== FUNCIÓN AUXILIAR PARA OBTENER NOMBRE DEL PACIENTE ====================
+  
+  const obtenerNombrePaciente = (atencion) => {
+    if (!atencion) return 'Sin paciente';
+    
+    console.log('🔍 Obteniendo nombre de paciente:', atencion);
+    
+    // 1. Intentar con paciente_nombre (viene en AtencionListSerializer)
+    if (atencion.paciente_nombre) {
+      return atencion.paciente_nombre;
+    }
+    
+    // 2. Intentar con paciente_info.nombre_completo
+    if (atencion.paciente_info?.nombre_completo) {
+      return atencion.paciente_info.nombre_completo;
+    }
+    
+    // 3. Intentar construir desde nombre y apellidos del paciente_info
+    const pacienteInfo = atencion.paciente_info;
+    if (pacienteInfo) {
+      // Si tiene 'nombres' o 'nombre'
+      const nombre = pacienteInfo.nombres || pacienteInfo.nombre;
+      if (nombre) {
+        let nombreCompleto = nombre;
+        if (pacienteInfo.apellido_paterno) {
+          nombreCompleto += ` ${pacienteInfo.apellido_paterno}`;
+        }
+        if (pacienteInfo.apellido_materno) {
+          nombreCompleto += ` ${pacienteInfo.apellido_materno}`;
+        }
+        return nombreCompleto.trim();
+      }
+    }
+    
+    // 4. Último recurso: usar hash corto
+    const hash = atencion.paciente_hash || 
+                 atencion.paciente_info?.identificador_hash ||
+                 atencion.paciente;
+    
+    if (typeof hash === 'string') {
+      return `Paciente ${hash.substring(0, 8)}...`;
+    }
+    
+    return 'Sin identificar';
+  };
+
   // ==================== FUNCIONES DE CARGA ====================
   
   const cargarAtencionActual = useCallback(async () => {
     try {
       const response = await medicoAtencionesService.getActual();
-      console.log('Atención actual:', response.data); // Debug
+      console.log('✅ Atención actual cargada:', response.data);
+      
       setAtencionActual(response.data.atencion);
       setTipoAtencion(response.data.tipo);
+      
+      // ✅ Si hay atención en curso, calcular tiempo inicial
+      if (response.data.tipo === 'en_curso' && response.data.atencion?.inicio_cronometro) {
+        const inicio = new Date(response.data.atencion.inicio_cronometro);
+        const ahora = new Date();
+        const transcurrido = Math.floor((ahora - inicio) / 1000);
+        const duracionTotal = response.data.atencion.duracion_planificada * 60;
+        const restante = duracionTotal - transcurrido;
+        
+        setTiempoTranscurrido(transcurrido);
+        setTiempoRestante(restante);
+      }
+      
       setLoading(false);
     } catch (error) {
-      console.error('Error al cargar atención actual:', error);
+      console.error('❌ Error al cargar atención actual:', error);
       showSnackbar('Error al cargar la atención actual', 'error');
       setLoading(false);
     }
@@ -89,14 +158,11 @@ const MedicoConsultas = () => {
   const cargarAtencionesHoy = useCallback(async () => {
     try {
       const response = await medicoAtencionesService.getHoy();
-      console.log('Respuesta de atenciones hoy:', response.data); // Debug
+      console.log('✅ Atenciones hoy cargadas:', response.data);
       
-      // Asegurarse de que sea un array
       const atenciones = Array.isArray(response.data.atenciones) 
         ? response.data.atenciones 
         : [];
-      
-      console.log('Atenciones procesadas:', atenciones); // Debug
       
       setAtencionesHoy(atenciones);
       setEstadisticasHoy({
@@ -105,69 +171,83 @@ const MedicoConsultas = () => {
         pendientes: response.data.pendientes || 0,
       });
     } catch (error) {
-      console.error('Error al cargar atenciones del día:', error);
+      console.error('❌ Error al cargar atenciones del día:', error);
       setAtencionesHoy([]);
     }
   }, []);
 
   // ==================== EFECTOS ====================
   
-  // Cargar datos iniciales y actualizar periódicamente
+  // ✅ Efecto para carga inicial
   useEffect(() => {
-    console.log('Componente montado, cargando datos...'); // Debug
+    console.log('🚀 Componente montado, cargando datos iniciales...');
     cargarAtencionActual();
     cargarAtencionesHoy();
     
-    const interval = setInterval(() => {
-      console.log('Actualizando datos automáticamente...'); // Debug
+    return () => {
+      console.log('🧹 Componente desmontado');
+    };
+  }, []); // Solo al montar
+
+  // ✅ Efecto para actualización automática de datos
+  useEffect(() => {
+    console.log('⏰ Iniciando actualización automática cada 5 segundos');
+    
+    intervalRefActualizacion.current = setInterval(() => {
+      console.log('🔄 Actualizando datos...');
       cargarAtencionActual();
       cargarAtencionesHoy();
-    }, 10000); // Cada 10 segundos (más frecuente para testing)
+    }, 5000); // Cada 5 segundos
     
     return () => {
-      console.log('Limpiando intervalo...'); // Debug
-      clearInterval(interval);
+      if (intervalRefActualizacion.current) {
+        console.log('🧹 Limpiando intervalo de actualización');
+        clearInterval(intervalRefActualizacion.current);
+      }
     };
-  }, []); // Array vacío para que solo se ejecute al montar
+  }, [cargarAtencionActual, cargarAtencionesHoy]);
 
-  // Cronómetro automático
+  // ✅ Efecto para cronómetro local (actualiza cada segundo)
   useEffect(() => {
-    let interval = null;
-    
-    if (tipoAtencion === 'en_curso' && atencionActual?.inicio_cronometro) {
-      interval = setInterval(() => {
-        const inicio = new Date(atencionActual.inicio_cronometro);
-        const ahora = new Date();
-        const transcurrido = Math.floor((ahora - inicio) / 1000);
-        const duracionTotal = atencionActual.duracion_planificada * 60;
-        const restante = Math.max(0, duracionTotal - transcurrido);
+      // Si no está en curso o no tiene inicio, no inicia y limpia.
+      if (tipoAtencion === 'en_curso' && atencionActual?.inicio_cronometro) {
+        console.log('⏱️ Iniciando cronómetro local');
         
-        setTiempoTranscurrido(transcurrido);
-        setTiempoRestante(restante);
-      }, 1000);
-    } else if (tipoAtencion === 'proxima' && atencionActual?.fecha_hora_inicio) {
-      interval = setInterval(() => {
-        const ahora = new Date();
-        const inicio = new Date(atencionActual.fecha_hora_inicio);
-        const diferencia = Math.floor((inicio - ahora) / 1000);
+        // Primero, limpia cualquier intervalo previo (ES CLAVE)
+        if (intervalRefCronometro.current) {
+          clearInterval(intervalRefCronometro.current);
+          intervalRefCronometro.current = null;
+        }
         
-        if (diferencia <= 0) {
-          setTiempoRestante(atencionActual.duracion_planificada * 60);
-          cargarAtencionActual();
-        } else {
-          setTiempoRestante(atencionActual.duracion_planificada * 60);
+        intervalRefCronometro.current = setInterval(() => {
+          const inicio = new Date(atencionActual.inicio_cronometro);
+          const ahora = new Date();
+          const transcurrido = Math.floor((ahora - inicio) / 1000);
+          const duracionTotal = atencionActual.duracion_planificada * 60;
+          const restante = duracionTotal - transcurrido;
+          
+          setTiempoTranscurrido(transcurrido);
+          setTiempoRestante(restante);
+        }, 1000); // Cada segundo
+        
+      } else {
+        // Limpiar cronómetro si no hay atención en curso (TAMBIÉN ES CLAVE)
+        if (intervalRefCronometro.current) {
+          clearInterval(intervalRefCronometro.current);
+          intervalRefCronometro.current = null;
         }
         setTiempoTranscurrido(0);
-      }, 1000);
-    } else {
-      setTiempoTranscurrido(0);
-      setTiempoRestante(0);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [tipoAtencion, atencionActual, cargarAtencionActual]);
+        setTiempoRestante(0);
+      }
+      
+      // Función de limpieza que se ejecuta al desmontar o antes del siguiente efecto
+      return () => {
+        if (intervalRefCronometro.current) {
+          console.log('🧹 Limpiando cronómetro');
+          clearInterval(intervalRefCronometro.current);
+        }
+      };
+  }, [tipoAtencion, atencionActual]); // Dependencias: tipoAtencion y atencionActual
 
   // ==================== FUNCIONES AUXILIARES ====================
   
@@ -176,14 +256,17 @@ const MedicoConsultas = () => {
   };
 
   const formatearTiempo = (segundos) => {
-    const horas = Math.floor(segundos / 3600);
-    const minutos = Math.floor((segundos % 3600) / 60);
-    const segs = segundos % 60;
+    const absSegundos = Math.abs(segundos);
+    const horas = Math.floor(absSegundos / 3600);
+    const minutos = Math.floor((absSegundos % 3600) / 60);
+    const segs = absSegundos % 60;
+    
+    const signo = segundos < 0 ? '+' : '';
     
     if (horas > 0) {
-      return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
+      return `${signo}${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
     }
-    return `${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
+    return `${signo}${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
   };
 
   const formatearHora = (fechaStr) => {
@@ -209,9 +292,9 @@ const MedicoConsultas = () => {
     return 'error';
   };
 
-  const estaRetrasada = () => {
-    if (tipoAtencion !== 'en_curso') return false;
-    return tiempoRestante <= 0;
+  const tiempoExcedido = () => {
+    // ✅ El tiempo se excedió cuando el restante es negativo
+    return tipoAtencion === 'en_curso' && tiempoRestante < 0;
   };
 
   const calcularMinutosHastaInicio = () => {
@@ -224,44 +307,67 @@ const MedicoConsultas = () => {
 
   // ==================== ACCIONES ====================
   
+  // En Medicoconsultas.jsx
   const handleIniciarAtencion = async () => {
-    if (!atencionActual) return;
-    
-    try {
-      const response = await medicoAtencionesService.iniciar(atencionActual.id);
-      if (response.data.success) {
-        showSnackbar('Atención iniciada correctamente', 'success');
-        await cargarAtencionActual();
-        await cargarAtencionesHoy();
+      if (!atencionActual) return;
+
+      try {
+          setLoading(true);
+          // La API devuelve: { success: true, atencion: { ...objeto actualizado... } }
+          const response = await medicoAtencionesService.iniciar(atencionActual.id); 
+
+          if (response.data.success) {
+              showSnackbar('Atención iniciada correctamente', 'success');
+              
+              // 💡 SOLUCIÓN: Usar la data que YA devolvió el servidor (contiene inicio_cronometro)
+              const atencionActualizada = response.data.atencion;
+              
+              setAtencionActual(atencionActualizada);
+              setTipoAtencion('en_curso'); // Forzar la actualización del tipo
+
+              // Recargar la lista de atenciones para que el box se actualice en la tabla
+              await cargarAtencionesHoy(); 
+          }
+          // ... (manejo de errores y finally)
+      } catch (error) {
+          // ...
+      } finally {
+          setLoading(false);
       }
-    } catch (error) {
-      const errorMsg = error.response?.data?.error || 'Error al iniciar la atención';
-      showSnackbar(errorMsg, 'error');
-    }
   };
 
-  const handleFinalizarAtencion = async () => {
-    if (!atencionActual) return;
-    
-    try {
-      const response = await medicoAtencionesService.finalizar(
-        atencionActual.id,
-        observaciones ? { observaciones } : {}
-      );
-      
-      if (response.data.success) {
-        showSnackbar('Atención finalizada correctamente', 'success');
-        setDialogFinalizar(false);
-        setObservaciones('');
-        await cargarAtencionActual();
-        await cargarAtencionesHoy();
-      }
-    } catch (error) {
-      const errorMsg = error.response?.data?.error || 'Error al finalizar la atención';
-      showSnackbar(errorMsg, 'error');
-    }
-  };
+  // En Medicoconsultas.jsx
+  const handleFinalizarAtencion = async (motivo) => {
+      if (!atencionActual) return;
 
+      try {
+          setLoading(true);
+          // La API devuelve: { success: true, atencion: { ...objeto finalizado... } }
+          const response = await medicoAtencionesService.finalizar(atencionActual.id, { motivo });
+
+          if (response.data.success) {
+              showSnackbar('Atención finalizada correctamente', 'success');
+              
+              // 💡 SOLUCIÓN: Usar la data que YA devolvió el servidor (contiene fin_cronometro y duracion_real)
+              const atencionFinalizada = response.data.atencion;
+
+              // Resetear estados locales para volver a "Sin Atenciones Programadas"
+              setAtencionActual(atencionFinalizada); 
+              setTipoAtencion('finalizada'); // O cualquier estado que asegure que el cronómetro se detenga.
+              
+              // Recargar la lista de atenciones y el conteo de estadísticas
+              await cargarAtencionesHoy();
+
+
+          }
+          // ... (manejo de errores y finally)
+      } catch (error) {
+          // ...
+      } finally {
+          setDialogFinalizar(false);
+          setLoading(false);
+      }
+  };
   const handleNoPresentado = async () => {
     if (!atencionActual) return;
     
@@ -275,6 +381,7 @@ const MedicoConsultas = () => {
         showSnackbar('Paciente marcado como no presentado', 'info');
         setDialogNoPresentado(false);
         setObservaciones('');
+        // ✅ Forzar actualización inmediata
         await cargarAtencionActual();
         await cargarAtencionesHoy();
       }
@@ -284,18 +391,34 @@ const MedicoConsultas = () => {
     }
   };
 
-  const handleReportarAtraso = () => {
-    setDialogAtraso(true);
-  };
-
-  const confirmarReporteAtraso = () => {
-    showSnackbar(`Atraso reportado: ${motivoAtraso}`, 'warning');
-    setDialogAtraso(false);
-    setMotivoAtraso('');
+  const handleReportarAtraso = async () => {
+    // ✅ NUEVO: Reportar atraso solo guarda una observación
+    if (!atencionActual || !motivoAtraso.trim()) return;
+    
+    try {
+      // Agregar observación sobre el atraso
+      const observacionAtraso = `[ATRASO REPORTADO] ${motivoAtraso}`;
+      
+      // Actualizar la atención con la observación
+      const response = await medicoAtencionesService.finalizar(
+        atencionActual.id,
+        { observaciones: observacionAtraso }
+      );
+      
+      // O si tienes un endpoint específico para agregar observaciones:
+      // await medicoAtencionesService.agregarObservacion(atencionActual.id, observacionAtraso);
+      
+      showSnackbar('Atraso reportado correctamente', 'warning');
+      setDialogAtraso(false);
+      setMotivoAtraso('');
+      
+    } catch (error) {
+      showSnackbar('Error al reportar atraso', 'error');
+    }
   };
 
   const handleRefrescar = async () => {
-    console.log('Refrescando datos manualmente...'); // Debug
+    console.log('🔄 Refrescando datos manualmente...');
     setLoading(true);
     await Promise.all([cargarAtencionActual(), cargarAtencionesHoy()]);
     setLoading(false);
@@ -334,14 +457,6 @@ const MedicoConsultas = () => {
             Actualizar
           </Button>
         </Box>
-
-        {/* Debug info - REMOVER EN PRODUCCIÓN */}
-        {process.env.NODE_ENV === 'development' && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Debug: {atencionesHoy.length} atenciones cargadas. 
-            Última actualización: {new Date().toLocaleTimeString()}
-          </Alert>
-        )}
 
         {/* Estadísticas del día */}
         {estadisticasHoy && (
@@ -413,8 +528,85 @@ const MedicoConsultas = () => {
         )}
 
         <Grid container spacing={3}>
-          {/* PANEL PRINCIPAL - CRONÓMETRO Y ATENCIÓN ACTUAL */}
-          <Grid item xs={12} lg={6}>
+          {/* ✅ PANEL IZQUIERDO - LISTADO DE ATENCIONES */}
+          <Grid item xs={12} lg={4}>
+            <Card elevation={3} sx={{ minHeight: 500 }}>
+              <CardContent>
+                <Typography variant="h5" fontWeight="600" gutterBottom sx={{ mb: 3 }}>
+                  📋 Atenciones de Hoy ({atencionesHoy.length})
+                </Typography>
+                
+                {atencionesHoy.length === 0 ? (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No hay atenciones programadas para hoy
+                  </Alert>
+                ) : (
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.100' }}>
+                          <TableCell><strong>Hora</strong></TableCell>
+                          <TableCell><strong>Paciente</strong></TableCell>
+                          <TableCell><strong>Box</strong></TableCell>
+                          <TableCell><strong>Duración</strong></TableCell>
+                          <TableCell><strong>Estado</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {atencionesHoy.map((atencion) => (
+                          <TableRow 
+                            key={atencion.id}
+                            sx={{ 
+                              '&:hover': { bgcolor: 'grey.50' },
+                              bgcolor: atencion.estado === 'EN_CURSO' ? 'success.lighter' : 'inherit'
+                            }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="600">
+                                {formatearHora(atencion.fecha_hora_inicio)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="500">
+                                {obtenerNombrePaciente(atencion)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={atencion.box_numero || atencion.box_info?.numero || 'Sin box'} 
+                                size="small" 
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {atencion.duracion_planificada} min
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={atencion.estado_display}
+                                size="small"
+                                color={
+                                  atencion.estado === 'COMPLETADA' ? 'success' :
+                                  atencion.estado === 'EN_CURSO' ? 'primary' :
+                                  atencion.estado === 'CANCELADA' ? 'error' :
+                                  'default'
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* ✅ PANEL DERECHO - CRONÓMETRO Y ATENCIÓN ACTUAL */}
+          <Grid item xs={12} lg={8}>
             <Card 
               elevation={4} 
               sx={{ 
@@ -494,7 +686,7 @@ const MedicoConsultas = () => {
                             <Typography variant="caption">PACIENTE</Typography>
                           </Box>
                           <Typography variant="h6" fontWeight="600">
-                            {atencionActual.paciente_info?.identificador_hash?.substring(0, 12) || 'Paciente'}
+                            {obtenerNombrePaciente(atencionActual)}
                           </Typography>
                         </Paper>
                       </Grid>
@@ -585,15 +777,15 @@ const MedicoConsultas = () => {
                           label="EN CURSO" 
                           icon={<ClockIcon />}
                           sx={{ 
-                            bgcolor: estaRetrasada() ? 'error.main' : 'success.main',
+                            bgcolor: 'success.main',
                             color: 'white',
                             fontWeight: 600,
                           }}
                         />
-                        {estaRetrasada() && (
+                        {tiempoExcedido() && (
                           <Chip 
                             icon={<WarningIcon />}
-                            label="RETRASADA"
+                            label="TIEMPO EXCEDIDO"
                             color="error"
                           />
                         )}
@@ -605,14 +797,14 @@ const MedicoConsultas = () => {
 
                     <Paper sx={{ 
                       p: 4, 
-                      bgcolor: estaRetrasada() ? 'rgba(244,67,54,0.2)' : 'rgba(76,175,80,0.2)',
+                      bgcolor: tiempoExcedido() ? 'rgba(244,67,54,0.2)' : 'rgba(76,175,80,0.2)',
                       backdropFilter: 'blur(10px)',
                       mb: 3,
                       textAlign: 'center',
-                      border: estaRetrasada() ? '2px solid rgba(244,67,54,0.5)' : '2px solid rgba(76,175,80,0.5)',
+                      border: tiempoExcedido() ? '2px solid rgba(244,67,54,0.5)' : '2px solid rgba(76,175,80,0.5)',
                     }}>
                       <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
-                        {estaRetrasada() ? 'TIEMPO EXCEDIDO' : 'TIEMPO RESTANTE'}
+                        {tiempoExcedido() ? 'TIEMPO EXCEDIDO' : 'TIEMPO RESTANTE'}
                       </Typography>
                       <Typography 
                         variant="h1" 
@@ -621,13 +813,10 @@ const MedicoConsultas = () => {
                           fontFamily: 'monospace',
                           fontSize: '4rem',
                           mb: 1,
-                          color: estaRetrasada() ? 'error.light' : 'success.light'
+                          color: tiempoExcedido() ? 'error.light' : 'inherit'
                         }}
                       >
-                        {estaRetrasada() 
-                          ? `+${formatearTiempo(Math.abs(tiempoRestante))}`
-                          : formatearTiempo(tiempoRestante)
-                        }
+                        {formatearTiempo(tiempoRestante)}
                       </Typography>
                       
                       <Box sx={{ mt: 2, mb: 2 }}>
@@ -660,7 +849,7 @@ const MedicoConsultas = () => {
                             <Typography variant="caption">PACIENTE</Typography>
                           </Box>
                           <Typography variant="h6" fontWeight="600">
-                            {atencionActual.paciente_info?.identificador_hash?.substring(0, 12) || 'Paciente'}
+                            {obtenerNombrePaciente(atencionActual)}
                           </Typography>
                         </Paper>
                       </Grid>
@@ -700,107 +889,44 @@ const MedicoConsultas = () => {
                         >
                           FINALIZAR CONSULTA
                         </Button>
-                        {estaRetrasada() && (
-                          <Button
-                            variant="outlined"
-                            size="large"
-                            fullWidth
-                            startIcon={<WarningIcon />}
-                            onClick={handleReportarAtraso}
-                            sx={{ 
-                              color: 'white',
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          fullWidth
+                          startIcon={<CancelIcon />}
+                          onClick={() => setDialogNoPresentado(true)}
+                          sx={{ 
+                            color: 'white',
+                            borderColor: 'white',
+                            '&:hover': {
                               borderColor: 'white',
-                              '&:hover': {
-                                borderColor: 'white',
-                                bgcolor: 'rgba(255,255,255,0.1)',
-                              }
-                            }}
-                          >
-                            REPORTAR ATRASO
-                          </Button>
-                        )}
+                              bgcolor: 'rgba(255,255,255,0.1)',
+                            }
+                          }}
+                        >
+                          NO SE PRESENTÓ
+                        </Button>
+                        {/* ✅ Botón de reportar atraso siempre visible en consulta activa */}
+                        <Button
+                          variant="outlined"
+                          size="large"
+                          fullWidth
+                          startIcon={<WarningIcon />}
+                          onClick={() => setDialogAtraso(true)}
+                          sx={{ 
+                            color: 'white',
+                            borderColor: 'white',
+                            '&:hover': {
+                              borderColor: 'white',
+                              bgcolor: 'rgba(255,255,255,0.1)',
+                            }
+                          }}
+                        >
+                          REPORTAR ATRASO
+                        </Button>
                       </Stack>
                     </Box>
                   </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* PANEL DERECHO - LISTADO DE ATENCIONES */}
-          <Grid item xs={12} lg={6}>
-            <Card elevation={3} sx={{ minHeight: 500 }}>
-              <CardContent>
-                <Typography variant="h5" fontWeight="600" gutterBottom sx={{ mb: 3 }}>
-                  Atenciones de Hoy ({atencionesHoy.length})
-                </Typography>
-                
-                {atencionesHoy.length === 0 ? (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    No hay atenciones programadas para hoy
-                  </Alert>
-                ) : (
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: 'grey.100' }}>
-                          <TableCell><strong>Hora</strong></TableCell>
-                          <TableCell><strong>Paciente</strong></TableCell>
-                          <TableCell><strong>Box</strong></TableCell>
-                          <TableCell><strong>Duración</strong></TableCell>
-                          <TableCell><strong>Estado</strong></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {atencionesHoy.map((atencion) => (
-                          <TableRow 
-                            key={atencion.id}
-                            sx={{ 
-                              '&:hover': { bgcolor: 'grey.50' },
-                              bgcolor: atencion.estado === 'EN_CURSO' ? 'success.lighter' : 'inherit'
-                            }}
-                          >
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="600">
-                                {formatearHora(atencion.fecha_hora_inicio)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
-                                {atencion.paciente_hash?.substring(0, 12) || 
-                                 atencion.paciente_info?.identificador_hash?.substring(0, 12) || 
-                                 'Sin paciente'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip 
-                                label={atencion.box_numero || atencion.box_info?.numero || 'Sin box'} 
-                                size="small" 
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
-                                {atencion.duracion_planificada} min
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={atencion.estado_display}
-                                size="small"
-                                color={
-                                  atencion.estado === 'COMPLETADA' ? 'success' :
-                                  atencion.estado === 'EN_CURSO' ? 'primary' :
-                                  atencion.estado === 'CANCELADA' ? 'error' :
-                                  'default'
-                                }
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
                 )}
               </CardContent>
             </Card>
@@ -893,7 +1019,7 @@ const MedicoConsultas = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Diálogo Reportar Atraso */}
+        {/* ✅ Diálogo Reportar Atraso - CONCEPTO CORREGIDO */}
         <Dialog 
           open={dialogAtraso} 
           onClose={() => setDialogAtraso(false)} 
@@ -902,13 +1028,14 @@ const MedicoConsultas = () => {
         >
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WarningIcon color="error" />
-              Reportar Atraso
+              <WarningIcon color="warning" />
+              Reportar Atraso del Paciente
             </Box>
           </DialogTitle>
           <DialogContent>
-            <Alert severity="error" sx={{ mb: 2 }}>
-              La consulta ha excedido el tiempo planificado. Por favor, especifica el motivo del atraso.
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Usa esta opción cuando el paciente llega tarde a su consulta programada. 
+              La consulta continuará normalmente, pero quedará registrado el atraso.
             </Alert>
             <TextField
               fullWidth
@@ -917,7 +1044,7 @@ const MedicoConsultas = () => {
               label="Motivo del atraso *"
               value={motivoAtraso}
               onChange={(e) => setMotivoAtraso(e.target.value)}
-              placeholder="Ej: Complicaciones en el procedimiento, paciente requirió atención adicional..."
+              placeholder="Ej: Paciente llegó 10 minutos tarde por problemas de transporte"
               required
               sx={{ mt: 2 }}
             />
@@ -927,12 +1054,12 @@ const MedicoConsultas = () => {
               Cancelar
             </Button>
             <Button 
-              onClick={confirmarReporteAtraso} 
+              onClick={handleReportarAtraso} 
               variant="contained" 
-              color="error"
+              color="warning"
               disabled={!motivoAtraso.trim()}
             >
-              Reportar
+              Reportar Atraso
             </Button>
           </DialogActions>
         </Dialog>

@@ -601,12 +601,6 @@ const DetallePaciente = () => {
                                                                 <Typography variant="body2" fontWeight="600" color="error">
                                                                     {retraso.etapa_label || retraso.etapa}:
                                                                 </Typography>
-                                                                <Chip
-                                                                    label={`Lleva ${retraso.duracion_actual_legible || calcularTiempoTranscurrido(null, null)}`}
-                                                                    size="small"
-                                                                    color="warning"
-                                                                    sx={{ fontWeight: 500 }}
-                                                                />
                                                                 {/* ✅ CHIP GRANDE CON DÍAS DE RETRASO */}
                                                                 <Chip
                                                                     label={
