@@ -165,6 +165,7 @@ class AtencionSerializer(serializers.ModelSerializer):
     puede_finalizar = serializers.SerializerMethodField()
     minutos_desde_reporte_atraso = serializers.SerializerMethodField()
     minutos_hasta_inicio = serializers.SerializerMethodField()
+    debe_marcar_no_presentado = serializers.SerializerMethodField()
     
     class Meta:
         model = Atencion
@@ -205,6 +206,7 @@ class AtencionSerializer(serializers.ModelSerializer):
             'fecha_reporte_atraso',
             'motivo_atraso',
             'minutos_desde_reporte_atraso',
+            'debe_marcar_no_presentado',
         ]
         read_only_fields = [
             'id',
@@ -266,6 +268,10 @@ class AtencionSerializer(serializers.ModelSerializer):
         if tiempo:
             return int(tiempo.total_seconds() / 60)
         return 0
+    
+    def get_debe_marcar_no_presentado(self, obj):
+        """Indica si han pasado 5 minutos desde el reporte de atraso"""
+        return obj.verificar_tiempo_atraso()
 
 
 class AtencionListSerializer(serializers.ModelSerializer):

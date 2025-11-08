@@ -402,6 +402,33 @@ class Atencion(models.Model):
     
     # ✅ NUEVAS FUNCIONES PARA MÉDICOS
     
+    def reportar_atraso(self, motivo=""):
+        """
+        Reporta un atraso del paciente.
+        Inicia un timer de 5 minutos para que el paciente llegue.
+        Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
+        Solo disponible cuando la atención ya está EN_CURSO.
+        """
+        if self.estado == 'EN_CURSO' and not self.atraso_reportado:
+            self.atraso_reportado = True
+            self.fecha_reporte_atraso = timezone.now()
+            self.motivo_atraso = motivo or "Paciente no presente a la hora programada"
+            self.save()
+            return True
+        return False
+    
+    def verificar_tiempo_atraso(self):
+        """
+        Verifica si han pasado 5 minutos desde el reporte de atraso.
+        Retorna True si debe marcarse como NO_PRESENTADO.
+        """
+        if self.atraso_reportado and self.fecha_reporte_atraso:
+            ahora = timezone.now()
+            tiempo_transcurrido = ahora - self.fecha_reporte_atraso
+            minutos = tiempo_transcurrido.total_seconds() / 60
+            return minutos >= 5
+        return False
+    
     def marcar_no_presentado(self):
         """
         Marca la atención como 'No se presentó' y libera el box.

@@ -272,7 +272,13 @@ export const medicosService = {
   getEstadisticas: () => api.get('/medicos/estadisticas/'),
   activar: (id) => api.post(`/medicos/${id}/activar/`),
   desactivar: (id) => api.post(`/medicos/${id}/desactivar/`),
-  reportarAtraso: (id, data = {}) => api.post(`/medico/atenciones/${id}/reportar_atraso/`, data),
+  reportarAtraso: (atencionId, data = {}) => 
+    api.post(`/api/atenciones/${atencionId}/reportar-atraso/`, data),
+  verificarAtraso: (atencionId) => 
+    api.post(`/api/atenciones/${atencionId}/verificar-atraso/`),
+  iniciarConsulta: (atencionId) => 
+    api.post(`/api/atenciones/${atencionId}/iniciar-consulta/`),
+
 };
 
 

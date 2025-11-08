@@ -128,15 +128,33 @@ const MedicoConsultas = () => {
       
       console.log('✅ Atención actual:', response.data);
       
-      setAtencionActual(response.data.atencion);
+      const atencion = response.data.atencion;
+      
+      // ✅ NUEVA LÓGICA: Verificar si debe marcar automáticamente como NO_PRESENTADO
+      if (atencion && atencion.atraso_reportado && atencion.debe_marcar_no_presentado) {
+        console.log('⏰ Han pasado 5 minutos desde el reporte de atraso. Marcando como NO_PRESENTADO...');
+        try {
+          await medicoAtencionesService.verificarAtraso(atencion.id);
+          showSnackbar('El paciente no se presentó en el tiempo esperado', 'warning');
+          // Recargar datos después de marcar como NO_PRESENTADO
+          const updatedResponse = await medicoAtencionesService.getActual();
+          setAtencionActual(updatedResponse.data.atencion);
+          setTipoAtencion(updatedResponse.data.tipo);
+          return;
+        } catch (error) {
+          console.error('❌ Error al verificar atraso:', error);
+        }
+      }
+      
+      setAtencionActual(atencion);
       setTipoAtencion(response.data.tipo);
       setUltimaActualizacion(new Date());
       
-      if (response.data.tipo === 'en_curso' && response.data.atencion?.inicio_cronometro) {
-        const inicio = new Date(response.data.atencion.inicio_cronometro);
+      if (response.data.tipo === 'en_curso' && atencion?.inicio_cronometro) {
+        const inicio = new Date(atencion.inicio_cronometro);
         const ahora = new Date();
         const transcurrido = Math.floor((ahora - inicio) / 1000);
-        const duracionTotal = response.data.atencion.duracion_planificada * 60;
+        const duracionTotal = atencion.duracion_planificada * 60;
         const restante = duracionTotal - transcurrido;
         
         setTiempoTranscurrido(transcurrido);
@@ -490,6 +508,37 @@ const MedicoConsultas = () => {
     }
   };
 
+  const handleIniciarConsulta = async () => {
+    if (!atencionActual) return;
+    
+    try {
+      setLoading(true);
+      console.log('✅ Paciente llegó, iniciando consulta:', atencionActual.id);
+      
+      const response = await medicoAtencionesService.iniciarConsulta(atencionActual.id);
+      
+      if (response.data.success) {
+        showSnackbar('Consulta iniciada correctamente', 'success');
+        
+        // Actualizar atención actual
+        setAtencionActual(response.data.atencion);
+        
+        // Recargar datos
+        await Promise.all([
+          sincronizarBoxes(),
+          cargarAtencionesHoy()
+        ]);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'Error al iniciar consulta';
+      showSnackbar(errorMsg, 'error');
+      console.error('❌ Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const handleRefrescar = async () => {
     console.log('🔄 Refrescando manualmente...');
     setLoading(true);
@@ -820,13 +869,13 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
-                        {/* ✅ Botón INICIAR - Disponible si está en tiempo O hay atraso reportado */}
+                        {/* ✅ Botón INICIAR - Cambia comportamiento si hay atraso reportado */}
                         <Button
                           variant="contained"
                           size="large"
                           fullWidth
                           startIcon={<PlayIcon />}
-                          onClick={handleIniciarAtencion}
+                          onClick={atencionActual.atraso_reportado ? handleIniciarConsulta : handleIniciarAtencion}
                           disabled={
                             (!atencionActual.atraso_reportado && calcularMinutosHastaInicio() > 15) || 
                             loading
@@ -1000,6 +1049,41 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
+                        {/* ✅ Botón REPORTAR ATRASO - Solo si NO se ha reportado aún */}
+                        {!atencionActual.atraso_reportado && (
+                          <Button
+                            variant="outlined"
+                            size="large"
+                            fullWidth
+                            startIcon={<WarningIcon />}
+                            onClick={() => setDialogAtraso(true)}
+                            disabled={loading}
+                            sx={{ 
+                              color: 'white',
+                              borderColor: 'rgba(255, 193, 7, 0.8)',
+                              bgcolor: 'rgba(255, 193, 7, 0.1)',
+                              '&:hover': {
+                                borderColor: 'rgba(255, 193, 7, 1)',
+                                bgcolor: 'rgba(255, 193, 7, 0.2)',
+                              }
+                            }}
+                          >
+                            REPORTAR ATRASO
+                          </Button>
+                        )}
+
+                        {/* ✅ Alerta si hay atraso reportado */}
+                        {atencionActual.atraso_reportado && (
+                          <Alert severity="warning" sx={{ mb: 2 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              ⏳ Esperando paciente ({atencionActual.minutos_desde_reporte_atraso}/5 min)
+                            </Typography>
+                            <Typography variant="caption">
+                              Si el paciente llega, use el botón "INICIAR CONSULTA" en la vista de programadas
+                            </Typography>
+                          </Alert>
+                        )}
+
                         <Button
                           variant="contained"
                           size="large"
