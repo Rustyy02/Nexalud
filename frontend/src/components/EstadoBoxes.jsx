@@ -640,106 +640,117 @@ const EstadoBoxes = () => {
               ✓ No hay atrasos reportados.
             </Alert>
           ) : (
-            <Box sx={{ mt: 2 }}>
-              {atrasosReales.map((atraso) => (
-                <Card 
-                  key={atraso.id} 
-                  elevation={1} 
-                  sx={{ 
-                    mb: 2, 
-                    p: 2, 
-                    borderLeft: '4px solid',
-                    borderLeftColor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.dark' : 'warning.main',
-                    bgcolor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.lighter' : 'warning.lighter'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        <Typography variant="subtitle1" fontWeight="600">
-                          {atraso.paciente}
-                        </Typography>
-                        {atraso.tiempoRestanteAutoMarcar === 0 && (
-                          <Chip 
-                            icon={<WarningIcon />}
-                            label="PROCESANDO..." 
-                            color="error" 
-                            size="small" 
-                          />
-                        )}
-                      </Box>
-                      
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Box:</strong> {atraso.box}
-                      </Typography>
-                      
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Hora programada:</strong>{' '}
-                        {new Date(atraso.horaInicioProgramada).toLocaleTimeString('es-CL', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                        <AccessTimeIcon sx={{ color: 'warning.main', fontSize: 20 }} />
-                        <Typography variant="body2" color="warning.main" fontWeight="600">
-                          Reportado hace {atraso.minutosDesdeReporte} minuto{atraso.minutosDesdeReporte !== 1 ? 's' : ''}
-                        </Typography>
-                      </Box>
-                      
-                      {atraso.motivoAtraso && (
-                        <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            <strong>Motivo:</strong> {atraso.motivoAtraso}
-                          </Typography>
-                        </Box>
-                      )}
-                      
-                      {atraso.tiempoRestanteAutoMarcar > 0 && (
-                        <Box sx={{ mt: 2 }}>
+              <Box sx={{ mt: 2 }}>
+                {atrasosReales.map((atraso) => {
+                  // ✅ NUEVO: Calcular si mostrar en segundos (cuando queda menos de 1 minuto)
+                  const minutosRestantes = Math.floor(atraso.tiempoRestanteAutoMarcar);
+                  const segundosRestantes = Math.round((atraso.tiempoRestanteAutoMarcar - minutosRestantes) * 60);
+                  const mostrarEnSegundos = atraso.tiempoRestanteAutoMarcar < 1 && atraso.tiempoRestanteAutoMarcar > 0;
+                  
+                  return (
+                    <Card 
+                      key={atraso.id} 
+                      elevation={1} 
+                      sx={{ 
+                        mb: 2, 
+                        p: 2, 
+                        borderLeft: '4px solid',
+                        borderLeftColor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.dark' : 'warning.main',
+                        bgcolor: atraso.tiempoRestanteAutoMarcar === 0 ? 'error.lighter' : 'warning.lighter'
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Box sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <TimerIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                            <Typography variant="caption" color="error.main" fontWeight="600">
-                              Se marcará como "No se presentó" en {atraso.tiempoRestanteAutoMarcar} min
+                            <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                            <Typography variant="subtitle1" fontWeight="600">
+                              {atraso.paciente}
+                            </Typography>
+                            {atraso.tiempoRestanteAutoMarcar === 0 && (
+                              <Chip 
+                                icon={<WarningIcon />}
+                                label="PROCESANDO..." 
+                                color="error" 
+                                size="small" 
+                              />
+                            )}
+                          </Box>
+                          
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>Box:</strong> {atraso.box}
+                          </Typography>
+                          
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>Hora programada:</strong>{' '}
+                            {new Date(atraso.horaInicioProgramada).toLocaleTimeString('es-CL', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Typography>
+                          
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                            <AccessTimeIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+                            <Typography variant="body2" color="warning.main" fontWeight="600">
+                              Reportado hace {atraso.minutosDesdeReporte} minuto{atraso.minutosDesdeReporte !== 1 ? 's' : ''}
                             </Typography>
                           </Box>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={((5 - atraso.tiempoRestanteAutoMarcar) / 5) * 100}
-                            color="error"
-                            sx={{ height: 8, borderRadius: 1 }}
-                          />
+                          
+                          {atraso.motivoAtraso && (
+                            <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                <strong>Motivo:</strong> {atraso.motivoAtraso}
+                              </Typography>
+                            </Box>
+                          )}
+                          
+                          {atraso.tiempoRestanteAutoMarcar > 0 && (
+                            <Box sx={{ mt: 2 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                <TimerIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                                <Typography variant="caption" color="error.main" fontWeight="600">
+                                  Se marcará como "No se presentó" en{' '}
+                                  {mostrarEnSegundos 
+                                    ? `${segundosRestantes} segundo${segundosRestantes !== 1 ? 's' : ''}`
+                                    : `${minutosRestantes} minuto${minutosRestantes !== 1 ? 's' : ''}`
+                                  }
+                                </Typography>
+                              </Box>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={((5 - atraso.tiempoRestanteAutoMarcar) / 5) * 100}
+                                color="error"
+                                sx={{ height: 8, borderRadius: 1 }}
+                              />
+                            </Box>
+                          )}
                         </Box>
-                      )}
-                    </Box>
-                    <Chip label={atraso.box} color="warning" size="small" />
-                  </Box>
+                        <Chip label={atraso.box} color="warning" size="small" />
+                      </Box>
 
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      fullWidth
-                      onClick={() => iniciarAtencionAtrasada(atraso)}
-                      disabled={atraso.tiempoRestanteAutoMarcar === 0}
-                    >
-                      {atraso.tiempoRestanteAutoMarcar === 0 ? 'Procesando...' : 'Iniciar Ahora'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      onClick={() => notificarProfesional(atraso)}
-                      disabled={atraso.tiempoRestanteAutoMarcar === 0}
-                    >
-                      Notificar Médico
-                    </Button>
-                  </Box>
-                </Card>
-              ))}
-            </Box>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          fullWidth
+                          onClick={() => iniciarAtencionAtrasada(atraso)}
+                          disabled={atraso.tiempoRestanteAutoMarcar === 0}
+                        >
+                          {atraso.tiempoRestanteAutoMarcar === 0 ? 'Procesando...' : 'Iniciar Ahora'}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          fullWidth
+                          onClick={() => notificarProfesional(atraso)}
+                          disabled={atraso.tiempoRestanteAutoMarcar === 0}
+                        >
+                          Notificar Médico
+                        </Button>
+                      </Box>
+                    </Card>
+                  );
+                })}
+              </Box>
           )}
         </Paper>
 

@@ -1,4 +1,4 @@
-// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CON POLLING CORREGIDO
+// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CORREGIDA
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
@@ -9,7 +9,6 @@ import {
   Box,
   Grid,
   Chip,
-  Divider,
   Alert,
   CircularProgress,
   LinearProgress,
@@ -467,7 +466,7 @@ const MedicoConsultas = () => {
       );
       
       if (response.data.success) {
-        showSnackbar('Atraso reportado correctamente', 'warning');
+        showSnackbar('Atraso reportado - Esperando 5 minutos', 'warning');
         
         // ✅ Actualizar la atención actual con los datos del servidor
         setAtencionActual(response.data.atencion);
@@ -734,6 +733,21 @@ const MedicoConsultas = () => {
                       </Typography>
                     </Box>
 
+                    {/* ✅ ALERTA DE ATRASO REPORTADO */}
+                    {atencionActual.atraso_reportado && (
+                      <Alert 
+                        severity="warning" 
+                        icon={<WarningIcon />}
+                        sx={{ mb: 3 }}
+                      >
+                        <strong>⏳ Atraso reportado - Esperando al paciente</strong>
+                        <Typography variant="body2">
+                          Si el paciente llega, presiona "PACIENTE LLEGÓ - INICIAR".<br/>
+                          Si no llega en 5 minutos, se marcará automáticamente como "No se presentó".
+                        </Typography>
+                      </Alert>
+                    )}
+
                     <Paper sx={{ 
                       p: 3, 
                       bgcolor: 'rgba(255,255,255,0.15)',
@@ -742,10 +756,13 @@ const MedicoConsultas = () => {
                       textAlign: 'center'
                     }}>
                       <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
-                        Inicia en
+                        {calcularMinutosHastaInicio() > 0 ? 'Inicia en' : 'Atención programada'}
                       </Typography>
                       <Typography variant="h3" fontWeight="700">
-                        {calcularMinutosHastaInicio()} min
+                        {calcularMinutosHastaInicio() > 0 
+                          ? `${calcularMinutosHastaInicio()} min`
+                          : 'AHORA'
+                        }
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
                         Hora programada: {formatearHora(atencionActual.fecha_hora_inicio)}
@@ -803,28 +820,59 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
+                        {/* ✅ Botón INICIAR - Disponible si está en tiempo O hay atraso reportado */}
                         <Button
                           variant="contained"
                           size="large"
                           fullWidth
                           startIcon={<PlayIcon />}
                           onClick={handleIniciarAtencion}
-                          disabled={calcularMinutosHastaInicio() > 15 || loading}
+                          disabled={
+                            (!atencionActual.atraso_reportado && calcularMinutosHastaInicio() > 15) || 
+                            loading
+                          }
                           sx={{ 
                             py: 2,
-                            bgcolor: 'white',
-                            color: 'primary.main',
+                            bgcolor: atencionActual.atraso_reportado ? 'success.main' : 'white',
+                            color: atencionActual.atraso_reportado ? 'white' : 'primary.main',
                             '&:hover': {
-                              bgcolor: 'rgba(255,255,255,0.9)',
+                              bgcolor: atencionActual.atraso_reportado ? 'success.dark' : 'rgba(255,255,255,0.9)',
                             }
                           }}
                         >
                           {loading ? 'Iniciando...' : 
-                           calcularMinutosHastaInicio() > 15 
-                            ? `Disponible en ${calcularMinutosHastaInicio()} min`
-                            : 'INICIAR CONSULTA'
+                           atencionActual.atraso_reportado 
+                            ? '✓ PACIENTE LLEGÓ - INICIAR'
+                            : calcularMinutosHastaInicio() > 15 
+                              ? `Disponible en ${calcularMinutosHastaInicio()} min`
+                              : 'INICIAR CONSULTA'
                           }
                         </Button>
+
+                        {/* ✅ Botón REPORTAR ATRASO - Solo si ya es la hora Y NO hay atraso reportado */}
+                        {!atencionActual.atraso_reportado && calcularMinutosHastaInicio() === 0 && (
+                          <Button
+                            variant="outlined"
+                            size="large"
+                            fullWidth
+                            startIcon={<WarningIcon />}
+                            onClick={() => setDialogAtraso(true)}
+                            disabled={loading}
+                            sx={{ 
+                              color: 'white',
+                              borderColor: 'rgba(255, 193, 7, 0.8)',
+                              bgcolor: 'rgba(255, 193, 7, 0.1)',
+                              '&:hover': {
+                                borderColor: 'rgba(255, 193, 7, 1)',
+                                bgcolor: 'rgba(255, 193, 7, 0.2)',
+                              }
+                            }}
+                          >
+                            REPORTAR ATRASO
+                          </Button>
+                        )}
+
+                        {/* Botón NO SE PRESENTÓ */}
                         <Button
                           variant="outlined"
                           size="large"
@@ -988,24 +1036,6 @@ const MedicoConsultas = () => {
                         >
                           NO SE PRESENTÓ
                         </Button>
-                        <Button
-                          variant="outlined"
-                          size="large"
-                          fullWidth
-                          startIcon={<WarningIcon />}
-                          onClick={() => setDialogAtraso(true)}
-                          disabled={loading}
-                          sx={{ 
-                            color: 'white',
-                            borderColor: 'white',
-                            '&:hover': {
-                              borderColor: 'white',
-                              bgcolor: 'rgba(255,255,255,0.1)',
-                            }
-                          }}
-                        >
-                          REPORTAR ATRASO
-                        </Button>
                       </Stack>
                     </Box>
                   </Box>
@@ -1015,7 +1045,7 @@ const MedicoConsultas = () => {
           </Grid>
         </Grid>
 
-        {/* DIÁLOGOS (sin cambios) */}
+        {/* DIÁLOGOS */}
         <Dialog 
           open={dialogFinalizar} 
           onClose={() => !loading && setDialogFinalizar(false)} 
@@ -1104,7 +1134,7 @@ const MedicoConsultas = () => {
 
         <Dialog 
           open={dialogAtraso} 
-          onClose={() => setDialogAtraso(false)} 
+          onClose={() => !loading && setDialogAtraso(false)}
           maxWidth="sm" 
           fullWidth
         >
@@ -1116,7 +1146,12 @@ const MedicoConsultas = () => {
           </DialogTitle>
           <DialogContent>
             <Alert severity="warning" sx={{ mb: 2 }}>
-              Usa esta opción cuando el paciente llega tarde a su consulta programada.
+              <strong>⏳ Ventana de espera: 5 minutos</strong>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                • Si el paciente llega dentro de 5 minutos, podrás iniciar la consulta<br/>
+                • Si no llega, se marcará automáticamente como "No se presentó"<br/>
+                • Esta espera será visible en el panel de Estado de Boxes
+              </Typography>
             </Alert>
             <TextField
               fullWidth
@@ -1125,22 +1160,23 @@ const MedicoConsultas = () => {
               label="Motivo del atraso *"
               value={motivoAtraso}
               onChange={(e) => setMotivoAtraso(e.target.value)}
-              placeholder="Ej: Paciente llegó 10 minutos tarde"
+              placeholder="Ej: Paciente no se presentó a la hora programada (17:00)"
               required
+              disabled={loading}
               sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogAtraso(false)}>
+            <Button onClick={() => setDialogAtraso(false)} disabled={loading}>
               Cancelar
             </Button>
             <Button 
               onClick={handleReportarAtraso} 
               variant="contained" 
               color="warning"
-              disabled={!motivoAtraso.trim()}
+              disabled={!motivoAtraso.trim() || loading}
             >
-              Reportar Atraso
+              {loading ? 'Reportando...' : 'Confirmar - Dar 5 min de gracia'}
             </Button>
           </DialogActions>
         </Dialog>
