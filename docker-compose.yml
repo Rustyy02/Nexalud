@@ -1,37 +1,29 @@
+# docker-compose.yml - ESTA VERSIÓN FUNCIONA
 version: '3.8'
 
 services:
   backend:
-    build: 
-      context: ./backend
-      # dockerfile: Dockerfile  
+    build: ./backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app              
-      - static_volume:/app/staticfiles
+      - ./backend:/app
     environment:
-      - DEBUG=True                  
-      - DATABASE_URL=sqlite:///db.sqlite3
-    command: python manage.py runserver 0.0.0.0:8000
-    stdin_open: true
-    tty: true
+      - DEBUG=True
+    # ✅ ESTE FORMATO SÍ FUNCIONA
+    command: [
+      "sh", 
+      "-c", 
+      "python manage.py migrate && python manage.py shell < /app/scripts/init_admin.py && python manage.py runserver 0.0.0.0:8000"
+    ]
 
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app              # ✅ VOLUMEN PARA DESARROLLO
-      - /app/node_modules            # ✅ EVITAR SOBREESCRIBIR node_modules
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api
-    command: npm start               # ✅ COMANDO DESARROLLO
-    depends_on:
-      - backend
-    stdin_open: true
-    tty: true
-
-volumes:
-  static_volume:
+    command: ["npm", "start"]
