@@ -1,4 +1,4 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN COMPLETAMENTE CORREGIDA
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA COMPLETA
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
@@ -107,7 +107,6 @@ const DetallePaciente = () => {
 
     const [, forceUpdate] = useState(0);
 
-    // ✅ useCallback para evitar warning
     const cargarDatos = useCallback(async () => {
         try {
             setError('');
@@ -132,6 +131,9 @@ const DetallePaciente = () => {
                 const timelineRes = await rutasClinicasService.getTimeline(rutaActual.id);
                 
                 console.log('✅ Timeline completo recibido:', timelineRes.data);
+                console.log('🔍 DEBUG - esta_pausado:', timelineRes.data.esta_pausado);
+                console.log('🔍 DEBUG - estado_actual:', timelineRes.data.estado_actual);
+                console.log('🔍 DEBUG - ruta_clinica:', timelineRes.data.ruta_clinica);
                 
                 setRutaClinica(timelineRes.data);
 
@@ -549,6 +551,40 @@ const DetallePaciente = () => {
                                 </Box>
                             </Box>
 
+                            {/* ✅ ALERTA DE PAUSA - MÚLTIPLES VERIFICACIONES */}
+                            {(rutaClinica.esta_pausado || 
+                              rutaClinica.ruta_clinica?.esta_pausado || 
+                              rutaClinica.estado_actual === 'PAUSADA') && (
+                                <Alert 
+                                    severity="warning" 
+                                    icon={<PauseIcon />}
+                                    sx={{ mb: 3 }}
+                                    action={
+                                        <Button
+                                            color="inherit"
+                                            size="medium"
+                                            variant="outlined"
+                                            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />}
+                                            onClick={handleReanudarRuta}
+                                            disabled={actionLoading}
+                                            sx={{ fontWeight: 600 }}
+                                        >
+                                            {actionLoading ? 'Reanudando...' : 'Reanudar Ruta'}
+                                        </Button>
+                                    }
+                                >
+                                    <Typography variant="body1" fontWeight="700" sx={{ mb: 1 }}>
+                                        ⏸️ Ruta Pausada
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                        <strong>Motivo:</strong> {rutaClinica.ruta_clinica?.motivo_pausa || 'Sin motivo especificado'}
+                                    </Typography>
+                                    <Typography variant="caption" display="block" sx={{ opacity: 0.9 }}>
+                                        ℹ️ Las acciones de avanzar y retroceder están deshabilitadas. Presiona "Reanudar Ruta" para continuar.
+                                    </Typography>
+                                </Alert>
+                            )}
+
                             {/* Barra de progreso */}
                             <Box sx={{ mb: 4 }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -667,7 +703,7 @@ const DetallePaciente = () => {
                                 </Stepper>
                             </Box>
 
-                            {/* ✅ BOTONES DE ACCIÓN MEJORADOS - DISEÑO DE 2 FILAS */}
+                            {/* ✅ BOTONES DE ACCIÓN CORREGIDOS */}
                             {!rutaFinalizada && (
                                 <Box sx={{ mt: 3 }}>
                                     {/* Primera fila - Acciones principales */}
@@ -704,8 +740,8 @@ const DetallePaciente = () => {
 
                                     {/* Segunda fila - Controles de estado */}
                                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                        {/* Botón Pausar/Reanudar */}
-                                        {!rutaClinica.esta_pausado ? (
+                                        {/* ✅ Botón Pausar (solo visible si NO está pausada) */}
+                                        {!rutaClinica.esta_pausado && (
                                             <Button
                                                 variant="outlined"
                                                 color="warning"
@@ -716,16 +752,19 @@ const DetallePaciente = () => {
                                             >
                                                 Pausar Ruta
                                             </Button>
-                                        ) : (
+                                        )}
+
+                                        {/* ✅ Botón Reanudar (solo visible si ESTÁ pausada) */}
+                                        {rutaClinica.esta_pausado && (
                                             <Button
                                                 variant="contained"
                                                 color="success"
-                                                startIcon={<PlayArrowIcon />}
+                                                startIcon={actionLoading ? <CircularProgress size={20} /> : <PlayArrowIcon />}
                                                 onClick={handleReanudarRuta}
                                                 disabled={actionLoading}
-                                                sx={{ minWidth: 160 }}
+                                                sx={{ minWidth: 160, flexGrow: 1 }}
                                             >
-                                                Reanudar Ruta
+                                                {actionLoading ? 'Reanudando...' : 'Reanudar Ruta'}
                                             </Button>
                                         )}
 
@@ -741,25 +780,6 @@ const DetallePaciente = () => {
                                             Cancelar Ruta
                                         </Button>
                                     </Box>
-
-                                    {/* Mensaje informativo cuando está pausada */}
-                                    {rutaClinica.esta_pausado && (
-                                        <Alert severity="warning" sx={{ mt: 2 }}>
-                                            <Typography variant="body2">
-                                                ⏸️ <strong>Ruta Pausada:</strong> {
-                                                    typeof rutaClinica.motivo_pausa === 'string' 
-                                                        ? rutaClinica.motivo_pausa 
-                                                        : typeof rutaClinica.ruta_clinica?.motivo_pausa === 'string'
-                                                        ? rutaClinica.ruta_clinica.motivo_pausa
-                                                        : 'Sin motivo especificado'
-                                                }
-                                            </Typography>
-                                            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                                                Las acciones de avanzar y retroceder están deshabilitadas mientras la ruta esté pausada.
-                                                Presiona "Reanudar Ruta" para continuar.
-                                            </Typography>
-                                        </Alert>
-                                    )}
                                 </Box>
                             )}
 
@@ -1069,7 +1089,7 @@ const DetallePaciente = () => {
                     </DialogActions>
                 </Dialog>
 
-                {/* Diálogo de Historial */}
+                {/* ✅ Diálogo de Historial CORREGIDO */}
                 <Dialog
                     open={dialogHistorial}
                     onClose={() => setDialogHistorial(false)}
@@ -1115,9 +1135,22 @@ const DetallePaciente = () => {
                                                         <Typography variant="caption" color="text.secondary">
                                                             Usuario: {entrada.usuario}
                                                         </Typography>
+                                                        {/* ✅ CORREGIDO: Manejo seguro del motivo */}
                                                         {entrada.motivo && (
                                                             <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                                                                Motivo: {entrada.motivo}
+                                                                Motivo: {
+                                                                    typeof entrada.motivo === 'string' 
+                                                                        ? entrada.motivo 
+                                                                        : typeof entrada.motivo === 'object' && entrada.motivo.motivo
+                                                                        ? entrada.motivo.motivo
+                                                                        : JSON.stringify(entrada.motivo)
+                                                                }
+                                                            </Typography>
+                                                        )}
+                                                        {/* ✅ AGREGADO: Soporte para observaciones */}
+                                                        {entrada.observaciones && (
+                                                            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                                                Observaciones: {entrada.observaciones}
                                                             </Typography>
                                                         )}
                                                     </>
