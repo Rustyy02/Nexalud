@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      # dockerfile: Dockerfile  
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app              
+      - static_volume:/app/staticfiles
+    environment:
+      - DEBUG=True                  
+      - DATABASE_URL=sqlite:///db.sqlite3
+    command: python manage.py runserver 0.0.0.0:8000
+    stdin_open: true
+    tty: true
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app              # ✅ VOLUMEN PARA DESARROLLO
+      - /app/node_modules            # ✅ EVITAR SOBREESCRIBIR node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+    command: npm start               # ✅ COMANDO DESARROLLO
+    depends_on:
+      - backend
+    stdin_open: true
+    tty: true
+
+volumes:
+  static_volume:

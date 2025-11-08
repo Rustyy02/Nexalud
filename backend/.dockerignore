@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv
+.git
+.github
+.coverage
+.pytest_cache
+.mypy_cache
+db.sqlite3  # ✅ La base de datos se recrea en el contenedor
+media/
+staticfiles/
