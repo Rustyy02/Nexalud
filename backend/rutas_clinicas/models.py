@@ -142,10 +142,12 @@ class RutaClinica(models.Model):
         elif self.estado == 'CANCELADA':
             self.paciente.limpiar_etapa('CANCELADA')
         elif self.estado == 'PAUSADA':
+            # ✅ Mantener la etapa actual pero cambiar el estado del paciente
             if self.etapa_actual:
                 self.paciente.actualizar_etapa(self.etapa_actual, 'PAUSADA')
             else:
-                self.paciente.limpiar_etapa('PAUSADA')
+                self.paciente.estado_actual = 'PROCESO_PAUSADO'
+                self.paciente.save(update_fields=['estado_actual', 'fecha_actualizacion'])
         elif self.estado == 'EN_PROGRESO' and self.etapa_actual:
             self.paciente.actualizar_etapa(self.etapa_actual, 'EN_PROGRESO')
         elif not self.etapa_actual:
@@ -499,7 +501,11 @@ class RutaClinica(models.Model):
     
     def pausar_ruta(self, motivo='', usuario=None):
         """Pausa la ruta y actualiza estado del paciente"""
-        if self.estado != 'EN_PROGRESO':
+        print(f"🔍 DEBUG pausar_ruta - Estado actual: {self.estado}")
+        print(f"🔍 DEBUG pausar_ruta - Motivo: {motivo}")
+        
+        if self.estado not in ['EN_PROGRESO', 'INICIADA']:
+            print(f"❌ No se puede pausar - Estado: {self.estado}")
             return False
         
         self.estado = 'PAUSADA'
@@ -515,11 +521,16 @@ class RutaClinica(models.Model):
         })
         
         self.save()
+        print(f"✅ Ruta pausada correctamente - Estado: {self.estado}")
         return True
     
     def reanudar_ruta(self, usuario=None):
         """Reanuda la ruta y actualiza estado del paciente"""
+        print(f"🔍 DEBUG reanudar_ruta - Estado actual: {self.estado}")
+        print(f"🔍 DEBUG reanudar_ruta - Esta pausado: {self.esta_pausado}")
+        
         if self.estado != 'PAUSADA':
+            print(f"❌ No se puede reanudar - Estado: {self.estado}")
             return False
         
         self.estado = 'EN_PROGRESO'
@@ -533,8 +544,9 @@ class RutaClinica(models.Model):
         self._agregar_al_historial('REANUDAR', self.etapa_actual, usuario)
         
         self.save()
+        print(f"✅ Ruta reanudada correctamente - Estado: {self.estado}")
         return True
-    
+        
     # ============================================
     # MÉTODOS DE CÁLCULO Y ANÁLISIS
     # ============================================

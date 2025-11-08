@@ -223,35 +223,50 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         """
         ruta = self.get_object()
         usuario = request.user
-        serializer = RutaAccionSerializer(data=request.data)
         
-        if serializer.is_valid():
-            motivo = serializer.validated_data.get('motivo', 'Sin motivo especificado')
-            
-            if ruta.pausar_ruta(motivo=motivo, usuario=usuario):
-                ruta.refresh_from_db()
-                
-                return Response({
-                    'success': True,
-                    'estado': ruta.estado,
-                    'mensaje': f'Ruta pausada: {motivo}',
-                    'esta_pausado': ruta.esta_pausado,
-                    'estado_paciente': ruta.paciente.get_estado_actual_display(),
-                    'etapa_actual': ruta.get_etapa_actual_display()
-                })
+        # Obtener el motivo directamente del request.data
+        motivo = request.data.get('motivo', 'Sin motivo especificado')
+        
+        # Log para debug
+        print(f"🔍 DEBUG Pausar - Datos recibidos: {request.data}")
+        print(f"🔍 DEBUG Pausar - Motivo: {motivo}")
+        print(f"🔍 DEBUG Pausar - Estado actual: {ruta.estado}")
+        
+        if ruta.pausar_ruta(motivo=motivo, usuario=usuario):
+            ruta.refresh_from_db()
             
             return Response({
-                'success': False,
-                'mensaje': f'No se puede pausar. La ruta está {ruta.get_estado_display()}'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'success': True,
+                'estado': ruta.estado,
+                'mensaje': f'Ruta pausada: {motivo}',
+                'esta_pausado': ruta.esta_pausado,
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
+                'etapa_actual': ruta.get_etapa_actual_display() if ruta.etapa_actual else None
+            })
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'success': False,
+            'mensaje': f'No se puede pausar. La ruta está {ruta.get_estado_display()}',
+            'estado_actual': ruta.estado
+        }, status=status.HTTP_400_BAD_REQUEST)
     
+
     @action(detail=True, methods=['post'])
     def reanudar(self, request, pk=None):
-        """Reanuda una ruta pausada"""
+        """
+        Reanuda una ruta pausada
+        No requiere body, pero acepta observaciones opcionales
+        """
         ruta = self.get_object()
         usuario = request.user
+        
+        # Observaciones opcionales
+        observaciones = request.data.get('observaciones', '')
+        
+        # Log para debug
+        print(f"🔍 DEBUG Reanudar - Estado actual: {ruta.estado}")
+        print(f"🔍 DEBUG Reanudar - Esta pausado: {ruta.esta_pausado}")
+        print(f"🔍 DEBUG Reanudar - Observaciones: {observaciones}")
         
         if ruta.reanudar_ruta(usuario=usuario):
             ruta.refresh_from_db()
@@ -262,7 +277,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
                 'mensaje': 'Ruta reanudada exitosamente',
                 'esta_pausado': ruta.esta_pausado,
                 'estado_paciente': ruta.paciente.get_estado_actual_display(),
-                'etapa_actual': ruta.get_etapa_actual_display()
+                'etapa_actual': ruta.get_etapa_actual_display() if ruta.etapa_actual else None
             })
         
         return Response({
@@ -490,3 +505,43 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             'progreso_promedio': round(progreso_promedio, 2),
             'tasa_completitud': round((completadas / total * 100) if total > 0 else 0, 2),
         })
+        
+    @action(detail=True, methods=['post'])
+    def cancelar(self, request, pk=None):
+        """
+        Cancela la ruta clínica en la etapa actual sin completarla.
+        La ruta queda como CANCELADA y no se puede reiniciar.
+        """
+        ruta = self.get_object()
+        usuario = request.user
+        serializer = RutaAccionSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            motivo = serializer.validated_data.get('motivo', 'Ruta cancelada por decisión médica')
+            
+            # Cambiar estado a CANCELADA
+            ruta.estado = 'CANCELADA'
+            ruta.fecha_fin_real = timezone.now()
+            ruta.motivo_pausa = motivo
+            
+            # Sincronizar con paciente
+            ruta.paciente.etapa_actual = None
+            ruta.paciente.estado_actual = 'PROCESO_CANCELADO'
+            ruta.paciente.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
+            
+            # Registrar en historial
+            ruta._agregar_al_historial('CANCELAR_RUTA', ruta.etapa_actual, usuario, {
+                'motivo': motivo,
+                'etapa_en_cancelacion': ruta.etapa_actual,
+            })
+            
+            ruta.save()
+            
+            return Response({
+                'success': True,
+                'estado': ruta.estado,
+                'mensaje': f'Ruta cancelada: {motivo}',
+                'estado_paciente': ruta.paciente.get_estado_actual_display(),
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

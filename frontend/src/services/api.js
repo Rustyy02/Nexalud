@@ -53,8 +53,18 @@ export const rutasClinicasService = {
   
   // Control de ruta
   iniciar: (id) => api.post(`/rutas-clinicas/${id}/iniciar/`),
-  pausar: (id, motivo) => api.post(`/rutas-clinicas/${id}/pausar/`, { motivo }),
-  reanudar: (id) => api.post(`/rutas-clinicas/${id}/reanudar/`),
+    pausar: (id, data) => {
+        return api.post(`/rutas-clinicas/${id}/pausar/`, data);
+    },
+    
+    reanudar: (id, data = {}) => {
+        return api.post(`/rutas-clinicas/${id}/reanudar/`, data);
+    },
+    
+    cancelar: (id, data) => {
+        return api.post(`/rutas-clinicas/${id}/cancelar/`, data);
+    },
+
   completar: (id) => api.post(`/rutas-clinicas/${id}/completar/`),
   
   // Observaciones (o comentarios tambien)

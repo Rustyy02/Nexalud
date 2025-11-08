@@ -1,5 +1,5 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN MEJORADA CON TIEMPOS REALES
-import React, { useState, useEffect } from 'react';
+// frontend/src/components/DetallePaciente.jsx - VERSIÓN COMPLETAMENTE CORREGIDA
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Container,
@@ -27,7 +27,6 @@ import {
     Stepper,
     Step,
     StepLabel,
-    styled,
     keyframes,
 } from '@mui/material';
 import {
@@ -42,12 +41,14 @@ import {
     Timeline as TimelineIcon,
     AccessTime as AccessTimeIcon,
     CheckCircle as CheckCircleIcon,
+    Pause as PauseIcon,
+    PlayArrow as PlayArrowIcon,
+    Stop as StopIcon,
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { pacientesService, rutasClinicasService } from '../services/api';
 import Navbar from './Navbar';
 
-// ⭐ Animación de titineo para la etapa actual
 const pulseAnimation = keyframes`
     0% {
         box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
@@ -60,7 +61,6 @@ const pulseAnimation = keyframes`
     }
 `;
 
-// ✅ NUEVA: Función para calcular tiempo transcurrido
 const calcularTiempoTranscurrido = (fechaInicio, fechaFin = null) => {
     try {
         const inicio = new Date(fechaInicio);
@@ -89,40 +89,26 @@ const calcularTiempoTranscurrido = (fechaInicio, fechaFin = null) => {
 
 const DetallePaciente = () => {
     const { id } = useParams();
-    const navigate = useNavigate();
 
-    // Estados principales
     const [paciente, setPaciente] = useState(null);
     const [rutaClinica, setRutaClinica] = useState(null);
     const [historial, setHistorial] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Estados de diálogos
     const [dialogObservaciones, setDialogObservaciones] = useState(false);
     const [dialogHistorial, setDialogHistorial] = useState(false);
+    const [dialogPausar, setDialogPausar] = useState(false);
+    const [dialogFinalizar, setDialogFinalizar] = useState(false);
     const [observaciones, setObservaciones] = useState('');
+    const [motivoPausa, setMotivoPausa] = useState('');
+    const [motivoFinalizacion, setMotivoFinalizacion] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
-    // ✅ NUEVO: Estado para actualizar el tiempo en vivo
     const [, forceUpdate] = useState(0);
 
-    useEffect(() => {
-        cargarDatos();
-        const interval = setInterval(cargarDatos, 30000);
-        return () => clearInterval(interval);
-    }, [id]);
-
-    // ✅ NUEVO: Actualizar tiempo cada minuto para las etapas en curso
-    useEffect(() => {
-        const timerInterval = setInterval(() => {
-            forceUpdate(prev => prev + 1);
-        }, 60000); // Cada 60 segundos
-
-        return () => clearInterval(timerInterval);
-    }, []);
-
-    const cargarDatos = async () => {
+    // ✅ useCallback para evitar warning
+    const cargarDatos = useCallback(async () => {
         try {
             setError('');
             setLoading(true);
@@ -149,8 +135,13 @@ const DetallePaciente = () => {
                 
                 setRutaClinica(timelineRes.data);
 
-                const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
-                setHistorial(historialRes.data.historial || []);
+                try {
+                    const historialRes = await rutasClinicasService.getHistorial(rutaActual.id);
+                    setHistorial(historialRes.data.historial || []);
+                } catch (histErr) {
+                    console.error('Error al cargar historial:', histErr);
+                    setHistorial([]);
+                }
             } else {
                 setRutaClinica(null);
                 setHistorial([]);
@@ -162,7 +153,21 @@ const DetallePaciente = () => {
             setLoading(false);
             console.error(err);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        cargarDatos();
+        const interval = setInterval(cargarDatos, 30000);
+        return () => clearInterval(interval);
+    }, [cargarDatos]);
+
+    useEffect(() => {
+        const timerInterval = setInterval(() => {
+            forceUpdate(prev => prev + 1);
+        }, 60000);
+
+        return () => clearInterval(timerInterval);
+    }, []);
 
     const handleAvanzarEtapa = () => {
         setDialogObservaciones(true);
@@ -197,6 +202,96 @@ const DetallePaciente = () => {
             await cargarDatos();
         } catch (err) {
             setError(err.response?.data?.mensaje || 'Error al retroceder la etapa');
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handlePausarRuta = async () => {
+        if (!rutaClinica || !rutaClinica.ruta_clinica) return;
+
+        try {
+            setActionLoading(true);
+            
+            const payload = {
+                motivo: motivoPausa || 'Pausado manualmente desde detalle de paciente'
+            };
+            
+            console.log('📤 Enviando pausar con payload:', payload);
+            console.log('📤 Ruta ID:', rutaClinica.ruta_clinica.id);
+            
+            await rutasClinicasService.pausar(
+                rutaClinica.ruta_clinica.id,
+                payload
+            );
+            
+            console.log('✅ Ruta pausada exitosamente');
+            
+            setDialogPausar(false);
+            setMotivoPausa('');
+            await cargarDatos();
+        } catch (err) {
+            console.error('❌ Error completo:', err);
+            console.error('❌ Response:', err.response);
+            console.error('❌ Data:', err.response?.data);
+            setError(
+                err.response?.data?.mensaje || 
+                err.response?.data?.error || 
+                err.response?.data?.detail ||
+                'Error al pausar la ruta'
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReanudarRuta = async () => {
+        if (!rutaClinica || !rutaClinica.ruta_clinica) return;
+
+        try {
+            setActionLoading(true);
+            
+            console.log('📤 Enviando reanudar para ruta:', rutaClinica.ruta_clinica.id);
+            
+            await rutasClinicasService.reanudar(
+                rutaClinica.ruta_clinica.id
+            );
+            
+            console.log('✅ Ruta reanudada exitosamente');
+            
+            await cargarDatos();
+        } catch (err) {
+            console.error('❌ Error completo:', err);
+            console.error('❌ Response:', err.response);
+            console.error('❌ Data:', err.response?.data);
+            setError(
+                err.response?.data?.mensaje || 
+                err.response?.data?.error || 
+                err.response?.data?.detail ||
+                'Error al reanudar la ruta'
+            );
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleFinalizarRuta = async () => {
+        if (!rutaClinica || !rutaClinica.ruta_clinica) return;
+
+        try {
+            setActionLoading(true);
+            
+            await rutasClinicasService.cancelar(
+                rutaClinica.ruta_clinica.id,
+                { motivo: motivoFinalizacion || 'Ruta cancelada - Paciente no continuará' }
+            );
+            
+            setDialogFinalizar(false);
+            setMotivoFinalizacion('');
+            await cargarDatos();
+        } catch (err) {
+            setError(err.response?.data?.mensaje || 'Error al finalizar la ruta');
             console.error(err);
         } finally {
             setActionLoading(false);
@@ -255,7 +350,6 @@ const DetallePaciente = () => {
         };
     };
 
-    // Función para obtener el emoji según la etapa
     const getEmojiForEtapa = (etapaKey) => {
         const emojis = {
             'CONSULTA_MEDICA': '👨‍⚕️',
@@ -268,7 +362,6 @@ const DetallePaciente = () => {
         return emojis[etapaKey] || '📌';
     };
 
-    // ⭐ Renderizar el icono de etapa con animación y emoji
     const renderStepIcon = (etapa, index) => {
         const { estado, es_actual, etapa_key } = etapa;
         const emoji = getEmojiForEtapa(etapa_key);
@@ -337,7 +430,6 @@ const DetallePaciente = () => {
         );
     };
 
-    // ⭐ Calcular posición de la barra alineada con la etapa actual
     const calcularPosicionBarra = () => {
         if (!rutaClinica || !rutaClinica.timeline) return 0;
 
@@ -367,6 +459,8 @@ const DetallePaciente = () => {
     }
 
     const datos = obtenerDatosPaciente(paciente);
+    
+    const rutaFinalizada = rutaClinica?.estado_actual === 'COMPLETADA' || rutaClinica?.estado_actual === 'CANCELADA';
 
     return (
         <>
@@ -427,11 +521,32 @@ const DetallePaciente = () => {
                                         Ruta Clínica
                                     </Typography>
                                 </Box>
-                                <Chip
-                                    label={rutaClinica.estado_actual}
-                                    color={rutaClinica.estado_actual === 'COMPLETADA' ? 'success' : 'primary'}
-                                    sx={{ fontWeight: 600 }}
-                                />
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    {rutaClinica.esta_pausado && (
+                                        <Chip
+                                            label="⏸ PAUSADA"
+                                            color="warning"
+                                            sx={{ fontWeight: 600 }}
+                                        />
+                                    )}
+                                    {rutaClinica.estado_actual === 'CANCELADA' && (
+                                        <Chip
+                                            label="🛑 CANCELADA"
+                                            color="error"
+                                            sx={{ fontWeight: 600 }}
+                                        />
+                                    )}
+                                    <Chip
+                                        label={rutaClinica.estado_actual}
+                                        color={
+                                            rutaClinica.estado_actual === 'COMPLETADA' ? 'success' : 
+                                            rutaClinica.estado_actual === 'CANCELADA' ? 'error' :
+                                            rutaClinica.esta_pausado ? 'warning' :
+                                            'primary'
+                                        }
+                                        sx={{ fontWeight: 600 }}
+                                    />
+                                </Box>
                             </Box>
 
                             {/* Barra de progreso */}
@@ -453,7 +568,9 @@ const DetallePaciente = () => {
                                         bgcolor: 'grey.200',
                                         '& .MuiLinearProgress-bar': {
                                             borderRadius: 2,
-                                            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                                            background: rutaClinica.estado_actual === 'CANCELADA' 
+                                                ? 'linear-gradient(90deg, #ef5350 0%, #e53935 100%)'
+                                                : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
                                         }
                                     }}
                                 />
@@ -506,7 +623,6 @@ const DetallePaciente = () => {
                                                         {etapa.etapa_label}
                                                     </Typography>
                                                     
-                                                    {/* ✅ MEJORADO: Calcular tiempo real para cada etapa */}
                                                     {etapa.fecha_inicio && (
                                                         <Tooltip title={
                                                             etapa.es_actual 
@@ -551,37 +667,114 @@ const DetallePaciente = () => {
                                 </Stepper>
                             </Box>
 
-                            {/* Botones de Acción */}
-                            {rutaClinica.estado_actual !== 'COMPLETADA' && (
-                                <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                                    <Button
-                                        variant="outlined"
-                                        startIcon={<ArrowBackIcon />}
-                                        onClick={handleRetrocederEtapa}
-                                        disabled={actionLoading || rutaClinica.ruta_clinica?.indice_etapa_actual === 0}
-                                    >
-                                        Retroceder
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        endIcon={<ArrowForwardIcon />}
-                                        onClick={handleAvanzarEtapa}
-                                        disabled={actionLoading}
-                                        sx={{ flexGrow: 1 }}
-                                    >
-                                        Avanzar Etapa
-                                    </Button>
-                                    <Button
-                                        variant="outlined"
-                                        startIcon={<HistoryIcon />}
-                                        onClick={() => setDialogHistorial(true)}
-                                    >
-                                        Ver Historial
-                                    </Button>
+                            {/* ✅ BOTONES DE ACCIÓN MEJORADOS - DISEÑO DE 2 FILAS */}
+                            {!rutaFinalizada && (
+                                <Box sx={{ mt: 3 }}>
+                                    {/* Primera fila - Acciones principales */}
+                                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<ArrowBackIcon />}
+                                            onClick={handleRetrocederEtapa}
+                                            disabled={actionLoading || rutaClinica.ruta_clinica?.indice_etapa_actual === 0 || rutaClinica.esta_pausado}
+                                            sx={{ minWidth: 140 }}
+                                        >
+                                            Retroceder
+                                        </Button>
+
+                                        <Button
+                                            variant="contained"
+                                            endIcon={<ArrowForwardIcon />}
+                                            onClick={handleAvanzarEtapa}
+                                            disabled={actionLoading || rutaClinica.esta_pausado}
+                                            sx={{ flexGrow: 1, minWidth: 200 }}
+                                        >
+                                            Avanzar Etapa
+                                        </Button>
+
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<HistoryIcon />}
+                                            onClick={() => setDialogHistorial(true)}
+                                            sx={{ minWidth: 140 }}
+                                        >
+                                            Ver Historial
+                                        </Button>
+                                    </Box>
+
+                                    {/* Segunda fila - Controles de estado */}
+                                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                        {/* Botón Pausar/Reanudar */}
+                                        {!rutaClinica.esta_pausado ? (
+                                            <Button
+                                                variant="outlined"
+                                                color="warning"
+                                                startIcon={<PauseIcon />}
+                                                onClick={() => setDialogPausar(true)}
+                                                disabled={actionLoading}
+                                                sx={{ minWidth: 160 }}
+                                            >
+                                                Pausar Ruta
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="contained"
+                                                color="success"
+                                                startIcon={<PlayArrowIcon />}
+                                                onClick={handleReanudarRuta}
+                                                disabled={actionLoading}
+                                                sx={{ minWidth: 160 }}
+                                            >
+                                                Reanudar Ruta
+                                            </Button>
+                                        )}
+
+                                        {/* Botón Cancelar */}
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            startIcon={<StopIcon />}
+                                            onClick={() => setDialogFinalizar(true)}
+                                            disabled={actionLoading}
+                                            sx={{ minWidth: 160 }}
+                                        >
+                                            Cancelar Ruta
+                                        </Button>
+                                    </Box>
+
+                                    {/* Mensaje informativo cuando está pausada */}
+                                    {rutaClinica.esta_pausado && (
+                                        <Alert severity="warning" sx={{ mt: 2 }}>
+                                            <Typography variant="body2">
+                                                ⏸️ <strong>Ruta Pausada:</strong> {
+                                                    typeof rutaClinica.motivo_pausa === 'string' 
+                                                        ? rutaClinica.motivo_pausa 
+                                                        : typeof rutaClinica.ruta_clinica?.motivo_pausa === 'string'
+                                                        ? rutaClinica.ruta_clinica.motivo_pausa
+                                                        : 'Sin motivo especificado'
+                                                }
+                                            </Typography>
+                                            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                                Las acciones de avanzar y retroceder están deshabilitadas mientras la ruta esté pausada.
+                                                Presiona "Reanudar Ruta" para continuar.
+                                            </Typography>
+                                        </Alert>
+                                    )}
                                 </Box>
                             )}
 
-                            {/* ✅ ALERTAS DE RETRASOS MEJORADAS - MOSTRAR EN DÍAS */}
+                            {/* Mensaje si está finalizada */}
+                            {rutaFinalizada && (
+                                <Alert severity={rutaClinica.estado_actual === 'CANCELADA' ? 'error' : 'success'} sx={{ mt: 2 }}>
+                                    <Typography variant="body2" fontWeight="600">
+                                        {rutaClinica.estado_actual === 'CANCELADA' 
+                                            ? '🛑 Esta ruta clínica ha sido cancelada y no puede reiniciarse.'
+                                            : '✅ Esta ruta clínica ha sido completada exitosamente.'
+                                        }
+                                    </Typography>
+                                </Alert>
+                            )}
+
                             {rutaClinica.retrasos && rutaClinica.retrasos.length > 0 && (
                                 <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
                                     <Typography variant="subtitle2" fontWeight="600" gutterBottom>
@@ -589,7 +782,6 @@ const DetallePaciente = () => {
                                     </Typography>
                                     <List dense>
                                         {rutaClinica.retrasos.map((retraso, idx) => {
-                                            // ✅ Calcular días del retraso
                                             const diasRetraso = retraso.retraso_dias || Math.floor(retraso.retraso_minutos / 1440);
                                             const horasRetraso = retraso.retraso_horas ? retraso.retraso_horas % 24 : Math.floor((retraso.retraso_minutos % 1440) / 60);
                                             
@@ -601,7 +793,6 @@ const DetallePaciente = () => {
                                                                 <Typography variant="body2" fontWeight="600" color="error">
                                                                     {retraso.etapa_label || retraso.etapa}:
                                                                 </Typography>
-                                                                {/* ✅ CHIP GRANDE CON DÍAS DE RETRASO */}
                                                                 <Chip
                                                                     label={
                                                                         diasRetraso > 0 
@@ -694,7 +885,6 @@ const DetallePaciente = () => {
                             </Grid>
                         </Grid>
 
-                        {/* Información Médica Adicional */}
                         <Divider sx={{ my: 3 }} />
                         <Typography variant="h6" fontWeight="600" gutterBottom>
                             Información Médica
@@ -737,7 +927,108 @@ const DetallePaciente = () => {
                     </CardContent>
                 </Card>
 
-                {/* Diálogo de Observaciones */}
+                {/* DIÁLOGO PARA PAUSAR RUTA */}
+                <Dialog
+                    open={dialogPausar}
+                    onClose={() => !actionLoading && setDialogPausar(false)}
+                    maxWidth="sm"
+                    fullWidth
+                >
+                    <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PauseIcon color="warning" />
+                        Pausar Ruta Clínica
+                    </DialogTitle>
+                    <DialogContent>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            La ruta clínica se pausará temporalmente. Podrás reanudarla cuando desees.
+                        </Alert>
+                        <Box sx={{ pt: 2 }}>
+                            <TextField
+                                fullWidth
+                                multiline
+                                rows={3}
+                                label="Motivo de la pausa"
+                                value={motivoPausa}
+                                onChange={(e) => setMotivoPausa(e.target.value)}
+                                placeholder="Ej: Paciente requiere exámenes adicionales"
+                                helperText="Opcional: Especifique el motivo de la pausa"
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button
+                            onClick={() => setDialogPausar(false)}
+                            disabled={actionLoading}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handlePausarRuta}
+                            variant="contained"
+                            color="warning"
+                            disabled={actionLoading}
+                            startIcon={actionLoading ? <CircularProgress size={20} /> : <PauseIcon />}
+                        >
+                            {actionLoading ? 'Pausando...' : 'Pausar Ruta'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* DIÁLOGO PARA CANCELAR RUTA */}
+                <Dialog
+                    open={dialogFinalizar}
+                    onClose={() => !actionLoading && setDialogFinalizar(false)}
+                    maxWidth="sm"
+                    fullWidth
+                >
+                    <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <StopIcon color="error" />
+                        Cancelar Ruta Clínica
+                    </DialogTitle>
+                    <DialogContent>
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            <Typography variant="body2" fontWeight="600" gutterBottom>
+                                ⚠️ Acción Irreversible
+                            </Typography>
+                            <Typography variant="body2">
+                                Esto <strong>cancelará</strong> la ruta clínica del paciente en la etapa actual.
+                                El proceso quedará detenido y <strong>no podrá reiniciarse</strong>.
+                                El paciente permanecerá en el sistema pero su ruta quedará marcada como CANCELADA.
+                            </Typography>
+                        </Alert>
+                        <Box sx={{ pt: 2 }}>
+                            <TextField
+                                fullWidth
+                                multiline
+                                rows={3}
+                                label="Motivo de cancelación"
+                                value={motivoFinalizacion}
+                                onChange={(e) => setMotivoFinalizacion(e.target.value)}
+                                placeholder="Ej: Paciente decidió no continuar con el tratamiento"
+                                helperText="Opcional: Especifique el motivo de la cancelación"
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button
+                            onClick={() => setDialogFinalizar(false)}
+                            disabled={actionLoading}
+                        >
+                            Volver
+                        </Button>
+                        <Button
+                            onClick={handleFinalizarRuta}
+                            variant="contained"
+                            color="error"
+                            disabled={actionLoading}
+                            startIcon={actionLoading ? <CircularProgress size={20} /> : <StopIcon />}
+                        >
+                            {actionLoading ? 'Cancelando...' : 'Cancelar Ruta'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* Diálogo de Observaciones para Avanzar */}
                 <Dialog
                     open={dialogObservaciones}
                     onClose={() => !actionLoading && setDialogObservaciones(false)}
@@ -833,7 +1124,7 @@ const DetallePaciente = () => {
                                                 }
                                             />
                                         </ListItem>
-                        {index < historial.length - 1 && <Divider />}
+                                        {index < historial.length - 1 && <Divider />}
                                     </React.Fragment>
                                 ))}
                             </List>
