@@ -1,4 +1,3 @@
-# backend/config/urls.py - VERSIÓN CORREGIDA
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import permissions
