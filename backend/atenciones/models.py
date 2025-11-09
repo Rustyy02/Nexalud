@@ -7,11 +7,10 @@ from pacientes.models import Paciente
 from boxes.models import Box
 
 class Medico(models.Model):
-    """
-    Modelo para gestionar médicos y prestadores de salud.
-    NOTA: Este modelo se mantiene para compatibilidad con datos históricos.
-    Las nuevas atenciones usan directamente el modelo User con rol MEDICO.
-    """
+    
+    # Modelo para gestionar médicos y prestadores de salud.
+    # NOTA: Este modelo se mantiene para compatibilidad con datos históricos.
+    # Las nuevas atenciones usan directamente el modelo User con rol MEDICO.
     
     ESPECIALIDAD_CHOICES = [
         ('MEDICINA_GENERAL', 'Medicina General'),
@@ -92,7 +91,7 @@ class Medico(models.Model):
         return f"{self.nombre} {self.apellido}"
     
     def obtener_atenciones_dia(self, fecha=None):
-        """Retorna las atenciones del médico para un día específico"""
+        # Retorna las atenciones del médico para un día específico
         if fecha is None:
             fecha = timezone.now().date()
         
@@ -101,7 +100,7 @@ class Medico(models.Model):
         ).order_by('fecha_hora_inicio')
     
     def calcular_tiempo_promedio_atencion(self, dias=30):
-        """Calcula el tiempo promedio de atención de los últimos N días"""
+        # Calcula el tiempo promedio de atención de los últimos N días
         desde = timezone.now() - timezone.timedelta(days=dias)
         
         atenciones = self.atenciones.filter(
@@ -118,7 +117,7 @@ class Medico(models.Model):
         return 0
     
     def obtener_eficiencia(self):
-        """Calcula métricas de eficiencia del médico"""
+        # Calcula métricas de eficiencia del médico
         atenciones_mes = self.obtener_atenciones_dia().count()
         tiempo_promedio = self.calcular_tiempo_promedio_atencion()
         
@@ -129,7 +128,7 @@ class Medico(models.Model):
         }
     
     def _calcular_score_eficiencia(self):
-        """Cálculo interno del score de eficiencia"""
+        # Cálculo interno del score de eficiencia
         tiempo_promedio = self.calcular_tiempo_promedio_atencion()
         if tiempo_promedio > 0:
             return min(100, (30 / tiempo_promedio) * 100)
@@ -137,10 +136,9 @@ class Medico(models.Model):
 
 
 class Atencion(models.Model):
-    """
-    Modelo para gestionar las atenciones médicas.
-    Incluye cronómetro para medir tiempos reales.
-    """
+    
+    # Modelo para gestionar las atenciones médicas.
+    # Incluye cronómetro para medir tiempos reales.
     
     ESTADO_CHOICES = [
         ('PROGRAMADA', 'Programada'),
@@ -172,7 +170,7 @@ class Atencion(models.Model):
         related_name='atenciones'
     )
     
-    # ✅ CAMPO ACTUALIZADO: Ahora apunta a User con rol MEDICO
+    # User con rol de medico
     medico = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -280,10 +278,10 @@ class Atencion(models.Model):
     # ========================================
     
     def iniciar_cronometro(self):
-        """
-        Inicia el cronómetro de la atención.
-        También marca el box como ocupado.
-        """
+        
+        # Inicia el cronómetro de la atención.
+        # También marca el box como ocupado.
+        
         if self.estado in ['PROGRAMADA', 'EN_ESPERA']:
             self.inicio_cronometro = timezone.now()
             self.estado = 'EN_CURSO'
@@ -296,10 +294,10 @@ class Atencion(models.Model):
         return False
 
     def finalizar_cronometro(self):
-        """
-        Finaliza el cronómetro y calcula la duración real.
-        También libera el box.
-        """
+        
+        # Finaliza el cronómetro y calcula la duración real.
+        # También libera el box.
+        
         if self.estado == 'EN_CURSO' and self.inicio_cronometro:
             self.fin_cronometro = timezone.now()
             self.estado = 'COMPLETADA'
@@ -316,26 +314,26 @@ class Atencion(models.Model):
         return False
     
     def calcular_retraso(self):
-        """
-        Calcula el retraso en minutos respecto a la hora programada.
-        """
+        
+        # Calcula el retraso en minutos respecto a la hora programada.
+        
         if self.inicio_cronometro:
             retraso = self.inicio_cronometro - self.fecha_hora_inicio
             return max(0, int(retraso.total_seconds() / 60))
         return 0
     
     def calcular_diferencia_duracion(self):
-        """
-        Calcula la diferencia entre duración planificada y real.
-        """
+        
+        # Calcula la diferencia entre duración planificada y real.
+        
         if self.duracion_real:
             return self.duracion_real - self.duracion_planificada
         return 0
     
     def obtener_tiempo_transcurrido(self):
-        """
-        Retorna el tiempo transcurrido desde el inicio (si está en curso).
-        """
+        
+        # Retorna el tiempo transcurrido desde el inicio (si está en curso).
+        
         if self.estado == 'EN_CURSO' and self.inicio_cronometro:
             return timezone.now() - self.inicio_cronometro
         elif self.duracion_real:
@@ -343,9 +341,9 @@ class Atencion(models.Model):
         return None
     
     def generar_metricas(self):
-        """
-        Genera métricas de la atención para análisis.
-        """
+        
+        # Genera métricas de la atención para análisis.
+        
         return {
             'id': str(self.id),
             'tipo': self.tipo_atencion,
@@ -361,9 +359,9 @@ class Atencion(models.Model):
         }
     
     def is_retrasada(self):
-        """
-        Verifica si la atención está retrasada.
-        """
+        
+        # Verifica si la atención está retrasada.
+        
         if self.estado == 'EN_CURSO' and self.inicio_cronometro:
             tiempo_transcurrido = self.obtener_tiempo_transcurrido()
             if tiempo_transcurrido:
@@ -371,9 +369,9 @@ class Atencion(models.Model):
         return False
     
     def cancelar_atencion(self, motivo=""):
-        """
-        Cancela la atención y libera recursos.
-        """
+        
+        # Cancela la atención y libera recursos.
+        
         if self.estado not in ['COMPLETADA', 'CANCELADA']:
             self.estado = 'CANCELADA'
             self.observaciones += f"\nCancelada: {motivo}" if motivo else "\nCancelada"
@@ -387,9 +385,9 @@ class Atencion(models.Model):
         return False
     
     def reagendar(self, nueva_fecha, nuevo_box=None):
-        """
-        Reagenda la atención para una nueva fecha/hora.
-        """
+        
+        # Reagenda la atención para una nueva fecha/hora.
+        
         if self.estado in ['PROGRAMADA', 'EN_ESPERA']:
             self.fecha_hora_inicio = nueva_fecha
             if nuevo_box:
@@ -400,15 +398,15 @@ class Atencion(models.Model):
             return True
         return False
     
-    # ✅ NUEVAS FUNCIONES PARA MÉDICOS
+    # Estas son más funciones para médicos, no se utilizan todas.
     
     def reportar_atraso(self, motivo=""):
-        """
-        Reporta un atraso del paciente.
-        Inicia un timer de 5 minutos para que el paciente llegue.
-        Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
-        Solo disponible cuando la atención ya está EN_CURSO.
-        """
+        
+        # Reporta un atraso del paciente.
+        # Inicia un timer de 5 minutos para que el paciente llegue.
+        # Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
+        # Solo disponible cuando la atención ya está EN_CURSO.
+        
         if self.estado == 'EN_CURSO' and not self.atraso_reportado:
             self.atraso_reportado = True
             self.fecha_reporte_atraso = timezone.now()
@@ -418,10 +416,10 @@ class Atencion(models.Model):
         return False
     
     def verificar_tiempo_atraso(self):
-        """
-        Verifica si han pasado 5 minutos desde el reporte de atraso.
-        Retorna True si debe marcarse como NO_PRESENTADO.
-        """
+        
+        # Verifica si han pasado 5 minutos desde el reporte de atraso.
+        # Retorna True si debe marcarse como NO_PRESENTADO.
+        
         if self.atraso_reportado and self.fecha_reporte_atraso:
             ahora = timezone.now()
             tiempo_transcurrido = ahora - self.fecha_reporte_atraso
@@ -430,9 +428,9 @@ class Atencion(models.Model):
         return False
     
     def marcar_no_presentado(self):
-        """
-        Marca la atención como 'No se presentó' y libera el box.
-        """
+        
+        # Marca la atención como 'No se presentó' y libera el box.
+        
         if self.estado in ['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO']:
             self.estado = 'NO_PRESENTADO'
             
@@ -445,22 +443,22 @@ class Atencion(models.Model):
         return False
     
     def puede_iniciar(self):
-        """
-        Verifica si la atención puede ser iniciada por el médico.
-        """
+        
+        # Verifica si la atención puede ser iniciada por el médico.
+        
         return self.estado in ['PROGRAMADA', 'EN_ESPERA']
     
     def puede_finalizar(self):
-        """
-        Verifica si la atención puede ser finalizada.
-        """
+        
+        # Verifica si la atención puede ser finalizada.
+        
         return self.estado == 'EN_CURSO'
     
     def tiempo_hasta_inicio(self):
-        """
-        Calcula el tiempo restante hasta la hora programada.
-        Retorna None si ya pasó la hora o timedelta si falta tiempo.
-        """
+        
+        # Calcula el tiempo restante hasta la hora programada.
+        # Retorna None si ya pasó la hora o timedelta si falta tiempo.
+        
         ahora = timezone.now()
         if ahora < self.fecha_hora_inicio:
             return self.fecha_hora_inicio - ahora

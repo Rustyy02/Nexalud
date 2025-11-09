@@ -29,9 +29,9 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """
-        Retorna solo las atenciones del médico autenticado.
-        """
+        
+        # Retorna solo las atenciones del médico autenticado.
+        
         user = self.request.user
         
         # Verificar que el usuario tenga rol MEDICO
@@ -43,9 +43,9 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
         ).select_related('paciente', 'box').order_by('fecha_hora_inicio')
     
     def list(self, request, *args, **kwargs):
-        """
-        Lista atenciones con filtros opcionales.
-        """
+        
+        # Lista atenciones con filtros opcionales.
+        
         queryset = self.get_queryset()
         
         # Filtros opcionales
@@ -67,10 +67,9 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def hoy(self, request):
-        """
-        Retorna las atenciones del médico para el día actual.
-        ✅ CORREGIDO: Usa timezone.localtime para manejar correctamente la zona horaria
-        """
+        
+        #Retorna las atenciones del médico para el día actual.
+        
         from django.utils import timezone
         
         # Obtener la fecha actual en la zona horaria local configurada
@@ -111,13 +110,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def proximas(self, request):
-        """
-        Retorna las próximas atenciones del médico.
         
-        GET /api/medico/atenciones/proximas/
-        Query params:
-        - limite: Número máximo de atenciones a retornar (default: 5)
-        """
+        #Retorna las próximas atenciones del médico.
+        #GET /api/medico/atenciones/proximas/
+
         limite = int(request.query_params.get('limite', 5))
         ahora = timezone.now()
         
@@ -135,12 +131,11 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def actual(self, request):
-        """
-        Retorna la atención actual (en curso) o la próxima atención.
-        Esta es la vista principal para el cronómetro del médico.
         
-        GET /api/medico/atenciones/actual/
-        """
+        # Retorna la atención actual (en curso) o la próxima atención.
+        # Esta es la vista principal para el cronómetro del médico.
+        # GET /api/medico/atenciones/actual/
+        
         ahora = timezone.now()
         
         # Primero buscar si hay una atención en curso
@@ -188,11 +183,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=True, methods=['post'])
     def iniciar(self, request, pk=None):
-        """
-        Inicia el cronómetro de una atención.
         
-        POST /api/medico/atenciones/{id}/iniciar/
-        """
+        # Inicia el cronómetro de una atención.
+        # POST /api/medico/atenciones/{id}/iniciar/
+        
         atencion = self.get_object()
         
         # Verificar que puede iniciar
@@ -227,15 +221,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=True, methods=['post'])
     def finalizar(self, request, pk=None):
-        """
-        Finaliza el cronómetro de una atención.
         
-        POST /api/medico/atenciones/{id}/finalizar/
-        Body (opcional):
-        {
-            "observaciones": "Observaciones finales de la atención"
-        }
-        """
+        # Finaliza el cronómetro de una atención.
+        # POST /api/medico/atenciones/{id}/finalizar/
+    
         atencion = self.get_object()
         
         # Verificar que puede finalizar
@@ -269,15 +258,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=True, methods=['post'])
     def no_se_presento(self, request, pk=None):
-        """
-        Marca que el paciente no se presentó a la atención.
         
-        POST /api/medico/atenciones/{id}/no_se_presento/
-        Body (opcional):
-        {
-            "observaciones": "Motivo o detalles adicionales"
-        }
-        """
+        # Marca que el paciente no se presentó a la atención.
+        # POST /api/medico/atenciones/{id}/no_se_presento/
+        
         atencion = self.get_object()
         
         # Verificar que la atención no esté completada
@@ -308,13 +292,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """
-        Estadísticas de las atenciones del médico.
         
-        GET /api/medico/atenciones/estadisticas/
-        Query params:
-        - periodo: Número de días a considerar (default: 30)
-        """
+        # Estadísticas de las atenciones del médico.
+        # GET /api/medico/atenciones/estadisticas/
+        
         periodo = int(request.query_params.get('periodo', 30))
         fecha_desde = timezone.now() - timezone.timedelta(days=periodo)
         
@@ -351,15 +332,10 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
         
     @action(detail=True, methods=['post'])
     def reportar_atraso(self, request, pk=None):
-        """
-        Reporta que el paciente llegó con atraso.
         
-        POST /api/medico/atenciones/{id}/reportar_atraso/
-        Body:
-        {
-            "motivo": "Paciente llegó 15 minutos tarde"
-        }
-        """
+        # Reporta que el paciente llegó con atraso.
+        # POST /api/medico/atenciones/{id}/reportar_atraso/
+
         atencion = self.get_object()
         
         # Verificar que la atención no esté completada

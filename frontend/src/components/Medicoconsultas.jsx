@@ -1,4 +1,3 @@
-// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CORREGIDA
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,

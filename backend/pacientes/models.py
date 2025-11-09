@@ -1,4 +1,3 @@
-# backend/pacientes/models.py - VERSIÓN ACTUALIZADA CON ETAPA_ACTUAL
 import uuid
 import re
 import hashlib
@@ -10,13 +9,7 @@ from datetime import date
 
 
 class Paciente(models.Model):
-    """
-    Modelo completo para gestionar pacientes en el sistema Nexalud.
-    
-    CAMBIOS IMPORTANTES:
-    - estado_actual: Estado general del sistema (EN_ESPERA, ACTIVO, INACTIVO, etc.)
-    - etapa_actual: Etapa específica del flujo clínico (sincronizada con RutaClinica)
-    """
+    # Modelo completo para gestionar pacientes en el sistema Nexalud.
     
     # ============================================
     # ESTADOS DEL SISTEMA (Estado General)
@@ -516,7 +509,7 @@ class Paciente(models.Model):
             raise
     
     # ============================================
-    # MÉTODOS DE VALIDACIÓN RUT CHILENO
+    # MÉTODOS DE VALIDACIÓN RUT CHILENO (Creado con la fórmula correspondiente para el dígito verificador)
     # ============================================
     
     @staticmethod

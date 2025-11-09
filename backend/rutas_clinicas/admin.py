@@ -8,13 +8,13 @@ from .RutaClinicaAdminForm import RutaClinicaAdminForm
 
 @admin.register(RutaClinica)
 class RutaClinicaAdmin(admin.ModelAdmin):
-    form = RutaClinicaAdminForm  # ← Usar el form personalizado
+    form = RutaClinicaAdminForm
     
     list_display = [
         'id_corto',
         'paciente_info',
         'etapa_actual_badge',
-        'progreso_bar',  # <--- EL MÉTODO QUE CORREGIMOS
+        'progreso_bar',
         'estado_badge',
         'pausado_badge',
         'fecha_inicio',
@@ -189,10 +189,6 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         
         for etapa in timeline:
             color = 'green' if etapa['estado'] == 'COMPLETADA' else 'blue' if etapa['estado'] == 'EN_PROCESO' else 'gray'
-            # Es vital usar format_html para que Django marque la cadena como segura,
-            # pero aquí el string formatting normal de Python está bien si es f-string.
-            # Sin embargo, para mayor seguridad en el admin, usaremos format_html para todo el bloque si es posible.
-            # En este caso, lo que hiciste con f-strings está bien siempre que uses format_html al final.
             html += f'<tr style="{"background: #e3f2fd;" if etapa["es_actual"] else ""}">'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;">{etapa["orden"]}</td>'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;"><strong>{etapa["etapa_label"]}</strong></td>'
@@ -246,14 +242,13 @@ class RutaClinicaAdmin(admin.ModelAdmin):
     
     def recalcular_progreso(self, request, queryset):
         for ruta in queryset:
-            # Dado que el modelo tiene lógica para guardar el progreso,
-            # llamamos al método que fuerza el recálculo y la actualización.
+            # Calcular progreso
             ruta.calcular_progreso()
         self.message_user(request, f'Progreso recalculado para {queryset.count()} rutas.')
     recalcular_progreso.short_description = "Recalcular progreso"
     
     def etapas_orden_display(self, obj):
-        #"""Muestra el orden correcto de las etapas"""
+        # Orden correcto de las etapas
         todas_etapas = [key for key, _ in RutaClinica.ETAPAS_CHOICES]
         
         html = '<div style="font-family: monospace; line-height: 2;">'

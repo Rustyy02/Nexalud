@@ -1,13 +1,8 @@
-# backend/pacientes/serializers.py - ACTUALIZADO CON ETAPA_ACTUAL
 from rest_framework import serializers
 from .models import Paciente
 
 
 class PacienteSerializer(serializers.ModelSerializer):
-    """
-    Serializer completo para el modelo Paciente.
-    ✅ Incluye nuevo campo etapa_actual.
-    """
     # Campos display
     estado_actual_display = serializers.CharField(
         source='get_estado_actual_display', 

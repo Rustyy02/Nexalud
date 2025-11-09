@@ -1,4 +1,3 @@
-# backend/dashboard/admin.py - VERSIÓN ACTUALIZADA
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
@@ -126,7 +125,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             is_active=True
         ).count()
         
-        # ✅ ACTUALIZADO: Etapas con retraso (detectar rutas con retrasos)
+        #Etapas q se han retrasado
         etapas_retrasadas = 0
         for ruta in RutaClinica.objects.filter(estado='EN_PROGRESO'):
             if ruta.detectar_retrasos():
@@ -139,7 +138,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             total=Count('id')
         )
         
-        # ✅ ACTUALIZADO: Top 5 médicos por atenciones (usando User)
+        #Top 5 médicos
         top_medicos = User.objects.filter(
             rol='MEDICO',
             atenciones_medico__fecha_hora_inicio__date=hoy,
@@ -160,7 +159,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
         context.update({
             'title': 'Dashboard de Métricas',
             
-            # Métricas generales
+            # Métricas generales para dashboard
             'pacientes_hoy': pacientes_hoy,
             'pacientes_por_estado': pacientes_por_estado,
             'atenciones_hoy': atenciones_hoy,
@@ -225,9 +224,3 @@ class MetricasGeneralesAdmin(admin.ModelAdmin):
             'pacientes_en_espera': Paciente.objects.filter(estado_actual='EN_ESPERA'),
         }
         return render(request, 'admin/metricas_tiempo_real.html', context)
-
-
-# Nota: Para que el dashboard funcione completamente, se necesitan crear los templates:
-# - templates/admin/dashboard_metricas.html
-# - templates/admin/metricas_tiempo_real.html
-# Y opcionalmente CSS personalizado en static/admin/css/dashboard.css

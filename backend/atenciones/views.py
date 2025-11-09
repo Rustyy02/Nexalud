@@ -1,20 +1,16 @@
-# Agregar estos endpoints a tu archivo views.py existente
-
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Atencion
 from .serializers import AtencionSerializer
 
-# Agregar este método a tu ViewSet de Atencion existente
-
 @action(detail=True, methods=['post'], url_path='reportar-atraso')
 def reportar_atraso(self, request, pk=None):
-    """
-    Reporta un atraso del paciente.
-    Inicia un timer de 5 minutos.
-    Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
-    """
+    
+    # Reporta un atraso del paciente.
+    # Inicia un timer de 5 minutos.
+    # Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
+    
     atencion = self.get_object()
     
     # Validar que la atención esté EN_CURSO
@@ -48,10 +44,10 @@ def reportar_atraso(self, request, pk=None):
 
 @action(detail=True, methods=['post'], url_path='verificar-atraso')
 def verificar_atraso(self, request, pk=None):
-    """
-    Verifica si han pasado 5 minutos desde el reporte de atraso.
-    Si es así, marca automáticamente como NO_PRESENTADO.
-    """
+    
+    # Verifica si han pasado 5 minutos desde el reporte de atraso.
+    # Si es así, marca automáticamente como NO_PRESENTADO.
+    
     atencion = self.get_object()
     
     if not atencion.atraso_reportado:
@@ -78,10 +74,10 @@ def verificar_atraso(self, request, pk=None):
 
 @action(detail=True, methods=['post'], url_path='iniciar-consulta')
 def iniciar_consulta(self, request, pk=None):
-    """
-    El paciente llegó después de reportar atraso.
-    Cancela el timer de atraso y permite continuar la consulta normalmente.
-    """
+    
+    # El paciente llegó después de reportar atraso.
+    # Cancela el timer de atraso y permite continuar la consulta normalmente.
+    
     atencion = self.get_object()
     
     if atencion.estado != 'EN_CURSO':

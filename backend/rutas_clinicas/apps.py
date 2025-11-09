@@ -10,7 +10,7 @@ class RutasClinicasConfig(AppConfig):
         Se ejecuta cuando la aplicación está lista.
         Aquí importamos los signals para que se registren.
         """
-        import rutas_clinicas.signals  # Importar los signals para registrarlos
+        import rutas_clinicas.signals
         print("✅ Signals de la API registrados correctamente")
 
 

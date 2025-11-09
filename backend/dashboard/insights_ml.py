@@ -1,8 +1,3 @@
-# backend/dashboard/insights_ml.py
-"""
-Esta es la base para generar insights de los datos del dashboard, aún no es machine learning automatizado, pero es un buen punto para partir.
-"""
-
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -12,9 +7,10 @@ from pacientes.models import Paciente
 from users.models import User
 from rutas_clinicas.models import RutaClinica
 
+# Esta es la base para generar insights de los datos del dashboard, aún no es machine learning automatizado, pero es un buen punto para partir.
 
 class NexaThinkAnalyzer:
-    """Analizador de insights basado en datos históricos y en tiempo real"""
+    # Analizador de insights basado en datos históricos y en tiempo real
     
     def __init__(self):
         self.insights = []
@@ -22,7 +18,7 @@ class NexaThinkAnalyzer:
         self.hoy = self.ahora.date()
         
     def generar_insights(self):
-        """Genera todos los insights disponibles"""
+        # Genera todos los insights disponibles
         self.insights = []
         
         # Análisis de médicos
@@ -55,7 +51,6 @@ class NexaThinkAnalyzer:
     
     def _analizar_medicos(self):
         """Analiza el desempeño de los médicos"""
-        # ✅ CORREGIDO: Usar User con rol MEDICO
         from users.models import User
         
         # Tiempo promedio por médico (últimos 30 días)
@@ -143,8 +138,10 @@ class NexaThinkAnalyzer:
                 })
     
     def _analizar_desercion(self):
-        """Analiza tasa de deserción de pacientes"""
-        # Pacientes que iniciaron pero no completaron ruta
+        # Analiza tasa de deserción de pacientes
+        
+        # Pacientes que iniciaron pero no completaron ruta para ver deserción
+        
         hace_30_dias = self.ahora - timedelta(days=30)
         
         rutas_iniciadas = RutaClinica.objects.filter(
@@ -174,7 +171,7 @@ class NexaThinkAnalyzer:
                 })
     
     def _analizar_tiempos_espera(self):
-        """Analiza tiempos de espera"""
+        # Analiza tiempos de espera
         pacientes_en_espera = Paciente.objects.filter(
             estado_actual='EN_ESPERA',
             activo=True
@@ -193,7 +190,7 @@ class NexaThinkAnalyzer:
             })
     
     def _analizar_rutas_clinicas(self):
-        """Analiza el estado de las rutas clínicas"""
+        # Analiza el estado de las rutas clínicas
         rutas_con_retraso = []
         
         rutas_activas = RutaClinica.objects.filter(

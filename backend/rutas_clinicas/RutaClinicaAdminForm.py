@@ -1,4 +1,3 @@
-# backend/rutas_clinicas/forms.py
 from django import forms
 from .models import RutaClinica
 

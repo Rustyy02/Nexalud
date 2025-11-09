@@ -1,4 +1,3 @@
-# backend/verificar_atenciones.py
 """
 Script para verificar atenciones en la base de datos
 Ejecutar con: python manage.py shell < verificar_atenciones.py

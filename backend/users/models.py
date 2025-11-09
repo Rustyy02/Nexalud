@@ -1,4 +1,3 @@
-# backend/users/models.py - VERSIÓN CORREGIDA
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -31,7 +30,7 @@ class User(AbstractUser):
     
     @property
     def nombre_completo(self):
-        """Devuelve el nombre completo del usuario"""
+        # Devuelve el nombre completo del usuario
         if self.first_name and self.last_name:
             return f"{self.first_name} {self.last_name}"
         elif self.first_name:
@@ -57,7 +56,7 @@ class User(AbstractUser):
         verbose_name_plural = 'Usuarios'
     
     def _get_rol_from_email(self):
-        """Determinar el rol basado en el dominio del email"""
+        # Determinar el rol basado en el dominio del email
         if not self.email:
             return None
         

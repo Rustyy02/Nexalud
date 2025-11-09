@@ -1,4 +1,3 @@
-# backend/users/serializers.py - VERSIÓN CON ESPECIALIDAD
 from rest_framework import serializers
 from .models import User
 

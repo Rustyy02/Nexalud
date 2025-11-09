@@ -1,11 +1,10 @@
-# backend/users/admin.py - VERSIÓN SIMPLIFICADA
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django import forms
 from .models import User
 
 class CustomUserCreationForm(forms.ModelForm):
-    """Formulario personalizado para crear usuarios"""
+    # Formulario personalizado para crear usuarios
     password1 = forms.CharField(
         label='Contraseña',
         widget=forms.PasswordInput,
@@ -33,7 +32,7 @@ class CustomUserCreationForm(forms.ModelForm):
         fields = ('username', 'first_name', 'last_name', 'email', 'rut', 'especialidad')
     
     def _get_rol_from_email(self, email):
-        """Determinar el rol basado en el dominio del email"""
+        # Determinar el rol basado en el dominio del email
         if not email:
             return None
         

@@ -1,4 +1,3 @@
-// frontend/src/components/DetallePaciente.jsx - VERSIÓN CORREGIDA COMPLETA
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,

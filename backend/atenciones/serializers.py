@@ -4,10 +4,10 @@ from pacientes.serializers import PacienteListSerializer
 from boxes.serializers import BoxListSerializer
 
 
-# ==================== SERIALIZERS DE MÉDICO (LEGACY) ====================
+# ==================== SERIALIZERS DE MÉDICO ====================
 
 class MedicoSerializer(serializers.ModelSerializer):
-    """Serializer completo para Medico (legacy)"""
+    # Serializer completo para Medico (anterior, se deja igual)
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -49,7 +49,7 @@ class MedicoSerializer(serializers.ModelSerializer):
 
 
 class MedicoListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listar médicos (legacy)"""
+    # Serializer simplificado para listar médicos (anterior)
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -69,7 +69,7 @@ class MedicoListSerializer(serializers.ModelSerializer):
 
 
 class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer para crear y actualizar médicos (legacy)"""
+    # Serializer para crear y actualizar médicos (anterior)
     
     class Meta:
         model = Medico
@@ -95,11 +95,11 @@ class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-# ✅ NUEVO: Serializer para Médico (User)
+# Nuevo serializer para usuario medico
 class MedicoUserSerializer(serializers.Serializer):
-    """
-    Serializer para representar usuarios con rol MEDICO como médicos.
-    """
+    
+    # Serializer para representar usuarios con rol MEDICO como médicos.
+    
     id = serializers.UUIDField(read_only=True)
     username = serializers.CharField(read_only=True)
     nombre_completo = serializers.SerializerMethodField()
@@ -114,7 +114,7 @@ class MedicoUserSerializer(serializers.Serializer):
 # ==================== SERIALIZERS DE ATENCIÓN ====================
 
 class AtencionSerializer(serializers.ModelSerializer):
-    """Serializer completo para Atencion"""
+    # Serializer completo para Atencion
     # Campos display
     tipo_atencion_display = serializers.CharField(
         source='get_tipo_atencion_display',
@@ -127,7 +127,6 @@ class AtencionSerializer(serializers.ModelSerializer):
     
     # Relaciones anidadas (solo lectura)
     paciente_info = PacienteListSerializer(source='paciente', read_only=True)
-    # ✅ Actualizado: ahora usa MedicoUserSerializer
     medico_info = MedicoUserSerializer(source='medico', read_only=True)
     box_info = BoxListSerializer(source='box', read_only=True)
     
@@ -138,7 +137,7 @@ class AtencionSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    # ✅ Actualizado: ahora filtra User con rol MEDICO
+
     medico_id = serializers.PrimaryKeyRelatedField(
         queryset=__import__('users.models', fromlist=['User']).User.objects.filter(rol='MEDICO'),
         source='medico',
@@ -160,7 +159,7 @@ class AtencionSerializer(serializers.ModelSerializer):
     metricas = serializers.SerializerMethodField()
     tiempo_restante_minutos = serializers.SerializerMethodField()
     
-    # ✅ NUEVO: Información útil para médicos
+    # Info útil para los medicos
     puede_iniciar = serializers.SerializerMethodField()
     puede_finalizar = serializers.SerializerMethodField()
     minutos_desde_reporte_atraso = serializers.SerializerMethodField()
@@ -220,7 +219,7 @@ class AtencionSerializer(serializers.ModelSerializer):
         ]
         
     def get_minutos_desde_reporte_atraso(self, obj):
-        """Calcula cuántos minutos han pasado desde que se reportó el atraso"""
+        # Calcula cuántos minutos han pasado desde que se reportó el atraso
         if obj.atraso_reportado and obj.fecha_reporte_atraso:
             from django.utils import timezone
             ahora = timezone.now()
@@ -229,7 +228,7 @@ class AtencionSerializer(serializers.ModelSerializer):
         return 0
     
     def get_tiempo_restante_minutos(self, obj):
-        """Calcula el tiempo restante para la atención"""
+        # Calcula el tiempo restante para la atención
         if obj.estado == 'EN_CURSO' and obj.inicio_cronometro:
             from django.utils import timezone
             ahora = timezone.now()
@@ -256,7 +255,6 @@ class AtencionSerializer(serializers.ModelSerializer):
     def get_metricas(self, obj):
         return obj.generar_metricas()
     
-    # ✅ NUEVOS MÉTODOS
     def get_puede_iniciar(self, obj):
         return obj.puede_iniciar()
     
@@ -270,19 +268,20 @@ class AtencionSerializer(serializers.ModelSerializer):
         return 0
     
     def get_debe_marcar_no_presentado(self, obj):
-        """Indica si han pasado 5 minutos desde el reporte de atraso"""
+        # Indica si han pasado 5 minutos desde el reporte de atraso
         return obj.verificar_tiempo_atraso()
 
 
 class AtencionListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listar atenciones"""
-    # ✅ NUEVO: Mostrar nombre completo del paciente
+    
+    # Serializer simplificado para listar atenciones
+    
     paciente_nombre = serializers.SerializerMethodField()
     paciente_hash = serializers.CharField(
         source='paciente.identificador_hash',
         read_only=True
     )
-    # ✅ Actualizado: nombre del médico
+
     medico_nombre = serializers.SerializerMethodField()
     box_numero = serializers.CharField(
         source='box.numero',
@@ -302,7 +301,7 @@ class AtencionListSerializer(serializers.ModelSerializer):
         model = Atencion
         fields = [
             'id',
-            'paciente_nombre',  # ✅ NUEVO: Nombre completo
+            'paciente_nombre',
             'paciente_hash',
             'medico_nombre',
             'box_numero',
@@ -317,7 +316,6 @@ class AtencionListSerializer(serializers.ModelSerializer):
         ]
     
     def get_paciente_nombre(self, obj):
-        """✅ NUEVO: Retorna nombre completo del paciente"""
         try:
             # Intentar obtener nombre completo
             if hasattr(obj.paciente, 'nombre') and hasattr(obj.paciente, 'apellido_paterno'):
@@ -338,13 +336,14 @@ class AtencionListSerializer(serializers.ModelSerializer):
 
 
 class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer para crear y actualizar atenciones"""
+    
+    # Serializer para crear y actualizar atenciones
     
     class Meta:
         model = Atencion
         fields = [
             'paciente',
-            'medico',  # ✅ Ahora apunta a User
+            'medico',
             'box',
             'fecha_hora_inicio',
             'fecha_hora_fin',
@@ -360,7 +359,6 @@ class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_medico(self, value):
-        """✅ NUEVO: Validar que el médico tenga rol MEDICO"""
         if value.rol != 'MEDICO':
             raise serializers.ValidationError("El usuario seleccionado debe tener rol de médico.")
         return value
@@ -384,17 +382,17 @@ class AtencionCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class AtencionCronometroSerializer(serializers.Serializer):
-    """Serializer para acciones de cronómetro"""
+    # Serializer para acciones de cronómetro
     timestamp = serializers.DateTimeField(required=False, allow_null=True)
 
 
 class AtencionCancelarSerializer(serializers.Serializer):
-    """Serializer para cancelar atención"""
+    # Serializer para cancelar atención
     motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
 
 class AtencionReagendarSerializer(serializers.Serializer):
-    """Serializer para reagendar atención"""
+    # Serializer para reagendar atención
     nueva_fecha = serializers.DateTimeField(required=True)
     nuevo_box = serializers.PrimaryKeyRelatedField(
         queryset=__import__('boxes.models', fromlist=['Box']).Box.objects.all(),
@@ -404,7 +402,7 @@ class AtencionReagendarSerializer(serializers.Serializer):
 
 
 class AtencionEstadisticasSerializer(serializers.Serializer):
-    """Serializer para estadísticas de atenciones"""
+    # Serializer para estadísticas de atenciones
     total = serializers.IntegerField()
     por_estado = serializers.DictField()
     por_tipo = serializers.DictField()
