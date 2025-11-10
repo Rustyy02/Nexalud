@@ -72,7 +72,7 @@ const Navbar = () => {
     return location.pathname.startsWith(path);
   };
 
-  // ✅ Definir elementos de navegación según el rol
+  // Definir elementos de navegación según el rol
   const getNavigationItems = () => {
     const rol = user?.rol;
     
@@ -92,7 +92,7 @@ const Navbar = () => {
       ];
     }
     
-    // ✅ NUEVO: Navegación para médicos
+    // Navegación para médicos
     if (rol === 'MEDICO') {
       return [
         { label: 'Mis Consultas', path: '/medico/consultas', icon: <HospitalIcon /> },

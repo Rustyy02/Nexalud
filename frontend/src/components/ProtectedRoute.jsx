@@ -6,7 +6,7 @@ import { Box, Alert, Container, Typography } from '@mui/material';
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, user, loading } = useAuth();
 
-  // ✅ Debug: Mostrar información del usuario
+  // Debug: Mostrar información del usuario
   console.log('=== ProtectedRoute Debug ===');
   console.log('Usuario actual:', user);
   console.log('Rol del usuario:', user?.rol);

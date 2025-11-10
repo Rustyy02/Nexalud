@@ -49,7 +49,7 @@ const Login = () => {
       const result = await login(formData.username, formData.password);
       
       if (result.success) {
-        // ✅ CORRECCIÓN: Redirigir según el rol del usuario
+        // Redirigir según el rol del usuario
         const userRole = result.user?.rol;
         
         if (userRole === 'MEDICO') {

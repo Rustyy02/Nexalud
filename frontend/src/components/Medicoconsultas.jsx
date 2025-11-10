@@ -70,7 +70,7 @@ const MedicoConsultas = () => {
     severity: 'success' 
   });
 
-  // ✅ Refs para intervalos (evita memory leaks)
+  // Refs para intervalos (evita memory leaks)
   const intervalRefActualizacion = useRef(null);
   const intervalRefCronometro = useRef(null);
   const isMountedRef = useRef(true);
@@ -129,7 +129,7 @@ const MedicoConsultas = () => {
       
       const atencion = response.data.atencion;
       
-      // ✅ NUEVA LÓGICA: Verificar si debe marcar automáticamente como NO_PRESENTADO
+      // Verificar si debe marcar automáticamente como NO_PRESENTADO
       if (atencion && atencion.atraso_reportado && atencion.debe_marcar_no_presentado) {
         console.log('⏰ Han pasado 5 minutos desde el reporte de atraso. Marcando como NO_PRESENTADO...');
         try {
@@ -202,7 +202,7 @@ const MedicoConsultas = () => {
     }
   }, []);
 
-  // ✅ Sincronizar estados de boxes (importante para consistencia)
+  // Sincronizar estados de boxes (importante para consistencia)
   const sincronizarBoxes = useCallback(async () => {
     try {
       console.log('🔄 Sincronizando estados de boxes...');
@@ -214,7 +214,7 @@ const MedicoConsultas = () => {
 
   // ==================== EFECTOS ====================
   
-  // ✅ Efecto para marcar el componente como montado
+  // Efecto para marcar el componente como montado
   useEffect(() => {
     isMountedRef.current = true;
     console.log('🚀 Componente MedicoConsultas montado');
@@ -225,7 +225,7 @@ const MedicoConsultas = () => {
     };
   }, []);
 
-  // ✅ Efecto para carga inicial
+  // Efecto para carga inicial
   useEffect(() => {
     console.log('📥 Carga inicial de datos...');
     
@@ -240,7 +240,7 @@ const MedicoConsultas = () => {
     cargarDatosIniciales();
   }, []); // Solo al montar
 
-  // ✅ Efecto para actualización automática (POLLING)
+  // Efecto para actualización automática (POLLING)
   useEffect(() => {
     console.log('⏰ Configurando polling automático...');
     
@@ -273,7 +273,7 @@ const MedicoConsultas = () => {
     };
   }, [cargarAtencionActual, cargarAtencionesHoy, sincronizarBoxes]);
 
-  // ✅ Efecto para cronómetro local
+  // Efecto para cronómetro local
   useEffect(() => {
     // Limpiar intervalo previo
     if (intervalRefCronometro.current) {
@@ -379,12 +379,12 @@ const MedicoConsultas = () => {
       if (response.data.success) {
         showSnackbar('Atención iniciada correctamente', 'success');
         
-        // ✅ Actualizar inmediatamente con los datos del servidor
+        // Actualizar inmediatamente con los datos del servidor
         const atencionActualizada = response.data.atencion;
         setAtencionActual(atencionActualizada);
         setTipoAtencion('en_curso');
 
-        // ✅ Recargar todo para sincronizar
+        // Recargar todo para sincronizar
         await Promise.all([
           sincronizarBoxes(),
           cargarAtencionesHoy()
@@ -414,13 +414,13 @@ const MedicoConsultas = () => {
       if (response.data.success) {
         showSnackbar('Atención finalizada correctamente', 'success');
         
-        // ✅ Resetear estados
+        // Resetear estados
         setAtencionActual(null);
         setTipoAtencion('ninguna');
         setObservaciones('');
         setDialogFinalizar(false);
 
-        // ✅ Recargar todo para sincronizar
+        // Recargar todo para sincronizar
         await Promise.all([
           sincronizarBoxes(),
           cargarAtencionActual(),
@@ -453,7 +453,7 @@ const MedicoConsultas = () => {
         setDialogNoPresentado(false);
         setObservaciones('');
         
-        // ✅ Recargar todo
+        // Recargar todo
         await Promise.all([
           sincronizarBoxes(),
           cargarAtencionActual(),
@@ -475,7 +475,7 @@ const MedicoConsultas = () => {
     try {
       setLoading(true);
       
-      // ✅ LOG ANTES DE LLAMAR AL BACKEND
+      // LOG ANTES DE LLAMAR AL BACKEND
       console.log('⚠️ Reportando atraso:');
       console.log('  - ID:', atencionActual.id);
       console.log('  - Motivo:', motivoAtraso);
@@ -487,7 +487,7 @@ const MedicoConsultas = () => {
         { motivo: motivoAtraso }
       );
       
-      // ✅ LOG DE LA RESPUESTA
+      // LOG DE LA RESPUESTA
       console.log('✅ Respuesta del servidor:', response.data);
       
       if (response.data.success) {
@@ -502,7 +502,7 @@ const MedicoConsultas = () => {
         ]);
       }
     } catch (error) {
-      // ✅ LOG DEL ERROR COMPLETO
+      // LOG DEL ERROR COMPLETO
       console.error('❌ Error completo:', error);
       console.error('❌ Response:', error.response);
       console.error('❌ Data:', error.response?.data);
@@ -952,7 +952,7 @@ const MedicoConsultas = () => {
                 )}
 
                 {/* ========================================= */}
-                {/* ✅ ATENCIÓN EN CURSO - SECCIÓN MODIFICADA */}
+                {/* ATENCIÓN EN CURSO - SECCIÓN MODIFICADA */}
                 {/* ========================================= */}
                 {tipoAtencion === 'en_curso' && atencionActual && (
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1057,7 +1057,7 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
-                        {/* ✅ BOTÓN REPORTAR ATRASO - SIEMPRE VISIBLE SI NO HAY ATRASO REPORTADO */}
+                        {/* BOTÓN REPORTAR ATRASO - SIEMPRE VISIBLE SI NO HAY ATRASO REPORTADO */}
                         {!atencionActual.atraso_reportado && (
                           <Box>
                             <Button
@@ -1080,7 +1080,7 @@ const MedicoConsultas = () => {
                               REPORTAR ATRASO / AUSENCIA
                             </Button>
                             
-                            {/* ✅ Info sobre tiempo disponible para reportar */}
+                            {/* Info sobre tiempo disponible para reportar */}
                             {atencionActual.minutos_desde_inicio_atencion !== undefined && 
                              atencionActual.minutos_desde_inicio_atencion <= 5 && (
                               <Typography 
@@ -1097,7 +1097,7 @@ const MedicoConsultas = () => {
                               </Typography>
                             )}
                             
-                            {/* ✅ Advertencia si ya pasaron 5 minutos */}
+                            {/* Advertencia si ya pasaron 5 minutos */}
                             {atencionActual.minutos_desde_inicio_atencion !== undefined && 
                              atencionActual.minutos_desde_inicio_atencion > 5 && (
                               <Typography 
@@ -1116,7 +1116,7 @@ const MedicoConsultas = () => {
                           </Box>
                         )}
 
-                        {/* ✅ Alerta si hay atraso reportado */}
+                        {/* Alerta si hay atraso reportado */}
                         {atencionActual.atraso_reportado && (
                           <Alert severity="warning">
                             <Typography variant="body2" fontWeight={600}>
@@ -1168,9 +1168,6 @@ const MedicoConsultas = () => {
                     </Box>
                   </Box>
                 )}
-                {/* ========================================= */}
-                {/* FIN SECCIÓN MODIFICADA */}
-                {/* ========================================= */}
               </CardContent>
             </Card>
           </Grid>
@@ -1263,7 +1260,7 @@ const MedicoConsultas = () => {
           </DialogActions>
         </Dialog>
 
-        {/* ✅ DIÁLOGO DE REPORTAR ATRASO - TEXTO ACTUALIZADO */}
+        {/* DIÁLOGO DE REPORTAR ATRASO - TEXTO ACTUALIZADO */}
         <Dialog 
           open={dialogAtraso} 
           onClose={() => !loading && setDialogAtraso(false)}

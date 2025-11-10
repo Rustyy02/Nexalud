@@ -67,17 +67,17 @@ const Home = () => {
     try {
       setError('');
       const timestamp = new Date().getTime();
-      const nocache = Math.random(); // ✅ NUEVO: Fuerza bypass total del caché
+      const nocache = Math.random();
       
       const [pacientesRes, boxesRes] = await Promise.all([
         pacientesService.getAll({ 
           activo: true, 
           _t: timestamp,
-          _nocache: nocache // ✅ NUEVO
+          _nocache: nocache
         }),
         boxesService.getAll({ 
           _t: timestamp,
-          _nocache: nocache // ✅ NUEVO
+          _nocache: nocache
         })
       ]);
       
