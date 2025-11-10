@@ -1,4 +1,4 @@
-// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CORREGIDA
+// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CON REPORTE DE ATRASO EN PRIMEROS 5 MIN
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
@@ -782,7 +782,7 @@ const MedicoConsultas = () => {
                       </Typography>
                     </Box>
 
-                    {/* ✅ ALERTA DE ATRASO REPORTADO */}
+                    {/* ALERTA DE ATRASO REPORTADO */}
                     {atencionActual.atraso_reportado && (
                       <Alert 
                         severity="warning" 
@@ -869,7 +869,7 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
-                        {/* ✅ Botón INICIAR - Cambia comportamiento si hay atraso reportado */}
+                        {/*  Botón INICIAR - Cambia comportamiento si hay atraso reportado */}
                         <Button
                           variant="contained"
                           size="large"
@@ -898,7 +898,7 @@ const MedicoConsultas = () => {
                           }
                         </Button>
 
-                        {/* ✅ Botón REPORTAR ATRASO - Solo si ya es la hora Y NO hay atraso reportado */}
+                        {/*  Botón REPORTAR ATRASO - Solo si ya es la hora Y NO hay atraso reportado */}
                         {!atencionActual.atraso_reportado && calcularMinutosHastaInicio() === 0 && (
                           <Button
                             variant="outlined"
@@ -945,7 +945,9 @@ const MedicoConsultas = () => {
                   </Box>
                 )}
 
-                {/* ATENCIÓN EN CURSO */}
+                {/* ========================================= */}
+                {/* ✅ ATENCIÓN EN CURSO - SECCIÓN MODIFICADA */}
+                {/* ========================================= */}
                 {tipoAtencion === 'en_curso' && atencionActual && (
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ mb: 3 }}>
@@ -1049,37 +1051,73 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
-                        {/* ✅ Botón REPORTAR ATRASO - Solo si NO se ha reportado aún */}
+                        {/* ✅ BOTÓN REPORTAR ATRASO - SIEMPRE VISIBLE SI NO HAY ATRASO REPORTADO */}
                         {!atencionActual.atraso_reportado && (
-                          <Button
-                            variant="outlined"
-                            size="large"
-                            fullWidth
-                            startIcon={<WarningIcon />}
-                            onClick={() => setDialogAtraso(true)}
-                            disabled={loading}
-                            sx={{ 
-                              color: 'white',
-                              borderColor: 'rgba(255, 193, 7, 0.8)',
-                              bgcolor: 'rgba(255, 193, 7, 0.1)',
-                              '&:hover': {
-                                borderColor: 'rgba(255, 193, 7, 1)',
-                                bgcolor: 'rgba(255, 193, 7, 0.2)',
-                              }
-                            }}
-                          >
-                            REPORTAR ATRASO
-                          </Button>
+                          <Box>
+                            <Button
+                              variant="outlined"
+                              size="large"
+                              fullWidth
+                              startIcon={<WarningIcon />}
+                              onClick={() => setDialogAtraso(true)}
+                              disabled={loading}
+                              sx={{ 
+                                color: 'white',
+                                borderColor: 'rgba(255, 193, 7, 0.8)',
+                                bgcolor: 'rgba(255, 193, 7, 0.1)',
+                                '&:hover': {
+                                  borderColor: 'rgba(255, 193, 7, 1)',
+                                  bgcolor: 'rgba(255, 193, 7, 0.2)',
+                                }
+                              }}
+                            >
+                              REPORTAR ATRASO / AUSENCIA
+                            </Button>
+                            
+                            {/* ✅ Info sobre tiempo disponible para reportar */}
+                            {atencionActual.minutos_desde_inicio_atencion !== undefined && 
+                             atencionActual.minutos_desde_inicio_atencion <= 5 && (
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  display: 'block', 
+                                  textAlign: 'center', 
+                                  mt: 0.5,
+                                  color: 'rgba(255, 255, 255, 0.8)'
+                                }}
+                              >
+                                ⏱️ Disponible durante primeros 5 min
+                                ({Math.max(0, Math.round(5 - atencionActual.minutos_desde_inicio_atencion))} min restantes)
+                              </Typography>
+                            )}
+                            
+                            {/* ✅ Advertencia si ya pasaron 5 minutos */}
+                            {atencionActual.minutos_desde_inicio_atencion !== undefined && 
+                             atencionActual.minutos_desde_inicio_atencion > 5 && (
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  display: 'block', 
+                                  textAlign: 'center', 
+                                  mt: 0.5,
+                                  color: 'rgba(255, 193, 7, 0.9)',
+                                  fontWeight: 600
+                                }}
+                              >
+                                ⚠️ Han pasado más de 5 min - El sistema puede rechazar el reporte
+                              </Typography>
+                            )}
+                          </Box>
                         )}
 
                         {/* ✅ Alerta si hay atraso reportado */}
                         {atencionActual.atraso_reportado && (
-                          <Alert severity="warning" sx={{ mb: 2 }}>
+                          <Alert severity="warning">
                             <Typography variant="body2" fontWeight={600}>
-                              ⏳ Esperando paciente ({atencionActual.minutos_desde_reporte_atraso}/5 min)
+                              ⏳ Esperando que el paciente regrese ({atencionActual.minutos_desde_reporte_atraso}/5 min)
                             </Typography>
                             <Typography variant="caption">
-                              Si el paciente llega, use el botón "INICIAR CONSULTA" en la vista de programadas
+                              Si regresa, la atención continuará normalmente
                             </Typography>
                           </Alert>
                         )}
@@ -1124,6 +1162,9 @@ const MedicoConsultas = () => {
                     </Box>
                   </Box>
                 )}
+                {/* ========================================= */}
+                {/* FIN SECCIÓN MODIFICADA */}
+                {/* ========================================= */}
               </CardContent>
             </Card>
           </Grid>
@@ -1216,6 +1257,7 @@ const MedicoConsultas = () => {
           </DialogActions>
         </Dialog>
 
+        {/* ✅ DIÁLOGO DE REPORTAR ATRASO - TEXTO ACTUALIZADO */}
         <Dialog 
           open={dialogAtraso} 
           onClose={() => !loading && setDialogAtraso(false)}
@@ -1225,15 +1267,15 @@ const MedicoConsultas = () => {
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <WarningIcon color="warning" />
-              Reportar Atraso del Paciente
+              Reportar Atraso / Ausencia del Paciente
             </Box>
           </DialogTitle>
           <DialogContent>
             <Alert severity="warning" sx={{ mb: 2 }}>
               <strong>⏳ Ventana de espera: 5 minutos</strong>
               <Typography variant="body2" sx={{ mt: 1 }}>
-                • Si el paciente llega dentro de 5 minutos, podrás iniciar la consulta<br/>
-                • Si no llega, se marcará automáticamente como "No se presentó"<br/>
+                • Si el paciente llega/regresa dentro de 5 minutos, podrás continuar<br/>
+                • Si no llega/regresa, se marcará automáticamente como "No se presentó"<br/>
                 • Esta espera será visible en el panel de Estado de Boxes
               </Typography>
             </Alert>
@@ -1241,10 +1283,14 @@ const MedicoConsultas = () => {
               fullWidth
               multiline
               rows={3}
-              label="Motivo del atraso *"
+              label="Motivo del atraso/ausencia *"
               value={motivoAtraso}
               onChange={(e) => setMotivoAtraso(e.target.value)}
-              placeholder="Ej: Paciente no se presentó a la hora programada (17:00)"
+              placeholder={
+                tipoAtencion === 'en_curso' 
+                  ? "Ej: Paciente salió a hacer una llamada / Paciente fue al baño"
+                  : "Ej: Paciente no se presentó a la hora programada (17:00)"
+              }
               required
               disabled={loading}
               sx={{ mt: 2 }}

@@ -667,22 +667,21 @@ class AtencionViewSet(viewsets.ModelViewSet):
     def reportar_atraso(self, request, pk=None):
         """
         Reporta un atraso del paciente.
-        Inicia un timer de 5 minutos.
-        Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
+        
+        Disponible en:
+        - Atenciones PROGRAMADAS/EN_ESPERA (paciente no llega a tiempo)
+        - Atenciones EN_CURSO durante los primeros 5 minutos (paciente se ausenta)
+        
+        Inicia un timer de 5 minutos. Si el paciente no llega/regresa en ese tiempo,
+        se marcará automáticamente como NO_PRESENTADO.
         """
         atencion = self.get_object()
         
-        # Validar que la atención esté EN_CURSO
-        if atencion.estado != 'EN_CURSO':
-            return Response(
-                {'error': 'Solo se puede reportar atraso cuando la atención está EN_CURSO'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        puede_reportar, mensaje_error = atencion.puede_reportar_atraso()
         
-        # Validar que no se haya reportado ya
-        if atencion.atraso_reportado:
+        if not puede_reportar:
             return Response(
-                {'error': 'El atraso ya fue reportado anteriormente'},
+                {'error': mensaje_error},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -690,9 +689,16 @@ class AtencionViewSet(viewsets.ModelViewSet):
         
         if atencion.reportar_atraso(motivo):
             serializer = AtencionSerializer(atencion)
+            
+            # Mensaje diferente según el estado
+            if atencion.estado == 'EN_CURSO':
+                mensaje = '⚠️ Atraso reportado - Paciente tiene 5 minutos para regresar'
+            else:
+                mensaje = '⚠️ Atraso reportado - Paciente tiene 5 minutos para llegar'
+            
             return Response({
                 'success': True,
-                'message': 'Atraso reportado. El paciente tiene 5 minutos para llegar.',
+                'message': mensaje,
                 'atencion': serializer.data
             }, status=status.HTTP_200_OK)
         
@@ -700,7 +706,6 @@ class AtencionViewSet(viewsets.ModelViewSet):
             {'error': 'No se pudo reportar el atraso'},
             status=status.HTTP_400_BAD_REQUEST
         )
-
 
     @action(detail=True, methods=['post'], url_path='verificar-atraso')
     def verificar_atraso(self, request, pk=None):
