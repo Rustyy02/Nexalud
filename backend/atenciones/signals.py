@@ -5,9 +5,9 @@ from .models import Atencion
 
 @receiver(post_save, sender=Atencion)
 def gestionar_estado_box_al_guardar(sender, instance, created, **kwargs):
-    
-    # Gestiona el estado del box automáticamente cuando se guarda una atención.
-    
+    """
+    Gestiona el estado del box automáticamente cuando se guarda una atención.
+    """
     # Si la atención acaba de ser creada y está EN_CURSO, ocupar el box
     if created and instance.estado == 'EN_CURSO' and instance.inicio_cronometro:
         instance.box.ocupar(instance.inicio_cronometro)
@@ -15,3 +15,67 @@ def gestionar_estado_box_al_guardar(sender, instance, created, **kwargs):
     # Si la atención se completó o canceló, liberar el box
     if instance.estado in ['COMPLETADA', 'CANCELADA'] and instance.box.estado == 'OCUPADO':
         instance.box.liberar()
+
+@receiver(post_save, sender=Atencion)
+def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
+    """
+    Crea automáticamente una ruta clínica cuando se crea una atención
+    para un paciente que no tiene ruta clínica activa.
+    """
+    if not created:
+        return
+    
+    # Importar aquí para evitar importaciones circulares
+    from rutas_clinicas.models import RutaClinica
+    
+    # Verificar si el paciente ya tiene una ruta clínica activa
+    rutas_activas = RutaClinica.objects.filter(
+        paciente=instance.paciente,
+        estado__in=['INICIADA', 'EN_PROGRESO', 'PAUSADA']
+    ).exists()
+    
+    if not rutas_activas:
+        print(f"🔍 Paciente {instance.paciente.identificador_hash[:8]} sin ruta clínica")
+        print(f"✨ Creando ruta clínica automática...")
+        
+        try:
+            # Crear la ruta clínica con todas las etapas
+            nueva_ruta = RutaClinica.objects.create(
+                paciente=instance.paciente,
+                etapas_seleccionadas=[
+                    'CONSULTA_MEDICA',
+                    'PROCESO_EXAMEN',
+                    'REVISION_EXAMEN',
+                    'HOSPITALIZACION',
+                    'OPERACION',
+                    'ALTA'
+                ],
+                estado='INICIADA',
+                metadatos_adicionales={
+                    'creada_automaticamente': True,
+                    'creada_desde_atencion': str(instance.id),
+                    'fecha_creacion_automatica': timezone.now().isoformat(),
+                    'medico_atencion': instance.medico.get_full_name() if instance.medico else 'N/A'
+                }
+            )
+            
+            # Iniciar la ruta automáticamente en CONSULTA_MEDICA
+            nueva_ruta.iniciar_ruta(
+                usuario=instance.medico,
+                etapa_inicial='CONSULTA_MEDICA'
+            )
+            
+            print(f"✅ Ruta clínica creada exitosamente para paciente {instance.paciente.identificador_hash[:8]}")
+            print(f"   - ID Ruta: {nueva_ruta.id}")
+            print(f"   - Estado: {nueva_ruta.estado}")
+            print(f"   - Etapa inicial: {nueva_ruta.etapa_actual}")
+            
+            # Actualizar el estado del paciente
+            instance.paciente.estado_actual = 'ACTIVO'
+            instance.paciente.etapa_actual = 'CONSULTA_MEDICA'
+            instance.paciente.save(update_fields=['estado_actual', 'etapa_actual'])
+            
+        except Exception as e:
+            print(f"❌ Error al crear ruta clínica automática: {str(e)}")
+            import traceback
+            traceback.print_exc()

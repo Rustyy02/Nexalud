@@ -289,8 +289,7 @@ class Paciente(models.Model):
         max_digits=5, 
         decimal_places=2, 
         null=True, 
-        default='DESCONOCIDO',
-        blank=True,
+        blank=True,  
         help_text="Peso en kilogramos"
     )
     

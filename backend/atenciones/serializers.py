@@ -167,6 +167,9 @@ class AtencionSerializer(serializers.ModelSerializer):
     mensaje_puede_reportar_atraso = serializers.SerializerMethodField()
     minutos_desde_inicio_atencion = serializers.SerializerMethodField()
     
+    #Saber si el paciente tiene una ruta clinica activa
+    paciente_tiene_ruta = serializers.SerializerMethodField()
+    ruta_clinica_id = serializers.SerializerMethodField()
     class Meta:
         model = Atencion
         fields = [
@@ -210,6 +213,8 @@ class AtencionSerializer(serializers.ModelSerializer):
             'puede_reportar_atraso',
             'mensaje_puede_reportar_atraso',
             'minutos_desde_inicio_atencion',
+            'paciente_tiene_ruta',
+            'ruta_clinica_id',
         ]
         read_only_fields = [
             'id',
@@ -294,6 +299,23 @@ class AtencionSerializer(serializers.ModelSerializer):
     def get_debe_marcar_no_presentado(self, obj):
         # Indica si han pasado 5 minutos desde el reporte de atraso
         return obj.verificar_tiempo_atraso()
+    
+    def get_paciente_tiene_ruta(self, obj):
+        """Verifica si el paciente tiene ruta clínica activa"""
+        from rutas_clinicas.models import RutaClinica
+        return RutaClinica.objects.filter(
+            paciente=obj.paciente,
+            estado__in=['INICIADA', 'EN_PROGRESO', 'PAUSADA']
+        ).exists()
+        
+    def get_ruta_clinica_id(self, obj):
+        """Obtiene el ID de la ruta clínica activa del paciente"""
+        from rutas_clinicas.models import RutaClinica
+        ruta = RutaClinica.objects.filter(
+            paciente=obj.paciente,
+            estado__in=['INICIADA', 'EN_PROGRESO', 'PAUSADA']
+        ).first()
+        return str(ruta.id) if ruta else None
 
 
 class AtencionListSerializer(serializers.ModelSerializer):

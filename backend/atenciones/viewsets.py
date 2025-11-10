@@ -761,3 +761,44 @@ class AtencionViewSet(viewsets.ModelViewSet):
             'message': mensaje,
             'atencion': serializer.data
         }, status=status.HTTP_200_OK)
+        
+    def create(self, request, *args, **kwargs):
+        """
+        Crea una nueva atención y automáticamente crea ruta clínica si no existe.
+        """
+        from rutas_clinicas.models import RutaClinica
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Verificar si el paciente tiene ruta antes de crear la atención
+        paciente = serializer.validated_data['paciente']
+        tiene_ruta_antes = RutaClinica.objects.filter(
+            paciente=paciente,
+            estado__in=['INICIADA', 'EN_PROGRESO', 'PAUSADA']
+        ).exists()
+        
+        # Crear la atención
+        self.perform_create(serializer)
+        
+        # Verificar si se creó ruta después
+        tiene_ruta_despues = RutaClinica.objects.filter(
+            paciente=paciente,
+            estado__in=['INICIADA', 'EN_PROGRESO', 'PAUSADA']
+        ).exists()
+        
+        # Log para debugging
+        if not tiene_ruta_antes and tiene_ruta_despues:
+            print(f"✅ Ruta clínica creada automáticamente para paciente {paciente.identificador_hash[:8]}")
+        
+        headers = self.get_success_headers(serializer.data)
+        
+        # Incluir información sobre la ruta en la respuesta
+        response_data = serializer.data
+        response_data['ruta_creada_automaticamente'] = (not tiene_ruta_antes and tiene_ruta_despues)
+        
+        return Response(
+            response_data, 
+            status=status.HTTP_201_CREATED, 
+            headers=headers
+        )

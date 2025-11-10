@@ -42,7 +42,6 @@ import {
 } from '@mui/icons-material';
 import { medicoAtencionesService, boxesService } from '../services/api';
 import Navbar from './Navbar';
-
 const MedicoConsultas = () => {
   // Estados principales
   const [atencionActual, setAtencionActual] = useState(null);
@@ -51,43 +50,34 @@ const MedicoConsultas = () => {
   const [atencionesHoy, setAtencionesHoy] = useState([]);
   const [estadisticasHoy, setEstadisticasHoy] = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
-
   // Estados de cronómetro
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
-
   // Estados de diálogos
   const [dialogFinalizar, setDialogFinalizar] = useState(false);
   const [dialogNoPresentado, setDialogNoPresentado] = useState(false);
   const [dialogAtraso, setDialogAtraso] = useState(false);
   const [observaciones, setObservaciones] = useState('');
   const [motivoAtraso, setMotivoAtraso] = useState('');
-
   // Snackbar
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
-
   // Refs para intervalos (evita memory leaks)
   const intervalRefActualizacion = useRef(null);
   const intervalRefCronometro = useRef(null);
   const isMountedRef = useRef(true);
-
   // ==================== FUNCIÓN AUXILIAR PARA OBTENER NOMBRE DEL PACIENTE ====================
-
   const obtenerNombrePaciente = (atencion) => {
     if (!atencion) return 'Sin paciente';
-
     if (atencion.paciente_nombre) {
       return atencion.paciente_nombre;
     }
-
     if (atencion.paciente_info?.nombre_completo) {
       return atencion.paciente_info.nombre_completo;
     }
-
     const pacienteInfo = atencion.paciente_info;
     if (pacienteInfo) {
       const nombre = pacienteInfo.nombres || pacienteInfo.nombre;
@@ -102,33 +92,23 @@ const MedicoConsultas = () => {
         return nombreCompleto.trim();
       }
     }
-
     const hash = atencion.paciente_hash ||
                    atencion.paciente_info?.identificador_hash ||
                    atencion.paciente;
-
     if (typeof hash === 'string') {
       return `Paciente ${hash.substring(0, 8)}...`;
     }
-
     return 'Sin identificar';
   };
-
   // ==================== FUNCIONES DE CARGA ====================
-
   const cargarAtencionActual = useCallback(async () => {
     if (!isMountedRef.current) return;
-
     try {
       console.log('🔄 Cargando atención actual...');
       const response = await medicoAtencionesService.getActual();
-
       if (!isMountedRef.current) return;
-
       console.log('✅ Atención actual:', response.data);
-
       const atencion = response.data.atencion;
-
       // Verificar si debe marcar automáticamente como NO_PRESENTADO
       if (atencion && atencion.atraso_reportado && atencion.debe_marcar_no_presentado) {
         console.log('⏰ Han pasado 5 minutos desde el reporte de atraso. Marcando como NO_PRESENTADO...');
@@ -144,25 +124,21 @@ const MedicoConsultas = () => {
           console.error('❌ Error al verificar atraso:', error);
         }
       }
-
       setAtencionActual(atencion);
       setTipoAtencion(response.data.tipo);
       setUltimaActualizacion(new Date());
-
       if (response.data.tipo === 'en_curso' && atencion?.inicio_cronometro) {
         const inicio = new Date(atencion.inicio_cronometro);
         const ahora = new Date();
         const transcurrido = Math.floor((ahora - inicio) / 1000);
         const duracionTotal = atencion.duracion_planificada * 60;
         const restante = duracionTotal - transcurrido;
-
         setTiempoTranscurrido(transcurrido);
         setTiempoRestante(restante);
       } else {
         setTiempoTranscurrido(0);
         setTiempoRestante(0);
       }
-
       setLoading(false);
     } catch (error) {
       if (isMountedRef.current) {
@@ -172,22 +148,16 @@ const MedicoConsultas = () => {
       }
     }
   }, []);
-
   const cargarAtencionesHoy = useCallback(async () => {
     if (!isMountedRef.current) return;
-
     try {
       console.log('📅 Cargando atenciones del día...');
       const response = await medicoAtencionesService.getHoy();
-
       if (!isMountedRef.current) return;
-
       console.log('✅ Atenciones hoy:', response.data);
-
       const atenciones = Array.isArray(response.data.atenciones)
         ? response.data.atenciones
         : [];
-
       setAtencionesHoy(atenciones);
       setEstadisticasHoy({
         total: response.data.total || atenciones.length,
@@ -201,7 +171,6 @@ const MedicoConsultas = () => {
       }
     }
   }, []);
-
   // Sincronizar estados de boxes (importante para consistencia)
   const sincronizarBoxes = useCallback(async () => {
     try {
@@ -211,24 +180,19 @@ const MedicoConsultas = () => {
       console.error('❌ Error al sincronizar boxes:', error);
     }
   }, []);
-
   // ==================== EFECTOS ====================
-
   // Efecto para marcar el componente como montado
   useEffect(() => {
     isMountedRef.current = true;
     console.log('🚀 Componente MedicoConsultas montado');
-
     return () => {
       isMountedRef.current = false;
       console.log('🧹 Componente MedicoConsultas desmontado');
     };
   }, []);
-
   // Efecto para carga inicial
   useEffect(() => {
     console.log('📥 Carga inicial de datos...');
-
     const cargarDatosIniciales = async () => {
       await Promise.all([
         cargarAtencionActual(),
@@ -236,33 +200,26 @@ const MedicoConsultas = () => {
         sincronizarBoxes()
       ]);
     };
-
     cargarDatosIniciales();
   }, []); // Solo al montar
-
   // Efecto para actualización automática (POLLING)
   useEffect(() => {
     console.log('⏰ Configurando polling automático...');
-
     // Limpiar intervalo previo si existe
     if (intervalRefActualizacion.current) {
       clearInterval(intervalRefActualizacion.current);
     }
-
     // Configurar nuevo intervalo
     intervalRefActualizacion.current = setInterval(async () => {
       console.log('🔄 [POLLING] Actualizando datos automáticamente...');
-
       // Sincronizar boxes primero (esto actualiza estados)
       await sincronizarBoxes();
-
       // Luego cargar datos actualizados
       await Promise.all([
         cargarAtencionActual(),
         cargarAtencionesHoy()
       ]);
     }, 3000); // ✅ Cada 3 segundos para respuesta más rápida
-
     // Limpieza
     return () => {
       if (intervalRefActualizacion.current) {
@@ -272,7 +229,6 @@ const MedicoConsultas = () => {
       }
     };
   }, [cargarAtencionActual, cargarAtencionesHoy, sincronizarBoxes]);
-
   // Efecto para cronómetro local
   useEffect(() => {
     // Limpiar intervalo previo
@@ -280,19 +236,15 @@ const MedicoConsultas = () => {
       clearInterval(intervalRefCronometro.current);
       intervalRefCronometro.current = null;
     }
-
     if (tipoAtencion === 'en_curso' && atencionActual?.inicio_cronometro) {
       console.log('⏱️ Iniciando cronómetro local');
-
       intervalRefCronometro.current = setInterval(() => {
         if (!isMountedRef.current) return;
-
         const inicio = new Date(atencionActual.inicio_cronometro);
         const ahora = new Date();
         const transcurrido = Math.floor((ahora - inicio) / 1000);
         const duracionTotal = atencionActual.duracion_planificada * 60;
         const restante = duracionTotal - transcurrido;
-
         setTiempoTranscurrido(transcurrido);
         setTiempoRestante(restante);
       }, 1000);
@@ -300,7 +252,6 @@ const MedicoConsultas = () => {
       setTiempoTranscurrido(0);
       setTiempoRestante(0);
     }
-
     return () => {
       if (intervalRefCronometro.current) {
         console.log('🧹 Limpiando cronómetro');
@@ -309,27 +260,21 @@ const MedicoConsultas = () => {
       }
     };
   }, [tipoAtencion, atencionActual]);
-
   // ==================== FUNCIONES AUXILIARES ====================
-
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
-
   const formatearTiempo = (segundos) => {
     const absSegundos = Math.abs(segundos);
     const horas = Math.floor(absSegundos / 3600);
     const minutos = Math.floor((absSegundos % 3600) / 60);
     const segs = absSegundos % 60;
-
     const signo = segundos < 0 ? '+' : '';
-
     if (horas > 0) {
       return `${signo}${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
     }
     return `${signo}${String(minutos).padStart(2, '0')}:${String(segs).padStart(2, '0')}`;
   };
-
   const formatearHora = (fechaStr) => {
     if (!fechaStr) return '--:--';
     const fecha = new Date(fechaStr);
@@ -338,52 +283,53 @@ const MedicoConsultas = () => {
       minute: '2-digit'
     });
   };
-
   const calcularProgreso = () => {
     if (!atencionActual?.duracion_planificada || tipoAtencion !== 'en_curso') return 0;
     const duracionTotal = atencionActual.duracion_planificada * 60;
     const progreso = (tiempoTranscurrido / duracionTotal) * 100;
     return Math.min(progreso, 100);
   };
-
   const getColorProgreso = () => {
     const progreso = calcularProgreso();
     if (progreso < 80) return 'success';
     if (progreso < 100) return 'warning';
     return 'error';
   };
-
   const tiempoExcedido = () => {
     return tipoAtencion === 'en_curso' && tiempoRestante < 0;
   };
-
   const calcularMinutosHastaInicio = () => {
     if (!atencionActual?.fecha_hora_inicio) return 0;
     const ahora = new Date();
     const inicio = new Date(atencionActual.fecha_hora_inicio);
+    // Retorna la diferencia en minutos, truncada hacia abajo
     const diferencia = Math.floor((inicio - ahora) / (1000 * 60));
     return Math.max(0, diferencia);
   };
 
-  // ==================== ACCIONES ====================
+  // ✅ NUEVA FUNCIÓN: Calcula el tiempo restante en segundos.
+  const calcularSegundosHastaInicio = () => {
+    if (!atencionActual?.fecha_hora_inicio) return 0;
+    const ahora = new Date();
+    const inicio = new Date(atencionActual.fecha_hora_inicio);
+    // Retorna la diferencia en segundos, redondeada hacia arriba para mostrar cuenta regresiva.
+    const diferenciaSegundos = Math.ceil((inicio - ahora) / 1000);
+    return Math.max(0, diferenciaSegundos);
+  };
 
+  // ==================== ACCIONES ====================
   const handleIniciarAtencion = async () => {
     if (!atencionActual) return;
-
     try {
       setLoading(true);
       console.log('▶️ Iniciando atención:', atencionActual.id);
-
       const response = await medicoAtencionesService.iniciar(atencionActual.id);
-
       if (response.data.success) {
         showSnackbar('Atención iniciada correctamente', 'success');
-
         // Actualizar inmediatamente con los datos del servidor
         const atencionActualizada = response.data.atencion;
         setAtencionActual(atencionActualizada);
         setTipoAtencion('en_curso');
-
         // Recargar todo para sincronizar
         await Promise.all([
           sincronizarBoxes(),
@@ -398,28 +344,22 @@ const MedicoConsultas = () => {
       setLoading(false);
     }
   };
-
   const handleFinalizarAtencion = async () => {
     if (!atencionActual) return;
-
     try {
       setLoading(true);
       console.log('⏹️ Finalizando atención:', atencionActual.id);
-
       const response = await medicoAtencionesService.finalizar(
         atencionActual.id,
         observaciones ? { observaciones } : {}
       );
-
       if (response.data.success) {
         showSnackbar('Atención finalizada correctamente', 'success');
-
         // Resetear estados
         setAtencionActual(null);
         setTipoAtencion('ninguna');
         setObservaciones('');
         setDialogFinalizar(false);
-
         // Recargar todo para sincronizar
         await Promise.all([
           sincronizarBoxes(),
@@ -435,24 +375,19 @@ const MedicoConsultas = () => {
       setLoading(false);
     }
   };
-
   const handleNoPresentado = async () => {
     if (!atencionActual) return;
-
     try {
       setLoading(true);
       console.log('❌ Marcando no presentado:', atencionActual.id);
-
       const response = await medicoAtencionesService.noPresentado(
         atencionActual.id,
         observaciones ? { observaciones } : {}
       );
-
       if (response.data.success) {
         showSnackbar('Paciente marcado como no presentado', 'info');
         setDialogNoPresentado(false);
         setObservaciones('');
-
         // Recargar todo
         await Promise.all([
           sincronizarBoxes(),
@@ -468,38 +403,29 @@ const MedicoConsultas = () => {
       setLoading(false);
     }
   };
-
   const handleReportarAtraso = async () => {
     if (!motivoAtraso.trim() || !atencionActual) return;
-
     try {
       setLoading(true);
-
       // LOG ANTES DE LLAMAR AL BACKEND (Agregado para debug)
       console.log('⚠️ Reportando atraso:');
       console.log('  - ID:', atencionActual.id);
       console.log('  - Motivo:', motivoAtraso);
       console.log('  - Estado actual:', atencionActual.estado);
       console.log('  - URL:', `/medico/atenciones/${atencionActual.id}/reportar_atraso/`);
-
       const response = await medicoAtencionesService.reportarAtraso(
         atencionActual.id,
         { motivo: motivoAtraso }
       );
-
       // LOG DE LA RESPUESTA (Agregado para debug)
       console.log('✅ Respuesta del servidor:', response.data);
-
       if (response.data.success) {
         showSnackbar('Atraso reportado - Esperando 5 minutos', 'warning');
-
         // Actualizar la atención actual con los datos del servidor
         setAtencionActual(response.data.atencion);
-
         // Cerrar diálogo y limpiar
         setDialogAtraso(false);
         setMotivoAtraso('');
-
         // Recargar datos
         await Promise.all([
           sincronizarBoxes(),
@@ -511,29 +437,22 @@ const MedicoConsultas = () => {
       console.error('❌ Error completo:', error);
       console.error('❌ Response:', error.response);
       console.error('❌ Data:', error.response?.data);
-
       const errorMsg = error.response?.data?.error || 'Error al reportar atraso';
       showSnackbar(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
   };
-
   const handleIniciarConsulta = async () => {
     if (!atencionActual) return;
-
     try {
       setLoading(true);
       console.log('✅ Paciente llegó, iniciando consulta:', atencionActual.id);
-
       const response = await medicoAtencionesService.iniciarConsulta(atencionActual.id);
-
       if (response.data.success) {
         showSnackbar('Consulta iniciada correctamente', 'success');
-
         // Actualizar atención actual
         setAtencionActual(response.data.atencion);
-
         // Recargar datos
         await Promise.all([
           sincronizarBoxes(),
@@ -548,24 +467,18 @@ const MedicoConsultas = () => {
       setLoading(false);
     }
   };
-
-
   const handleRefrescar = async () => {
     console.log('🔄 Refrescando manualmente...');
     setLoading(true);
-
     await Promise.all([
       sincronizarBoxes(),
       cargarAtencionActual(),
       cargarAtencionesHoy()
     ]);
-
     setLoading(false);
     showSnackbar('Datos actualizados', 'info');
   };
-
   // ==================== RENDER ====================
-
   if (loading && !atencionActual) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -573,7 +486,6 @@ const MedicoConsultas = () => {
       </Box>
     );
   }
-
   return (
     <>
       <Navbar />
@@ -600,7 +512,6 @@ const MedicoConsultas = () => {
             Actualizar
           </Button>
         </Box>
-
         {/* Estadísticas del día */}
         {estadisticasHoy && (
           <Grid container spacing={2} sx={{ mb: 4 }}>
@@ -669,7 +580,6 @@ const MedicoConsultas = () => {
             </Grid>
           </Grid>
         )}
-
         <Grid container spacing={3}>
           {/* Panel izquierdo - Lista */}
           <Grid item xs={12} lg={4}>
@@ -678,7 +588,6 @@ const MedicoConsultas = () => {
                 <Typography variant="h5" fontWeight="600" gutterBottom sx={{ mb: 3 }}>
                   📋 Atenciones de Hoy ({atencionesHoy.length})
                 </Typography>
-
                 {atencionesHoy.length === 0 ? (
                   <Alert severity="info" sx={{ mt: 2 }}>
                     No hay atenciones programadas para hoy
@@ -741,7 +650,6 @@ const MedicoConsultas = () => {
               </CardContent>
             </Card>
           </Grid>
-
           {/* Panel derecho - Cronómetro */}
           <Grid item xs={12} lg={8}>
             <Card
@@ -753,7 +661,6 @@ const MedicoConsultas = () => {
               }}
             >
               <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-
                 {/* SIN ATENCIONES */}
                 {tipoAtencion === 'ninguna' && (
                   <Box sx={{
@@ -774,7 +681,6 @@ const MedicoConsultas = () => {
                     </Typography>
                   </Box>
                 )}
-
                 {/* ATENCIÓN PRÓXIMA */}
                 {tipoAtencion === 'proxima' && atencionActual && (
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -792,7 +698,6 @@ const MedicoConsultas = () => {
                         Consulta Programada
                       </Typography>
                     </Box>
-
                     {/* ALERTA DE ATRASO REPORTADO */}
                     {atencionActual.atraso_reportado && (
                       <Alert
@@ -807,7 +712,6 @@ const MedicoConsultas = () => {
                         </Typography>
                       </Alert>
                     )}
-
                     <Paper sx={{
                       p: 3,
                       bgcolor: 'rgba(255,255,255,0.15)',
@@ -816,19 +720,21 @@ const MedicoConsultas = () => {
                       textAlign: 'center'
                     }}>
                       <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
-                        {calcularMinutosHastaInicio() > 0 ? 'Inicia en' : 'Atención programada'}
+                        {calcularSegundosHastaInicio() > 0 ? 'Inicia en' : 'Atención programada'}
                       </Typography>
                       <Typography variant="h3" fontWeight="700">
-                        {calcularMinutosHastaInicio() > 0
+                        {/* ✅ LÓGICA MODIFICADA PARA MOSTRAR SEGUNDOS */}
+                        {calcularSegundosHastaInicio() > 60
                           ? `${calcularMinutosHastaInicio()} min`
-                          : 'AHORA'
+                          : calcularSegundosHastaInicio() > 0
+                            ? `${calcularSegundosHastaInicio()} seg`
+                            : 'AHORA'
                         }
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
                         Hora programada: {formatearHora(atencionActual.fecha_hora_inicio)}
                       </Typography>
                     </Paper>
-
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                       <Grid item xs={6}>
                         <Paper sx={{
@@ -861,7 +767,6 @@ const MedicoConsultas = () => {
                         </Paper>
                       </Grid>
                     </Grid>
-
                     <Paper sx={{
                       p: 2,
                       bgcolor: 'rgba(255,255,255,0.15)',
@@ -877,7 +782,6 @@ const MedicoConsultas = () => {
                         {atencionActual.duracion_planificada} minutos
                       </Typography>
                     </Paper>
-
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
                         {/* Botón INICIAR - Cambia comportamiento si hay atraso reportado */}
@@ -908,7 +812,6 @@ const MedicoConsultas = () => {
                               : 'INICIAR CONSULTA'
                           }
                         </Button>
-
                         {/* Botón REPORTAR ATRASO - Solo si ya es la hora Y NO hay atraso reportado */}
                         {!atencionActual.atraso_reportado && calcularMinutosHastaInicio() === 0 && (
                           <Button
@@ -931,7 +834,6 @@ const MedicoConsultas = () => {
                             REPORTAR ATRASO
                           </Button>
                         )}
-
                         {/* Botón NO SE PRESENTÓ */}
                         <Button
                           variant="outlined"
@@ -955,7 +857,6 @@ const MedicoConsultas = () => {
                     </Box>
                   </Box>
                 )}
-
                 {/* ========================================= */}
                 {/* ATENCIÓN EN CURSO - SECCIÓN  */}
                 {/* ========================================= */}
@@ -984,7 +885,6 @@ const MedicoConsultas = () => {
                         Consulta Activa
                       </Typography>
                     </Box>
-
                     <Paper sx={{
                       p: 4,
                       bgcolor: tiempoExcedido() ? 'rgba(244,67,54,0.2)' : 'rgba(76,175,80,0.2)',
@@ -1008,7 +908,6 @@ const MedicoConsultas = () => {
                       >
                         {formatearTiempo(tiempoRestante)}
                       </Typography>
-
                       <Box sx={{ mt: 2, mb: 2 }}>
                         <LinearProgress
                           variant="determinate"
@@ -1021,12 +920,10 @@ const MedicoConsultas = () => {
                           }}
                         />
                       </Box>
-
                       <Typography variant="caption" sx={{ opacity: 0.8 }}>
                         Tiempo transcurrido: {formatearTiempo(tiempoTranscurrido)} / {atencionActual.duracion_planificada} min
                       </Typography>
                     </Paper>
-
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                       <Grid item xs={6}>
                         <Paper sx={{
@@ -1059,7 +956,6 @@ const MedicoConsultas = () => {
                         </Paper>
                       </Grid>
                     </Grid>
-
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
                         {/* CASO 1: HAY ATRASO REPORTADO EN CURSO */}
@@ -1126,7 +1022,6 @@ const MedicoConsultas = () => {
                                 >
                                   REPORTAR ATRASO / AUSENCIA
                                 </Button>
-
                                 {/* Info sobre tiempo disponible para reportar */}
                                 {atencionActual.minutos_desde_inicio_atencion !== undefined &&
                                 atencionActual.minutos_desde_inicio_atencion <= 5 && (
@@ -1143,7 +1038,6 @@ const MedicoConsultas = () => {
                                     ({Math.max(0, Math.round(5 - atencionActual.minutos_desde_inicio_atencion))} min restantes)
                                   </Typography>
                                 )}
-
                                 {/* Advertencia si ya pasaron 5 minutos */}
                                 {atencionActual.minutos_desde_inicio_atencion !== undefined &&
                                 atencionActual.minutos_desde_inicio_atencion > 5 && (
@@ -1213,7 +1107,6 @@ const MedicoConsultas = () => {
             </Card>
           </Grid>
         </Grid>
-
         {/* DIÁLOGOS */}
         <Dialog
           open={dialogFinalizar}
@@ -1257,7 +1150,6 @@ const MedicoConsultas = () => {
             </Button>
           </DialogActions>
         </Dialog>
-
         <Dialog
           open={dialogNoPresentado}
           onClose={() => !loading && setDialogNoPresentado(false)}
@@ -1300,7 +1192,6 @@ const MedicoConsultas = () => {
             </Button>
           </DialogActions>
         </Dialog>
-
         {/* DIÁLOGO DE REPORTAR ATRASO - TEXTO ACTUALIZADO */}
         <Dialog
           open={dialogAtraso}
@@ -1354,7 +1245,6 @@ const MedicoConsultas = () => {
             </Button>
           </DialogActions>
         </Dialog>
-
         <Snackbar
           open={snackbar.open}
           autoHideDuration={4000}
@@ -1374,5 +1264,4 @@ const MedicoConsultas = () => {
     </>
   );
 };
-
 export default MedicoConsultas;
