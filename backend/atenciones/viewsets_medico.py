@@ -333,12 +333,9 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'])
     def reportar_atraso(self, request, pk=None):
         
-        # Reporta que el paciente llegó con atraso.
-        # POST /api/medico/atenciones/{id}/reportar_atraso/
-
         atencion = self.get_object()
         
-        # Verificar que la atención no esté completada
+        # Validar que la atención no esté completada
         if atencion.estado in ['COMPLETADA', 'CANCELADA', 'NO_PRESENTADO']:
             return Response({
                 'success': False,
@@ -348,23 +345,91 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
         # Obtener motivo
         motivo = request.data.get('motivo', 'Paciente llegó con retraso')
         
-        # Registrar el atraso
-        from django.utils import timezone
-        atencion.atraso_reportado = True
-        atencion.fecha_reporte_atraso = timezone.now()
-        atencion.motivo_atraso = motivo
+        # Usar el método del modelo
+        if atencion.reportar_atraso(motivo):
+            serializer = AtencionSerializer(atencion)
+            return Response({
+                'success': True,
+                'message': 'Atraso reportado. El paciente tiene 5 minutos para llegar.',
+                'atencion': serializer.data
+            })
         
-        # Agregar a observaciones
-        if atencion.observaciones:
-            atencion.observaciones += f"\n\n[ATRASO REPORTADO] {motivo}"
-        else:
-            atencion.observaciones = f"[ATRASO REPORTADO] {motivo}"
+        return Response({
+            'success': False,
+            'error': 'No se pudo reportar el atraso'
+        }, status=status.HTTP_400_BAD_REQUEST)
         
-        atencion.save()
+    # ✅ 2. VERIFICAR ATRASO (marcar como no presentado si pasaron 5 min)
+    @action(detail=True, methods=['post'])
+    def verificar_atraso(self, request, pk=None):
+        """
+        Verifica si han pasado 5 minutos desde el reporte de atraso.
+        Si es así, marca automáticamente como NO_PRESENTADO.
+        POST /api/medico/atenciones/{id}/verificar_atraso/
+        """
+        atencion = self.get_object()
         
-        serializer = self.get_serializer(atencion)
+        if not atencion.atraso_reportado:
+            return Response({
+                'success': True,
+                'message': 'No hay atraso reportado'
+            }, status=status.HTTP_200_OK)
+        
+        if atencion.verificar_tiempo_atraso():
+            # Han pasado 5 minutos, marcar como NO_PRESENTADO
+            if atencion.marcar_no_presentado():
+                serializer = AtencionSerializer(atencion)
+                return Response({
+                    'success': True,
+                    'message': 'Atención marcada como NO_PRESENTADO',
+                    'atencion': serializer.data
+                }, status=status.HTTP_200_OK)
+        
+        serializer = AtencionSerializer(atencion)
         return Response({
             'success': True,
-            'mensaje': 'Atraso reportado correctamente',
+            'message': 'Aún dentro del tiempo de espera',
             'atencion': serializer.data
-        })
+        }, status=status.HTTP_200_OK)
+    
+    # ✅ 3. INICIAR CONSULTA (cuando el paciente llega después del atraso)
+    @action(detail=True, methods=['post'])
+    def iniciar_consulta(self, request, pk=None):
+        """
+        El paciente llegó después de reportar atraso.
+        Cancela el timer de atraso y permite continuar la consulta.
+        POST /api/medico/atenciones/{id}/iniciar_consulta/
+        """
+        atencion = self.get_object()
+        
+        if atencion.estado != 'EN_CURSO':
+            return Response({
+                'success': False,
+                'error': 'La atención no está EN_CURSO'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not atencion.atraso_reportado:
+            return Response({
+                'success': False,
+                'error': 'No hay atraso reportado'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verificar que no hayan pasado 5 minutos
+        if atencion.verificar_tiempo_atraso():
+            return Response({
+                'success': False,
+                'error': 'El tiempo de espera ha expirado. La atención debe marcarse como NO_PRESENTADO'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Limpiar el reporte de atraso
+        atencion.atraso_reportado = False
+        atencion.fecha_reporte_atraso = None
+        atencion.motivo_atraso = "Paciente llegó con retraso pero dentro del tiempo de tolerancia"
+        atencion.save()
+        
+        serializer = AtencionSerializer(atencion)
+        return Response({
+            'success': True,
+            'message': 'Consulta iniciada correctamente',
+            'atencion': serializer.data
+        }, status=status.HTTP_200_OK)

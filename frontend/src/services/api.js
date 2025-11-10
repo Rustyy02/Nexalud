@@ -229,7 +229,7 @@ export const nexathinkService = {
   getInsights: () => api.get('/dashboard/nexathink-insights/'),
 };
 
-// ✅ NUEVO: SERVICIO PARA MÉDICOS
+//  SERVICIO PARA MÉDICOS 
 export const medicoAtencionesService = {
   // Obtener todas las atenciones del médico
   getAll: (params = {}) => api.get('/medico/atenciones/', { params }),
@@ -255,8 +255,21 @@ export const medicoAtencionesService = {
   // Marcar como no presentado
   noPresentado: (id, data = {}) => api.post(`/medico/atenciones/${id}/no_se_presento/`, data),
   
+  // ✅ REPORTAR ATRASO (NUEVO - CORRECTO)
+  reportarAtraso: (id, data = {}) => 
+    api.post(`/medico/atenciones/${id}/reportar_atraso/`, data),
+  
+  // ✅ VERIFICAR ATRASO (NUEVO)
+  verificarAtraso: (id) => 
+    api.post(`/medico/atenciones/${id}/verificar_atraso/`),
+  
+  // ✅ INICIAR CONSULTA DESPUÉS DE ATRASO (NUEVO)
+  iniciarConsulta: (id) => 
+    api.post(`/medico/atenciones/${id}/iniciar_consulta/`),
+  
   // Obtener estadísticas
-  getEstadisticas: (periodo = 30) => api.get('/medico/atenciones/estadisticas/', { params: { periodo } }),
+  getEstadisticas: (periodo = 30) => 
+    api.get('/medico/atenciones/estadisticas/', { params: { periodo } }),
 };
 
 export const medicosService = {

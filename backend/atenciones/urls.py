@@ -1,3 +1,5 @@
+# backend/atenciones/urls.py
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .viewsets import MedicoViewSet, AtencionViewSet
@@ -14,5 +16,5 @@ medico_router.register(r'atenciones', MedicoAtencionesViewSet, basename='medico-
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('medico/', include(medico_router.urls)),
+    path('medico/', include(medico_router.urls)),  # /api/medico/atenciones/
 ]

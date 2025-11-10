@@ -474,34 +474,41 @@ const MedicoConsultas = () => {
     
     try {
       setLoading(true);
-      console.log('⚠️ Reportando atraso:', atencionActual.id);
       
-      // ✅ Llamar al nuevo endpoint
+      // ✅ LOG ANTES DE LLAMAR AL BACKEND
+      console.log('⚠️ Reportando atraso:');
+      console.log('  - ID:', atencionActual.id);
+      console.log('  - Motivo:', motivoAtraso);
+      console.log('  - Estado actual:', atencionActual.estado);
+      console.log('  - URL:', `/medico/atenciones/${atencionActual.id}/reportar_atraso/`);
+      
       const response = await medicoAtencionesService.reportarAtraso(
         atencionActual.id,
         { motivo: motivoAtraso }
       );
       
+      // ✅ LOG DE LA RESPUESTA
+      console.log('✅ Respuesta del servidor:', response.data);
+      
       if (response.data.success) {
-        showSnackbar('Atraso reportado - Esperando 5 minutos', 'warning');
-        
-        // ✅ Actualizar la atención actual con los datos del servidor
+        showSnackbar('Atraso reportado - Esperando 5 minutos', 'warning');  
         setAtencionActual(response.data.atencion);
-        
-        // Cerrar diálogo y limpiar
         setDialogAtraso(false);
         setMotivoAtraso('');
         
-        // Recargar datos
         await Promise.all([
           sincronizarBoxes(),
           cargarAtencionesHoy()
         ]);
       }
     } catch (error) {
+      // ✅ LOG DEL ERROR COMPLETO
+      console.error('❌ Error completo:', error);
+      console.error('❌ Response:', error.response);
+      console.error('❌ Data:', error.response?.data);
+      
       const errorMsg = error.response?.data?.error || 'Error al reportar atraso';
       showSnackbar(errorMsg, 'error');
-      console.error('❌ Error:', error);
     } finally {
       setLoading(false);
     }

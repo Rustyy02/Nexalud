@@ -400,16 +400,7 @@ class Atencion(models.Model):
     
     # ==================== FUNCIÓN MODIFICADA ====================
     def reportar_atraso(self, motivo=""):
-        
         # Reporta un atraso del paciente.
-        # Inicia un timer de 5 minutos para que el paciente llegue.
-        # Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
-        # 
-        # Disponible en dos casos:
-        # 1. Cuando la atención está PROGRAMADA/EN_ESPERA (antes de iniciar)
-        # 2. Cuando está EN_CURSO (en cualquier momento de la atención)
-        #    Nota: Se recomienda usar en los primeros 5 minutos, pero se permite siempre
-        
         # Validación: No se puede reportar si ya hay un atraso reportado
         if self.atraso_reportado:
             return False
