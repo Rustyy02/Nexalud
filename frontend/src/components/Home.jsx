@@ -1,4 +1,3 @@
-// frontend/src/components/Home.jsx - ACTUALIZADO CON SINCRONIZACIÓN DE ETAPA
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -128,10 +127,10 @@ const Home = () => {
   const getColorEstado = (estado) => {
       const colores = {
         'EN_ESPERA': 'warning',
-        'ACTIVO': 'success', // ACTIVO en Paciente ahora es 'Activo en Proceso'
+        'ACTIVO': 'success',
         'PROCESO_PAUSADO': 'default',
         'ALTA_COMPLETA': 'success',
-        'PROCESO_CANCELADO': 'error', // 🆕 Nuevo estado
+        'PROCESO_CANCELADO': 'error',
         'INACTIVO': 'default',
       };
       return colores[estado] || 'default';
@@ -148,7 +147,7 @@ const Home = () => {
   };
 
   // ============================================
-  // 🆕 NUEVO: Obtener color para la etapa clínica
+  // Obtener color para la etapa clínica
   // ============================================
   const getColorEtapa = (etapa) => {
     const colores = {
@@ -381,7 +380,7 @@ const Home = () => {
                           />
                         </TableCell>
 
-                        {/* 🆕 NUEVA COLUMNA: Etapa Clínica Actual */}
+                        {/* Etapa Clínica Actual */}
                         <TableCell>
                           {paciente.etapa_actual ? (
                             <Tooltip 
@@ -611,7 +610,7 @@ const Home = () => {
                       </Box>
                     </Box>
 
-                    {/* 🆕 CHIPS ACTUALIZADOS CON ETAPA */}
+                    {/* CHIPS ACTUALIZADOS CON ETAPA */}
                     <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip
                         label={pacienteSeleccionado.estado_actual_display}
@@ -664,7 +663,7 @@ const Home = () => {
                       </Box>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {/* 🆕 MOSTRAR ETAPA ACTUAL SINCRONIZADA */}
+                        {/* MOSTRAR ETAPA ACTUAL SINCRONIZADA */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="body2" color="text.secondary">
                             Etapa Actual:

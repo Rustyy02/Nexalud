@@ -1,4 +1,3 @@
-// frontend/src/components/Navbar.jsx
 import React, { useState } from 'react';
 import {
   AppBar,

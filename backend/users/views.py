@@ -1,4 +1,3 @@
-# backend/users/views.py
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -7,9 +6,9 @@ from django.contrib.auth import authenticate
 from .serializers import UserSerializer
 
 class CustomAuthToken(ObtainAuthToken):
-    """
-    Vista personalizada para autenticación que acepta tanto username como email
-    """
+    
+    # Vista personalizada para autenticación que acepta tanto username como email
+    
     def post(self, request, *args, **kwargs):
         # Obtener las credenciales del request
         username_or_email = request.data.get('username')
@@ -40,7 +39,6 @@ class CustomAuthToken(ObtainAuthToken):
             # Serializar información del usuario
             user_data = UserSerializer(user).data
             
-            # ✅ IMPORTANTE: Imprimir en consola para debug
             print(f"\n=== LOGIN DEBUG ===")
             print(f"Usuario: {user.username}")
             print(f"Email: {user.email}")

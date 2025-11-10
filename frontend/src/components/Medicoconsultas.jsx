@@ -1,4 +1,3 @@
-// frontend/src/components/Medicoconsultas.jsx - VERSIÓN CON REPORTE DE ATRASO EN PRIMEROS 5 MIN
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,

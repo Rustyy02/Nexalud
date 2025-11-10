@@ -13,10 +13,10 @@ from rutas_clinicas.models import RutaClinica
 
 
 class DashboardViewSet(viewsets.ViewSet):
-    """
-    ViewSet para el dashboard administrativo con métricas en tiempo real.
-    Solo accesible para usuarios administradores.
-    """
+    
+    # ViewSet para el dashboard administrativo con métricas en tiempo real.
+    # Solo accesible para usuarios administradores.
+    
     permission_classes = [IsAuthenticated, IsAdminUser]
     
     @action(detail=False, methods=['get'])

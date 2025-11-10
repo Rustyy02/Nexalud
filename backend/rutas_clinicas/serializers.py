@@ -1,4 +1,3 @@
-# backend/rutas_clinicas/serializers.py - VERSIÓN CON FORMATO MEJORADO
 from rest_framework import serializers
 from .models import RutaClinica
 from pacientes.serializers import PacienteListSerializer

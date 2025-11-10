@@ -1,8 +1,3 @@
-# backend/api/signals.py
-"""
-Signals para mantener la consistencia de datos en el sistema
-"""
-
 from django.db.models.signals import pre_delete, post_save
 from django.dispatch import receiver
 from .models import RutaClinica

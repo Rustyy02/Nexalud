@@ -4,10 +4,9 @@ from django.utils import timezone
 from django.core.validators import MinValueValidator
 
 class Box(models.Model):
-    """
-    Modelo para gestionar los boxes de atención médica.
-    Incluye seguimiento de disponibilidad y ocupación en tiempo real.
-    """
+    
+    # Modelo para gestionar los boxes de atención médica.
+    # Incluye seguimiento de disponibilidad y ocupación en tiempo real.
     
     ESTADO_CHOICES = [
         ('DISPONIBLE', 'Disponible'),
@@ -33,6 +32,7 @@ class Box(models.Model):
         ('MULTIUSO', 'Multiuso'),
     ]
     
+    # Estructura de box (si?)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     numero = models.CharField(
         max_length=10, 
@@ -120,9 +120,9 @@ class Box(models.Model):
         return False
     
     def liberar(self, timestamp=None):
-        """
-        Marca el box como disponible y calcula tiempo de ocupación.
-        """
+    
+        # Marca el box como disponible y calcula tiempo de ocupación.
+        
         if self.estado == 'OCUPADO':
             self.estado = 'DISPONIBLE'
             liberacion_time = timestamp or timezone.now()
@@ -138,15 +138,15 @@ class Box(models.Model):
         return False
     
     def obtener_disponibilidad(self):
-        """
-        Retorna True si el box está disponible para ser ocupado.
-        """
+        
+        # Retorna True si el box está disponible para ser ocupado.
+        
         return self.estado == 'DISPONIBLE' and self.activo
     
     def calcular_tiempo_ocupacion_hoy(self):
-        """
-        Calcula el porcentaje de ocupación del día actual.
-        """
+        
+        # Calcula el porcentaje de ocupación del día actual.
+        
         hoy = timezone.now().date()
         total_segundos_dia = 24 * 60 * 60  # Total segundos en un día
         
@@ -157,9 +157,9 @@ class Box(models.Model):
         return 0
     
     def obtener_ocupacion_actual(self):
-        """
-        Retorna información sobre la ocupación actual del box.
-        """
+        
+        # Retorna información sobre la ocupación actual del box.
+        
         if self.estado == 'OCUPADO' and self.ultima_ocupacion:
             tiempo_ocupado = timezone.now() - self.ultima_ocupacion
             return {
@@ -238,7 +238,7 @@ class OcupacionManual(models.Model):
         return f"Ocupación {self.box.numero} - {self.duracion_minutos} min"
     
     def finalizar(self):
-        """Finaliza la ocupación manual y libera el box"""
+        # Finaliza la ocupación manual y libera el box
         if self.activa:
             self.fecha_fin_real = timezone.now()
             self.activa = False
@@ -248,5 +248,5 @@ class OcupacionManual(models.Model):
         return False
     
     def debe_finalizar(self):
-        """Verifica si la ocupación debe finalizar según la hora programada"""
+        # Verifica si la ocupación debe finalizar según la hora programada
         return timezone.now() >= self.fecha_fin_programada and self.activa

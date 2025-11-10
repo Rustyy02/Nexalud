@@ -405,31 +405,41 @@ class Atencion(models.Model):
         # Inicia un timer de 5 minutos para que el paciente llegue.
         # Si no llega en 5 minutos, se marca automáticamente como NO_PRESENTADO.
         # 
-        # Disponible en tres casos:
+        # Disponible en dos casos:
         # 1. Cuando la atención está PROGRAMADA/EN_ESPERA (antes de iniciar)
-        # 2. Cuando está EN_CURSO pero en los primeros 5 minutos de iniciada
-        #    (útil cuando el paciente inicia pero luego se ausenta)
+        # 2. Cuando está EN_CURSO (en cualquier momento de la atención)
+        #    Nota: Se recomienda usar en los primeros 5 minutos, pero se permite siempre
+        
+        # Validación: No se puede reportar si ya hay un atraso reportado
+        if self.atraso_reportado:
+            return False
         
         # Caso 1: Atención no iniciada
-        if self.estado in ['PROGRAMADA', 'EN_ESPERA'] and not self.atraso_reportado:
+        if self.estado in ['PROGRAMADA', 'EN_ESPERA']:
             self.atraso_reportado = True
             self.fecha_reporte_atraso = timezone.now()
             self.motivo_atraso = motivo or "Paciente no presente a la hora programada"
             self.save()
             return True
         
-        # Caso 2: Atención iniciada pero en los primeros 5 minutos
-        if self.estado == 'EN_CURSO' and not self.atraso_reportado and self.inicio_cronometro:
+        # Caso 2: Atención iniciada - PERMITIR EN CUALQUIER MOMENTO
+        if self.estado == 'EN_CURSO' and self.inicio_cronometro:
+            self.atraso_reportado = True
+            self.fecha_reporte_atraso = timezone.now()
+            
+            # Calcular tiempo desde inicio para el motivo
             ahora = timezone.now()
             tiempo_desde_inicio = (ahora - self.inicio_cronometro).total_seconds() / 60
             
-            # Solo permitir si han pasado menos de 5 minutos desde el inicio
-            if tiempo_desde_inicio <= 5:
-                self.atraso_reportado = True
-                self.fecha_reporte_atraso = timezone.now()
-                self.motivo_atraso = motivo or "Paciente se ausentó durante la atención"
-                self.save()
-                return True
+            if motivo:
+                self.motivo_atraso = motivo
+            elif tiempo_desde_inicio <= 5:
+                self.motivo_atraso = "Paciente se ausentó durante la atención (primeros 5 min)"
+            else:
+                self.motivo_atraso = f"Paciente se ausentó durante la atención (después de {int(tiempo_desde_inicio)} min)"
+            
+            self.save()
+            return True
         
         return False
     # ==================== FIN FUNCIÓN MODIFICADA ====================
@@ -496,15 +506,16 @@ class Atencion(models.Model):
         if self.estado in ['PROGRAMADA', 'EN_ESPERA']:
             return True, ""
         
-        # Atención en curso - solo primeros 5 minutos
+        # Atención en curso - SIEMPRE se puede reportar (sin límite de tiempo)
         if self.estado == 'EN_CURSO' and self.inicio_cronometro:
             ahora = timezone.now()
             tiempo_desde_inicio = (ahora - self.inicio_cronometro).total_seconds() / 60
             
-            if tiempo_desde_inicio <= 5:
-                return True, ""
+            # Informar si es después de 5 minutos (solo informativo, NO bloquea)
+            if tiempo_desde_inicio > 5:
+                return True, f"Han pasado {int(tiempo_desde_inicio)} minutos desde el inicio"
             else:
-                return False, "Solo se puede reportar atraso en los primeros 5 minutos de atención"
+                return True, ""
         
         # En cualquier otro caso
         return False, f"No se puede reportar atraso cuando la atención está {self.get_estado_display()}"

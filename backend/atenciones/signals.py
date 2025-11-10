@@ -5,9 +5,9 @@ from .models import Atencion
 
 @receiver(post_save, sender=Atencion)
 def gestionar_estado_box_al_guardar(sender, instance, created, **kwargs):
-    """
-    Gestiona el estado del box automáticamente cuando se guarda una atención.
-    """
+    
+    # Gestiona el estado del box automáticamente cuando se guarda una atención.
+    
     # Si la atención acaba de ser creada y está EN_CURSO, ocupar el box
     if created and instance.estado == 'EN_CURSO' and instance.inicio_cronometro:
         instance.box.ocupar(instance.inicio_cronometro)

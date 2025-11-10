@@ -24,13 +24,3 @@ class IsSuperUser(permissions.BasePermission):
             request.user.is_authenticated and 
             request.user.is_superuser
         )
-
-
-# Uso en las vistas:
-# @permission_classes([IsAuthenticated, IsAdminUser])  # ← Ya implementado
-# 
-# IsAdminUser es el permission de Django REST Framework que verifica:
-# - user.is_staff = True (personal administrativo)
-# 
-# Para crear un usuario administrador en Django:
-# python manage.py createsuperuser

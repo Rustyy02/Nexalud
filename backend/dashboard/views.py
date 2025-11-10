@@ -399,7 +399,7 @@ def dashboard_estadisticas_detalladas(request):
             ).count(),
         })
     
-    # ✅ NUEVO: Estadísticas por especialidad médica
+    # Estadísticas por especialidad (hay que ver si se usa)
     por_especialidad = {}
     for esp_key, esp_label in User.ESPECIALIDAD_CHOICES:
         atenciones = Atencion.objects.filter(

@@ -1,4 +1,3 @@
-// frontend/src/components/EstadoBoxes.jsx - ACTUALIZACIÓN SOLO SECCIÓN ATRASOS
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -143,12 +142,11 @@ const EstadoBoxes = () => {
     try {
       const [boxesRes, atrasosReportadosRes] = await Promise.all([
         boxesService.getAll(),
-        atencionesService.getConAtrasoReportado() // ✅ NUEVO: Usar el endpoint correcto
+        atencionesService.getConAtrasoReportado()
       ]);
       
       setBoxes(boxesRes.data);
       
-      // ✅ NUEVO: Procesar atrasos reportados
       if (atrasosReportadosRes.data && atrasosReportadosRes.data.atenciones) {
         const atrasosFormateados = atrasosReportadosRes.data.atenciones.map(atencion => {
           // Calcular minutos desde el reporte
@@ -164,7 +162,6 @@ const EstadoBoxes = () => {
             atencionId: atencion.id,
             horaInicioProgramada: atencion.fecha_hora_inicio,
             duracionPlanificada: atencion.duracion_planificada,
-            // ✅ Calcular tiempo restante hasta marcado automático (5 min)
             tiempoRestanteAutoMarcar: Math.max(0, 5 - minutosDesdeReporte),
           };
         });
@@ -182,7 +179,6 @@ const EstadoBoxes = () => {
     }
   };
 
-  // ✅ HELPER para obtener nombre del paciente
   const obtenerNombrePaciente = (atencion) => {
     if (!atencion) return 'Sin paciente';
     
@@ -642,7 +638,7 @@ const EstadoBoxes = () => {
           ) : (
               <Box sx={{ mt: 2 }}>
                 {atrasosReales.map((atraso) => {
-                  // ✅ NUEVO: Calcular si mostrar en segundos (cuando queda menos de 1 minuto)
+                  // Calcular si mostrar en segundos (cuando queda menos de 1 minuto)
                   const minutosRestantes = Math.floor(atraso.tiempoRestanteAutoMarcar);
                   const segundosRestantes = Math.round((atraso.tiempoRestanteAutoMarcar - minutosRestantes) * 60);
                   const mostrarEnSegundos = atraso.tiempoRestanteAutoMarcar < 1 && atraso.tiempoRestanteAutoMarcar > 0;

@@ -1,4 +1,3 @@
-# backend/rutas_clinicas/models.py - VERSIÓN CON DURACIONES REALISTAS
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -36,7 +35,6 @@ class RutaClinica(models.Model):
         ('ALTA', 'Alta Médica'),
     ]
     
-    # ✅ DURACIONES ESTIMADAS REALISTAS POR ETAPA (en minutos)
     DURACIONES_ESTIMADAS = {
         'CONSULTA_MEDICA': 1440,      # 1 día (24 horas) - Primera consulta y evaluación
         'PROCESO_EXAMEN': 1440,        # 1 día (24 horas) - Realización de exámenes

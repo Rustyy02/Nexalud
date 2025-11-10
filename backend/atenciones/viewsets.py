@@ -46,7 +46,7 @@ class MedicoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        """Retorna el serializer apropiado según la acción"""
+        # Retorna el serializer apropiado según la acción
         if self.action == 'list':
             return MedicoListSerializer
         elif self.action in ['create', 'update', 'partial_update']:
@@ -54,7 +54,7 @@ class MedicoViewSet(viewsets.ModelViewSet):
         return MedicoSerializer
     
     def get_queryset(self):
-        """Filtra el queryset basado en parámetros de query"""
+        # Filtra el queryset basado en parámetros de query
         queryset = Medico.objects.all()
         
         # Filtros
@@ -80,11 +80,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def atenciones_hoy(self, request, pk=None):
-        """
-        Obtiene las atenciones del médico para el día actual.
         
-        GET /api/medicos/{id}/atenciones_hoy/
-        """
+        # Obtiene las atenciones del médico para el día actual.
+        # GET /api/medicos/{id}/atenciones_hoy/
+        
         medico = self.get_object()
         atenciones = medico.obtener_atenciones_dia()
         
@@ -99,11 +98,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def agenda_semanal(self, request, pk=None):
-        """
-        Obtiene la agenda del médico para la semana actual.
         
-        GET /api/medicos/{id}/agenda_semanal/
-        """
+        # Obtiene la agenda del médico para la semana actual.
+        # GET /api/medicos/{id}/agenda_semanal/
+        
         medico = self.get_object()
         
         # Obtener inicio y fin de semana
@@ -128,11 +126,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def metricas(self, request, pk=None):
-        """
-        Obtiene métricas de desempeño del médico.
         
-        GET /api/medicos/{id}/metricas/
-        """
+        # Obtiene métricas de desempeño del médico.
+        # GET /api/medicos/{id}/metricas/
+        
         medico = self.get_object()
         
         # Métricas básicas
@@ -156,11 +153,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def activos(self, request):
-        """
-        Lista médicos activos.
         
-        GET /api/medicos/activos/
-        """
+        # Lista médicos activos.
+        # GET /api/medicos/activos/
+        
         medicos = self.get_queryset().filter(activo=True)
         serializer = self.get_serializer(medicos, many=True)
         
@@ -171,11 +167,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def por_especialidad(self, request):
-        """
-        Agrupa médicos por especialidad.
         
-        GET /api/medicos/por_especialidad/
-        """
+        # Agrupa médicos por especialidad.
+        # GET /api/medicos/por_especialidad/
+        
         queryset = self.get_queryset()
         
         resultado = {}
@@ -192,11 +187,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """
-        Estadísticas generales de médicos.
         
-        GET /api/medicos/estadisticas/
-        """
+        # Estadísticas generales de médicos.
+        # GET /api/medicos/estadisticas/
+        
         queryset = self.get_queryset()
         
         total = queryset.count()
@@ -220,11 +214,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def activar(self, request, pk=None):
-        """
-        Activa un médico.
         
-        POST /api/medicos/{id}/activar/
-        """
+        # Activa un médico.
+        # POST /api/medicos/{id}/activar/
+        
         medico = self.get_object()
         medico.activo = True
         medico.save()
@@ -237,11 +230,10 @@ class MedicoViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def desactivar(self, request, pk=None):
-        """
-        Desactiva un médico.
         
-        POST /api/medicos/{id}/desactivar/
-        """
+        # Desactiva un médico.
+        # POST /api/medicos/{id}/desactivar/
+        
         medico = self.get_object()
         medico.activo = False
         medico.save()
@@ -280,7 +272,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        """Retorna el serializer apropiado según la acción"""
+        # Retorna el serializer apropiado según la acción
         if self.action == 'list':
             return AtencionListSerializer
         elif self.action in ['create', 'update', 'partial_update']:
@@ -296,7 +288,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         return AtencionSerializer
     
     def get_queryset(self):
-        """Filtra el queryset basado en parámetros de query"""
+        # Filtra el queryset basado en parámetros de query
         queryset = Atencion.objects.select_related('paciente', 'medico', 'box')
         
         # Filtros
@@ -337,12 +329,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def iniciar_cronometro(self, request, pk=None):
-        """
-        Inicia el cronómetro de la atención.
         
-        POST /api/atenciones/{id}/iniciar_cronometro/
-        Body (opcional): {"timestamp": "2025-01-01T10:00:00Z"}
-        """
+        # Inicia el cronómetro de la atención.
+        # POST /api/atenciones/{id}/iniciar_cronometro/
+    
         atencion = self.get_object()
         
         if atencion.iniciar_cronometro():
@@ -362,12 +352,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def finalizar_cronometro(self, request, pk=None):
-        """
-        Finaliza el cronómetro de la atención.
         
-        POST /api/atenciones/{id}/finalizar_cronometro/
-        Body (opcional): {"timestamp": "2025-01-01T10:30:00Z"}
-        """
+        # Finaliza el cronómetro de la atención.
+        # POST /api/atenciones/{id}/finalizar_cronometro/
+        
         atencion = self.get_object()
         
         if atencion.finalizar_cronometro():
@@ -389,12 +377,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def cancelar(self, request, pk=None):
-        """
-        Cancela una atención.
         
-        POST /api/atenciones/{id}/cancelar/
-        Body: {"motivo": "Paciente no se presentó"}
-        """
+        # Cancela una atención.
+        # POST /api/atenciones/{id}/cancelar/
+    
         atencion = self.get_object()
         serializer = AtencionCancelarSerializer(data=request.data)
         
@@ -418,15 +404,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def reagendar(self, request, pk=None):
-        """
-        Reagenda una atención.
         
-        POST /api/atenciones/{id}/reagendar/
-        Body: {
-            "nueva_fecha": "2025-01-02T10:00:00Z",
-            "nuevo_box": "uuid-box" (opcional)
-        }
-        """
+        # Reagenda una atención.
+        # POST /api/atenciones/{id}/reagendar/
+    
         atencion = self.get_object()
         serializer = AtencionReagendarSerializer(data=request.data)
         
@@ -451,11 +432,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def en_curso(self, request):
-        """
-        Lista atenciones actualmente en curso.
         
-        GET /api/atenciones/en_curso/
-        """
+        # Lista atenciones actualmente en curso.
+        # GET /api/atenciones/en_curso/
+        
         atenciones = self.get_queryset().filter(estado='EN_CURSO')
         serializer = self.get_serializer(atenciones, many=True)
         
@@ -466,11 +446,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def hoy(self, request):
-        """
-        Lista atenciones del día actual.
         
-        GET /api/atenciones/hoy/
-        """
+        # Lista atenciones del día actual.
+        # GET /api/atenciones/hoy/
+        
         hoy = timezone.now().date()
         atenciones = self.get_queryset().filter(fecha_hora_inicio__date=hoy)
         serializer = self.get_serializer(atenciones, many=True)
@@ -483,11 +462,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def pendientes(self, request):
-        """
-        Lista atenciones pendientes (programadas o en espera).
         
-        GET /api/atenciones/pendientes/
-        """
+        # Lista atenciones pendientes (programadas o en espera).
+        # GET /api/atenciones/pendientes/
+        
         atenciones = self.get_queryset().filter(
             estado__in=['PROGRAMADA', 'EN_ESPERA']
         )
@@ -500,11 +478,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def retrasadas(self, request):
-        """
-        Lista atenciones que están retrasadas.
         
-        GET /api/atenciones/retrasadas/
-        """
+        # Lista atenciones que están retrasadas.
+        # GET /api/atenciones/retrasadas/
+        
         atenciones_en_curso = self.get_queryset().filter(estado='EN_CURSO')
         atenciones_retrasadas = [
             atencion for atencion in atenciones_en_curso 
@@ -520,14 +497,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """
-        Estadísticas generales de atenciones.
         
-        GET /api/atenciones/estadisticas/
-        Query params opcionales:
-        - fecha_desde: Fecha inicio del rango
-        - fecha_hasta: Fecha fin del rango
-        """
+        # Estadísticas generales de atenciones.
+        # GET /api/atenciones/estadisticas/
+    
         queryset = self.get_queryset()
         
         # Por estado
@@ -588,11 +561,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def metricas(self, request, pk=None):
-        """
-        Métricas detalladas de una atención específica.
         
-        GET /api/atenciones/{id}/metricas/
-        """
+        # Métricas detalladas de una atención específica.
+        # GET /api/atenciones/{id}/metricas/
+        
         atencion = self.get_object()
         
         return Response({
@@ -605,7 +577,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         })
     
     def _get_tiempo_transcurrido(self, atencion):
-        """Helper para obtener tiempo transcurrido formateado"""
+        # Helper para obtener tiempo transcurrido formateado
         tiempo = atencion.obtener_tiempo_transcurrido()
         if tiempo:
             minutos = int(tiempo.total_seconds() / 60)
@@ -619,12 +591,11 @@ class AtencionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def con_atraso_reportado(self, request):
-        """
-        Lista atenciones con atraso reportado por el médico.
-        Estas son las que aparecerán en EstadoBoxes.
         
-        GET /api/atenciones/con_atraso_reportado/
-        """
+        # Lista atenciones con atraso reportado por el médico.
+        # Estas son las que aparecerán en EstadoBoxes.
+        # GET /api/atenciones/con_atraso_reportado/
+        
         from django.utils import timezone
         ahora = timezone.now()
         
@@ -635,7 +606,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
             fecha_reporte_atraso__isnull=False
         ).select_related('paciente', 'medico', 'box')
         
-        # ✅ Marcar automáticamente como "No se presentó" si han pasado más de 5 minutos
+        # Marcar como no presentado si han pasado más de 5 min desde el reporte de atraso
         atenciones_actualizadas = 0
         for atencion in atenciones:
             minutos_desde_reporte = (ahora - atencion.fecha_reporte_atraso).total_seconds() / 60
@@ -709,10 +680,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='verificar-atraso')
     def verificar_atraso(self, request, pk=None):
-        """
-        Verifica si han pasado 5 minutos desde el reporte de atraso.
-        Si es así, marca automáticamente como NO_PRESENTADO.
-        """
+        
+        # Verifica si han pasado 5 minutos desde el reporte de atraso.
+        # Si es así, marca automáticamente como NO_PRESENTADO.
+        
         atencion = self.get_object()
         
         if not atencion.atraso_reportado:
@@ -741,10 +712,10 @@ class AtencionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='iniciar-consulta')
     def iniciar_consulta(self, request, pk=None):
-        """
-        El paciente llegó después de reportar atraso.
-        Cancela el timer de atraso y permite continuar la consulta normalmente.
-        """
+        
+        # El paciente llegó después de reportar atraso.
+        # Cancela el timer de atraso y permite continuar la consulta normalmente.
+        
         atencion = self.get_object()
         
         if atencion.estado != 'EN_CURSO':

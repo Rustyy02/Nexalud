@@ -44,7 +44,7 @@ class BoxViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_serializer_class(self):
-        """Retorna el serializer apropiado según la acción"""
+        # Retorna el serializer apropiado según la acción
         if self.action == 'list':
             return BoxSerializer
         elif self.action in ['create', 'update', 'partial_update']:
@@ -56,7 +56,7 @@ class BoxViewSet(viewsets.ModelViewSet):
         return BoxSerializer
     
     def get_queryset(self):
-        """Filtra el queryset basado en parámetros de query"""
+        # Filtra el queryset basado en parámetros de query
         queryset = Box.objects.all()
         
         # Filtros opcionales via query params
@@ -92,15 +92,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def ocupar(self, request, pk=None):
-        """
-        Marca el box como ocupado manualmente.
         
-        POST /api/boxes/{id}/ocupar/
-        Body: {
-            "duracion_minutos": 30,
-            "motivo": "Limpieza profunda" (opcional)
-        }
-        """
+        #Marca el box como ocupado manualmente.
+        #POST /api/boxes/{id}/ocupar/
+        
         box = self.get_object()
         
         # Obtener duración y motivo
@@ -169,12 +164,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def liberar(self, request, pk=None):
-        """
-        Libera el box SOLO si no tiene una ocupación manual activa.
         
-        POST /api/boxes/{id}/liberar/
-        Body (opcional): {"timestamp": "2025-01-01T10:30:00Z"}
-        """
+        #Libera el box SOLO si no tiene una ocupación manual activa.
+        #POST /api/boxes/{id}/liberar/
+        
         box = self.get_object()
         
         # Verificar si hay una ocupación manual activa
@@ -218,11 +211,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def disponibles(self, request):
-        """
-        Lista todos los boxes disponibles.
         
-        GET /api/boxes/disponibles/
-        """
+        #Lista todos los boxes disponibles.
+        #GET /api/boxes/disponibles/
+        
         boxes_disponibles = self.get_queryset().filter(
             estado='DISPONIBLE',
             activo=True
@@ -235,11 +227,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def ocupados(self, request):
-        """
-        Lista todos los boxes ocupados.
         
-        GET /api/boxes/ocupados/
-        """
+        #Lista todos los boxes ocupados.
+        #GET /api/boxes/ocupados/
+        
         boxes_ocupados = self.get_queryset().filter(estado='OCUPADO')
         serializer = BoxListSerializer(boxes_ocupados, many=True)
         return Response({
@@ -249,11 +240,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """
-        Retorna estadísticas generales de los boxes.
         
-        GET /api/boxes/estadisticas/
-        """
+        #Retorna estadísticas generales de los boxes.
+        #GET /api/boxes/estadisticas/
+
         queryset = self.get_queryset()
         
         total = queryset.count()
@@ -294,11 +284,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def por_especialidad(self, request):
-        """
-        Agrupa los boxes por especialidad.
         
-        GET /api/boxes/por_especialidad/
-        """
+        # Agrupa los boxes por especialidad.
+        # GET /api/boxes/por_especialidad/
+        
         especialidad = request.query_params.get('especialidad', None)
         
         if especialidad:
@@ -326,11 +315,10 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def mantenimiento(self, request, pk=None):
-        """
-        Marca el box en mantenimiento.
         
-        POST /api/boxes/{id}/mantenimiento/
-        """
+        # Marca el box en mantenimiento.
+        # POST /api/boxes/{id}/mantenimiento/
+        
         box = self.get_object()
         box.estado = 'MANTENIMIENTO'
         box.save()
@@ -343,12 +331,11 @@ class BoxViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def reset_ocupacion(self, request):
-        """
-        Resetea los contadores de ocupación diaria de todos los boxes.
-        Se ejecutaría típicamente a medianoche.
         
-        POST /api/boxes/reset_ocupacion/
-        """
+        # Resetea los contadores de ocupación diaria de todos los boxes.
+        # Se ejecutaría típicamente a medianoche.
+        # POST /api/boxes/reset_ocupacion/
+        
         boxes = self.get_queryset()
         count = 0
         
@@ -364,13 +351,12 @@ class BoxViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def sincronizar_estados(self, request):
-        """
-        Sincroniza los estados de los boxes con las atenciones programadas.
-        RESPETA ocupaciones manuales activas y NO las libera.
-        También finaliza atenciones que han excedido su duración.
         
-        GET /api/boxes/sincronizar_estados/
-        """
+        # Sincroniza los estados de los boxes con las atenciones programadas.
+        # RESPETA ocupaciones manuales activas y NO las libera.
+        # También finaliza atenciones que han excedido su duración.
+        # GET /api/boxes/sincronizar_estados/
+        
         ahora = timezone.now()
         boxes_actualizados = 0
         atenciones_finalizadas = 0
@@ -487,13 +473,12 @@ class BoxViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get', 'post'])
     def verificar_y_liberar(self, request):
-        """
-        Verifica atenciones en curso y libera boxes si han excedido
-        su duración planificada.
+    
+        # Verifica atenciones en curso y libera boxes si han excedido
+        # su duración planificada.
+        # GET /api/boxes/verificar_y_liberar/
+        # POST /api/boxes/verificar_y_liberar/
         
-        GET /api/boxes/verificar_y_liberar/
-        POST /api/boxes/verificar_y_liberar/
-        """
         try:
             from atenciones.models import Atencion
             
@@ -550,11 +535,10 @@ class BoxViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def estado_detallado(self, request):
-        """
-        Muestra el estado detallado de todos los boxes con sus atenciones.
         
-        GET /api/boxes/estado_detallado/
-        """
+        # Muestra el estado detallado de todos los boxes con sus atenciones.
+        # GET /api/boxes/estado_detallado/
+        
         boxes = self.get_queryset()
         ahora = timezone.now()
         resultado = []
@@ -610,11 +594,10 @@ class BoxViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get', 'post'])
     def liberar_ocupaciones_manuales(self, request):
-        """
-        Libera boxes cuyas ocupaciones manuales han expirado.
         
-        GET/POST /api/boxes/liberar_ocupaciones_manuales/
-        """
+        # Libera boxes cuyas ocupaciones manuales han expirado.
+        # GET/POST /api/boxes/liberar_ocupaciones_manuales/
+        
         ahora = timezone.now()
         
         # Buscar ocupaciones manuales que deben finalizar

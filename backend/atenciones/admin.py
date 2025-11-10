@@ -117,10 +117,10 @@ class MedicoAdmin(admin.ModelAdmin):
 
 @admin.register(Atencion)
 class AtencionAdmin(admin.ModelAdmin):
-    """
-    Admin para Atenciones.
-    El campo médico ahora apunta a User con rol MEDICO.
-    """
+    
+    # Admin para Atenciones.
+    # El campo médico ahora apunta a User con rol MEDICO.
+    
     list_display = [
         'id_corto',
         'paciente_info',
@@ -155,7 +155,7 @@ class AtencionAdmin(admin.ModelAdmin):
     ]
     date_hierarchy = 'fecha_hora_inicio'
     
-    # ✅ Filtrar solo usuarios con rol MEDICO
+    # Filtrar solo medicos
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "medico":
             from users.models import User
@@ -213,7 +213,7 @@ class AtencionAdmin(admin.ModelAdmin):
         )
     paciente_info.short_description = "Paciente"
     
-    # ✅ Actualizado para mostrar información de User
+    # Mostrar info users
     def medico_info(self, obj):
         nombre = obj.medico.get_full_name() or obj.medico.username
         return format_html(

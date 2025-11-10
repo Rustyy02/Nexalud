@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -74,7 +73,6 @@ const theme = createTheme({
   },
 });
 
-// ✅ NUEVO: Componente para redirección según rol
 const RoleBasedRedirect = () => {
   const { user } = useAuth();
 
