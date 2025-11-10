@@ -63,3 +63,10 @@ python manage.py createsuperuser
 # Ejecutar servidor
 python manage.py runserver
 ``
+
+## 🐳 Ejecutar con Docker
+
+```bash
+# Desarrollo
+docker-compose up
+``
