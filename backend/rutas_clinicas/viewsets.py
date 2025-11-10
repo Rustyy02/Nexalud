@@ -15,9 +15,9 @@ from .serializers import (
 
 
 class RutaClinicaViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet corregido para gestionar rutas clínicas con flujo lineal
-    """
+    
+    # ViewSet corregido para gestionar rutas clínicas con flujo lineal
+    
     queryset = RutaClinica.objects.all()
     permission_classes = [IsAuthenticated]
     
@@ -63,9 +63,9 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-fecha_inicio')
     
     def create(self, request, *args, **kwargs):
-        """
-        Crea una nueva ruta clínica con validaciones mejoradas
-        """
+        
+        # Crea una nueva ruta clínica con validaciones mejoradas
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -86,10 +86,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def iniciar(self, request, pk=None):
-        """
-        Inicia la ruta clínica con etapa opcional
-        Body opcional: {"etapa_inicial": "HOSPITALIZACION"}
-        """
+        
+        # Inicia la ruta clínica con etapa opcional
+        # Body opcional: {"etapa_inicial": "HOSPITALIZACION"}
+        
         ruta = self.get_object()
         usuario = request.user
         etapa_inicial = request.data.get('etapa_inicial')
@@ -126,10 +126,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def avanzar(self, request, pk=None):
-        """
-        Avanza a la siguiente etapa de forma lineal
-        Body opcional: {"observaciones": "texto"}
-        """
+        
+        # Avanza a la siguiente etapa de forma lineal
+        # Body opcional: {"observaciones": "texto"}
+        
         ruta = self.get_object()
         usuario = request.user
         observaciones = request.data.get('observaciones', '')
@@ -174,10 +174,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def retroceder(self, request, pk=None):
-        """
-        Retrocede a la etapa anterior o reactiva una ruta completada
-        Body opcional: {"motivo": "texto"}
-        """
+        
+        # Retrocede a la etapa anterior o reactiva una ruta completada
+        # Body opcional: {"motivo": "texto"}
+        
         ruta = self.get_object()
         usuario = request.user
         motivo = request.data.get('motivo', '')
@@ -216,10 +216,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def pausar(self, request, pk=None):
-        """
-        Pausa la ruta clínica
-        Body: {"motivo": "texto"}
-        """
+        
+        # Pausa la ruta clínica
+        # Body: {"motivo": "texto"}
+        
         ruta = self.get_object()
         usuario = request.user
         
@@ -252,10 +252,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reanudar(self, request, pk=None):
-        """
-        Reanuda una ruta pausada
-        No requiere body, pero acepta observaciones opcionales
-        """
+        
+        # Reanuda una ruta pausada
+        # No requiere body, pero acepta observaciones opcionales
+        
         ruta = self.get_object()
         usuario = request.user
         
@@ -291,9 +291,9 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
-        """
-        Obtiene el timeline completo con validaciones mejoradas
-        """
+        
+        # Obtiene el timeline completo con validaciones mejoradas
+        
         try:
             ruta = self.get_object()
             
@@ -380,7 +380,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
             )
     
     def _generar_alertas(self, ruta, retrasos, tiempo_total_minutos):
-        """Genera alertas basadas en el estado de la ruta"""
+        # Genera alertas basadas en el estado de la ruta
         alertas = []
         
         if ruta.esta_pausado:
@@ -417,7 +417,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def historial(self, request, pk=None):
-        """Retorna el historial completo de cambios"""
+        # Retorna el historial completo de cambios
         ruta = self.get_object()
         
         return Response({
@@ -434,9 +434,9 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def validar_estado(self, request, pk=None):
-        """
-        Valida el estado actual de la ruta y su sincronización
-        """
+        
+        # Valida el estado actual de la ruta y su sincronización
+        
         ruta = self.get_object()
         
         # Validaciones
@@ -480,7 +480,7 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
     # Métodos existentes se mantienen...
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
-        """Estadísticas generales de rutas clínicas"""
+        # Estadísticas generales de rutas clínicas
         queryset = self.get_queryset()
         
         total = queryset.count()
@@ -507,10 +507,10 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['post'])
     def cancelar(self, request, pk=None):
-        """
-        Cancela la ruta clínica en la etapa actual sin completarla.
-        La ruta queda como CANCELADA y no se puede reiniciar.
-        """
+        
+        # Cancela la ruta clínica en la etapa actual sin completarla.
+        # La ruta queda como CANCELADA y no se puede reiniciar.
+        
         ruta = self.get_object()
         usuario = request.user
         serializer = RutaAccionSerializer(data=request.data)

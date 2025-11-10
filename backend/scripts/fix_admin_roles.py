@@ -1,4 +1,3 @@
-# backend/fix_admin_roles.py
 import os
 import django
 

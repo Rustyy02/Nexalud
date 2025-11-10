@@ -44,7 +44,7 @@ class RutaClinica(models.Model):
         'ALTA': 2880,                  # 2 días (48 horas) - Preparación de alta y seguimiento
     }
     
-    # ✅ MARGEN DE TOLERANCIA POR ETAPA (porcentaje sobre la duración estimada)
+    # MARGEN DE TOLERANCIA POR ETAPA (porcentaje sobre la duración estimada)
     # Después de este margen, se considera retrasada
     MARGEN_TOLERANCIA = {
         'CONSULTA_MEDICA': 0.20,      # 20% = ~5 horas extra
@@ -128,7 +128,7 @@ class RutaClinica(models.Model):
         return f"Ruta {self.paciente} - {self.porcentaje_completado:.1f}% - {self.get_etapa_actual_display() or 'No iniciada'}"
     
     # ============================================
-    # ✅ MÉTODO PRINCIPAL DE SINCRONIZACIÓN
+    # MÉTODO PRINCIPAL DE SINCRONIZACIÓN
     # ============================================
     
     def _sincronizar_etapa_paciente(self):
@@ -140,7 +140,7 @@ class RutaClinica(models.Model):
         elif self.estado == 'CANCELADA':
             self.paciente.limpiar_etapa('CANCELADA')
         elif self.estado == 'PAUSADA':
-            # ✅ Mantener la etapa actual pero cambiar el estado del paciente
+            # Mantener la etapa actual pero cambiar el estado del paciente
             if self.etapa_actual:
                 self.paciente.actualizar_etapa(self.etapa_actual, 'PAUSADA')
             else:
@@ -152,7 +152,7 @@ class RutaClinica(models.Model):
             self.paciente.limpiar_etapa('EN_ESPERA')
     
     # ============================================
-    # ✅ MÉTODO MEJORADO PARA DETECTAR RETRASOS
+    # MÉTODO MEJORADO PARA DETECTAR RETRASOS
     # ============================================
     
     def detectar_retrasos(self):
@@ -234,9 +234,9 @@ class RutaClinica(models.Model):
     # ============================================
     
     def iniciar_ruta(self, usuario=None, etapa_inicial=None):
-        """
-        ✅ CORREGIDO: Inicia la ruta respetando el flujo lineal
-        """
+        
+        # Inicia la ruta respetando el flujo lineal
+        
         # Usar todas las etapas en orden si no hay seleccionadas
         todas_etapas = [key for key, _ in self.ETAPAS_CHOICES]
         
@@ -319,9 +319,7 @@ class RutaClinica(models.Model):
         return True
     
     def avanzar_etapa(self, observaciones="", usuario=None):
-        """
-        ✅ CORREGIDO: Avanza linealmente sin saltos
-        """
+        # Avanza linealmente sin saltos
         # Validaciones iniciales
         if self.estado != 'EN_PROGRESO':
             return False
@@ -365,7 +363,7 @@ class RutaClinica(models.Model):
         
         # Verificar si llegamos al final
         if self.indice_etapa_actual >= len(etapas):
-            # ✅ COMPLETAR LA RUTA
+            # COMPLETAR LA RUTA
             self.estado = 'COMPLETADA'
             self.fecha_fin_real = ahora
             self.etapa_actual = None
@@ -412,9 +410,9 @@ class RutaClinica(models.Model):
         return True
     
     def retroceder_etapa(self, motivo='', usuario=None):
-        """
-        ✅ CORREGIDO: Retrocede correctamente y reactiva el estado
-        """
+        
+        # Retrocede correctamente y reactiva el estado
+        
         etapas = self.etapas_seleccionadas if self.etapas_seleccionadas else [key for key, _ in self.ETAPAS_CHOICES]
         
         # No se puede retroceder desde la primera etapa
@@ -498,7 +496,7 @@ class RutaClinica(models.Model):
         return True
     
     def pausar_ruta(self, motivo='', usuario=None):
-        """Pausa la ruta y actualiza estado del paciente"""
+        # Pausa la ruta y actualiza estado del paciente
         print(f"🔍 DEBUG pausar_ruta - Estado actual: {self.estado}")
         print(f"🔍 DEBUG pausar_ruta - Motivo: {motivo}")
         
@@ -523,7 +521,7 @@ class RutaClinica(models.Model):
         return True
     
     def reanudar_ruta(self, usuario=None):
-        """Reanuda la ruta y actualiza estado del paciente"""
+        # Reanuda la ruta y actualiza estado del paciente
         print(f"🔍 DEBUG reanudar_ruta - Estado actual: {self.estado}")
         print(f"🔍 DEBUG reanudar_ruta - Esta pausado: {self.esta_pausado}")
         
@@ -550,7 +548,7 @@ class RutaClinica(models.Model):
     # ============================================
     
     def calcular_progreso(self):
-        """Calcula el porcentaje de progreso basado en etapas seleccionadas"""
+        # Calcula el porcentaje de progreso basado en etapas seleccionadas
         if not self.etapas_seleccionadas:
             self.porcentaje_completado = 0.0
             return 0.0
@@ -572,15 +570,15 @@ class RutaClinica(models.Model):
         return progreso
     
     def obtener_tiempo_total_real(self):
-        """Calcula el tiempo real transcurrido"""
+        # Calcula el tiempo real transcurrido
         if self.fecha_fin_real:
             return self.fecha_fin_real - self.fecha_inicio
         return timezone.now() - self.fecha_inicio
     
     def obtener_timeline_completo(self):
-        """
-        ✅ CORREGIDO: Timeline que muestra correctamente el flujo lineal
-        """
+        
+        # Timeline que muestra correctamente el flujo lineal
+        
         timeline = []
         
         # Usar etapas seleccionadas o todas
@@ -645,11 +643,11 @@ class RutaClinica(models.Model):
         return timeline
     
     def obtener_info_timeline(self):
-        """Retorna información estructurada para el timeline"""
+        # Retorna información estructurada para el timeline
         return self.obtener_timeline_completo()
     
     def obtener_etapa_siguiente(self):
-        """Retorna la siguiente etapa"""
+        # Retorna la siguiente etapa
         etapas = self.etapas_seleccionadas if self.etapas_seleccionadas else [key for key, _ in self.ETAPAS_CHOICES]
         
         if self.indice_etapa_actual + 1 < len(etapas):
@@ -662,7 +660,7 @@ class RutaClinica(models.Model):
     # ============================================
     
     def _agregar_al_historial(self, accion, etapa, usuario=None, data_extra=None):
-        """Agrega una entrada al historial de cambios"""
+        # Agrega una entrada al historial de cambios
         entrada = {
             'timestamp': timezone.now().isoformat(),
             'accion': accion,
@@ -679,7 +677,7 @@ class RutaClinica(models.Model):
         self.historial_cambios.append(entrada)
     
     def _calcular_fecha_estimada_fin(self):
-        """Calcula la fecha estimada de finalización"""
+        # Calcula la fecha estimada de finalización
         if not self.etapas_seleccionadas:
             return
         

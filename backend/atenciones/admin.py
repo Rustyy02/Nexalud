@@ -6,10 +6,10 @@ from .models import Medico, Atencion
 
 @admin.register(Medico)
 class MedicoAdmin(admin.ModelAdmin):
-    """
-    Admin para el modelo Medico (legacy).
-    Este modelo se mantiene para compatibilidad con datos históricos.
-    """
+    
+    # Admin para el modelo Medico (legacy).
+    # Este modelo se mantiene para compatibilidad con datos históricos.
+    
     list_display = [
         'codigo_medico', 
         'nombre_completo_display', 
@@ -124,7 +124,7 @@ class AtencionAdmin(admin.ModelAdmin):
     list_display = [
         'id_corto',
         'paciente_info',
-        'medico_info',  # ✅ Actualizado para mostrar User
+        'medico_info',
         'box',
         'tipo_atencion',
         'estado_badge',
@@ -141,9 +141,9 @@ class AtencionAdmin(admin.ModelAdmin):
     search_fields = [
         'id',
         'paciente__identificador_hash',
-        'medico__username',  # ✅ Actualizado
-        'medico__first_name',  # ✅ Actualizado
-        'medico__last_name',  # ✅ Actualizado
+        'medico__username',
+        'medico__first_name',
+        'medico__last_name',
         'box__numero'
     ]
     readonly_fields = [
@@ -166,7 +166,7 @@ class AtencionAdmin(admin.ModelAdmin):
         ('Información General', {
             'fields': (
                 'paciente',
-                'medico',  # ✅ Ahora apunta a User
+                'medico',
                 'box',
                 'tipo_atencion',
                 'estado',

@@ -190,9 +190,9 @@ class Box(models.Model):
 
 
 class OcupacionManual(models.Model):
-    """
-    Modelo para registrar ocupaciones manuales de boxes sin atención médica.
-    """
+    
+    # Modelo para registrar ocupaciones manuales de boxes sin atención médica.
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     box = models.ForeignKey(
         'Box',

@@ -1,4 +1,3 @@
-# backend/create_test_users.py
 import os
 import django
 

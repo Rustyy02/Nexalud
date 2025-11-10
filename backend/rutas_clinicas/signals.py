@@ -4,15 +4,15 @@ from .models import RutaClinica
 
 @receiver(pre_delete, sender=RutaClinica)
 def limpiar_etapa_paciente_al_eliminar_ruta(sender, instance, **kwargs):
-    """
-    Limpia el campo etapa_actual del paciente cuando se elimina una ruta clínica.
     
-    Solo limpia si:
-    - El paciente existe
-    - No hay otras rutas activas para ese paciente
+    # Limpia el campo etapa_actual del paciente cuando se elimina una ruta clínica.
     
-    Esto mantiene la consistencia entre el paciente y sus rutas clínicas.
-    """
+    # Solo limpia si:
+    # - El paciente existe
+    # - No hay otras rutas activas para ese paciente
+    
+    # Esto mantiene la consistencia entre el paciente y sus rutas clínicas.
+    
     if not instance.paciente:
         return
     
@@ -32,12 +32,12 @@ def limpiar_etapa_paciente_al_eliminar_ruta(sender, instance, **kwargs):
 
 @receiver(post_save, sender=RutaClinica)
 def verificar_consistencia_etapa(sender, instance, created, **kwargs):
-    """
-    Verifica que la etapa_actual del paciente esté sincronizada
-    con la ruta clínica cuando se guarda.
     
-    Esto es una capa adicional de seguridad para mantener la consistencia.
-    """
+    # Verifica que la etapa_actual del paciente esté sincronizada
+    # con la ruta clínica cuando se guarda.
+    
+    # Esto es una capa adicional de seguridad para mantener la consistencia.
+    
     if instance.paciente and instance.estado == 'EN_PROGRESO':
         # Si la ruta está en progreso, asegurar que el paciente tenga la etapa correcta
         if instance.paciente.etapa_actual != instance.etapa_actual:

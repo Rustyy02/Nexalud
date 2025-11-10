@@ -188,7 +188,9 @@ class BoxOcupacionSerializer(serializers.Serializer):
         fields = ['timestamp']
         
 class BoxConAtencionesSerializer(serializers.ModelSerializer):
+    
     # Serializer de Box con información de atenciones programadas
+    
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     especialidad_display = serializers.CharField(source='get_especialidad_display', read_only=True)
     disponible = serializers.SerializerMethodField()
@@ -217,7 +219,9 @@ class BoxConAtencionesSerializer(serializers.ModelSerializer):
         return obj.obtener_disponibilidad()
     
     def get_atencion_actual(self, obj):
+        
         # Obtiene la atención que está ocupando el box actualmente
+        
         from django.utils import timezone
         from atenciones.models import Atencion
         

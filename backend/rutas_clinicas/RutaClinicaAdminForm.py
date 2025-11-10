@@ -3,7 +3,7 @@ from .models import RutaClinica
 
 
 class RutaClinicaAdminForm(forms.ModelForm):
-    """Form personalizado para el admin de RutaClinica"""
+    # Form personalizado para el admin de RutaClinica
     
     etapas_seleccionadas = forms.MultipleChoiceField(
         choices=RutaClinica.ETAPAS_CHOICES,
@@ -23,6 +23,6 @@ class RutaClinicaAdminForm(forms.ModelForm):
             self.initial['etapas_seleccionadas'] = self.instance.etapas_seleccionadas
     
     def clean_etapas_seleccionadas(self):
-        """Convierte las etapas seleccionadas a lista"""
+        # Convierte las etapas seleccionadas a lista
         etapas = self.cleaned_data.get('etapas_seleccionadas', [])
         return list(etapas) if etapas else []

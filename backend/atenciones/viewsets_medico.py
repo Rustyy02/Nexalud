@@ -1,4 +1,3 @@
-# backend/atenciones/viewsets_medico.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -362,11 +361,11 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
     # ✅ 2. VERIFICAR ATRASO (marcar como no presentado si pasaron 5 min)
     @action(detail=True, methods=['post'])
     def verificar_atraso(self, request, pk=None):
-        """
-        Verifica si han pasado 5 minutos desde el reporte de atraso.
-        Si es así, marca automáticamente como NO_PRESENTADO.
-        POST /api/medico/atenciones/{id}/verificar_atraso/
-        """
+        
+        # Verifica si han pasado 5 minutos desde el reporte de atraso.
+        # Si es así, marca automáticamente como NO_PRESENTADO.
+        # POST /api/medico/atenciones/{id}/verificar_atraso/
+        
         atencion = self.get_object()
         
         if not atencion.atraso_reportado:
@@ -376,7 +375,7 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
             }, status=status.HTTP_200_OK)
         
         if atencion.verificar_tiempo_atraso():
-            # Han pasado 5 minutos, marcar como NO_PRESENTADO
+            # Si han pasado 5 minutos, marcar como NO_PRESENTADO
             if atencion.marcar_no_presentado():
                 serializer = AtencionSerializer(atencion)
                 return Response({
@@ -392,7 +391,7 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
             'atencion': serializer.data
         }, status=status.HTTP_200_OK)
     
-    # ✅ 3. INICIAR CONSULTA (cuando el paciente llega después del atraso)
+    # INICIAR CONSULTA
     @action(detail=True, methods=['post'])
     def iniciar_consulta(self, request, pk=None):
         """

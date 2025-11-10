@@ -97,9 +97,7 @@ class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
 
 # Nuevo serializer para usuario medico
 class MedicoUserSerializer(serializers.Serializer):
-    
     # Serializer para representar usuarios con rol MEDICO como médicos.
-    
     id = serializers.UUIDField(read_only=True)
     username = serializers.CharField(read_only=True)
     nombre_completo = serializers.SerializerMethodField()
@@ -226,17 +224,17 @@ class AtencionSerializer(serializers.ModelSerializer):
     
     # Metodos atrasos y tiempos
     def get_puede_reportar_atraso(self, obj):
-        """Indica si se puede reportar atraso actualmente"""
+        # Indica si se puede reportar atraso actualmente
         puede, _ = obj.puede_reportar_atraso()
         return puede
     
     def get_mensaje_puede_reportar_atraso(self, obj):
-        """Mensaje de error si no se puede reportar atraso"""
+        # Mensaje de error si no se puede reportar atraso
         _, mensaje = obj.puede_reportar_atraso()
         return mensaje
     
     def get_minutos_desde_inicio_atencion(self, obj):
-        """Calcula cuántos minutos han pasado desde que inició la atención"""
+        # Calcula cuántos minutos han pasado desde que inició la atención
         if obj.estado == 'EN_CURSO' and obj.inicio_cronometro:
             from django.utils import timezone
             ahora = timezone.now()
