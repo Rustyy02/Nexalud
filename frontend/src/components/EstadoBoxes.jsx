@@ -34,7 +34,7 @@ import {
   MedicalServices as MedicalIcon,
   Timer as TimerIcon,
 } from '@mui/icons-material';
-import { boxesService, atencionesService } from '../services/api';
+import { boxesService, atencionesService, medicoAtencionesService } from '../services/api';
 import Navbar from './Navbar';
 
 const EstadoBoxes = () => {
@@ -314,15 +314,50 @@ const EstadoBoxes = () => {
   };
 
   const iniciarAtencionAtrasada = async (atraso) => {
-    try {
-      await atencionesService.iniciarCronometro(atraso.atencionId);
-      showSnackbar('Atención iniciada correctamente', 'success');
-      await cargarDatos();
-    } catch (err) {
-      showSnackbar('Error al iniciar la atención', 'error');
-      console.error(err);
-    }
-  };
+      try {
+        console.log('🔄 Iniciando atención atrasada:', atraso);
+        
+        // Primero, obtener el estado actual de la atención
+        const atencionResponse = await atencionesService.getById(atraso.atencionId);
+        const atencion = atencionResponse.data;
+        
+        console.log('📊 Estado de la atención:', atencion.estado);
+        console.log('⏰ Atraso reportado:', atencion.atraso_reportado);
+        
+        // ✅ MODIFICACIÓN CLAVE: Usar iniciarConsulta para ambos casos
+        if (atencion.atraso_reportado) {
+          // Usa la acción diseñada para despejar el atraso y, si es necesario, iniciar la consulta.
+          // El viewset se encargará de si debe iniciar el cronómetro o solo limpiar el flag.
+          console.log('✓ Usando iniciarConsulta para despejar atraso y/o iniciar');
+          
+          // NOTA: Se llama al servicio del MÉDICO (medicoAtencionesService)
+          // ya que la acción iniciarConsulta está configurada allí.
+          await medicoAtencionesService.iniciarConsulta(atraso.atencionId);
+          
+          const mensaje = atencion.estado === 'EN_CURSO'
+              ? 'Consulta reanudada - Paciente regresó'
+              : 'Atención iniciada y atraso despejado correctamente';
+              
+          showSnackbar(mensaje, 'success');
+          
+        } else {
+          // Caso de estado inesperado (sin atraso reportado)
+          console.error('❌ Estado inesperado o atraso ya despejado:', atencion.estado);
+          showSnackbar('Esta atención ya no requiere manejo de atraso.', 'warning');
+          return;
+        }
+        
+        await cargarDatos();
+      } catch (err) {
+        console.error('❌ Error completo:', err);
+        console.error('❌ Response:', err.response?.data);
+        
+        const errorMsg = err.response?.data?.error || 
+                        err.response?.data?.mensaje || 
+                        'Error al iniciar la atención';
+        showSnackbar(errorMsg, 'error');
+      }
+    };
 
   const notificarProfesional = (atraso) => {
     showSnackbar(`Notificación enviada para box ${atraso.box}`, 'info');

@@ -1057,9 +1057,77 @@ const MedicoConsultas = () => {
 
                     <Box sx={{ mt: 'auto' }}>
                       <Stack spacing={2}>
+<<<<<<< Updated upstream
                         {/* BOTÓN REPORTAR ATRASO - SIEMPRE VISIBLE SI NO HAY ATRASO REPORTADO */}
                         {!atencionActual.atraso_reportado && (
                           <Box>
+=======
+                        {/* ✅ CASO 1: HAY ATRASO REPORTADO - Mostrar botón PACIENTE LLEGÓ */}
+                        {atencionActual.atraso_reportado ? (
+                          <>
+                            <Alert severity="warning" sx={{ mb: 1 }}>
+                              <Typography variant="body2" fontWeight={600}>
+                                ⏳ Esperando que el paciente regrese ({Math.round(atencionActual.minutos_desde_reporte_atraso || 0)}/5 min)
+                              </Typography>
+                              <Typography variant="caption">
+                                Si regresa, presiona el botón verde para continuar
+                              </Typography>
+                            </Alert>
+
+                            {/* ✅ BOTÓN PRINCIPAL: PACIENTE LLEGÓ */}
+                            <Button
+                              variant="contained"
+                              size="large"
+                              fullWidth
+                              startIcon={<PlayIcon />}
+                              onClick={handleIniciarConsulta}
+                              disabled={loading || atencionActual.debe_marcar_no_presentado}
+                              sx={{ 
+                                py: 2,
+                                bgcolor: 'success.main',
+                                color: 'white',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  bgcolor: 'success.dark',
+                                },
+                                '&.Mui-disabled': {
+                                  bgcolor: 'grey.500',
+                                  color: 'white',
+                                }
+                              }}
+                            >
+                              {loading 
+                                ? 'Continuando...' 
+                                : atencionActual.debe_marcar_no_presentado
+                                  ? 'TIEMPO AGOTADO'
+                                  : '✓ PACIENTE LLEGÓ - CONTINUAR'
+                              }
+                            </Button>
+
+                            {/* Botón secundario: Finalizar si ya no esperará más */}
+                            <Button
+                              variant="outlined"
+                              size="large"
+                              fullWidth
+                              startIcon={<StopIcon />}
+                              onClick={() => setDialogFinalizar(true)}
+                              disabled={loading}
+                              sx={{ 
+                                color: 'white',
+                                borderColor: 'white',
+                                '&:hover': {
+                                  borderColor: 'white',
+                                  bgcolor: 'rgba(255,255,255,0.1)',
+                                }
+                              }}
+                            >
+                              FINALIZAR CONSULTA
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            {/* ✅ CASO 2: NO HAY ATRASO - Mostrar botón REPORTAR ATRASO */}
+>>>>>>> Stashed changes
                             <Button
                               variant="outlined"
                               size="large"
@@ -1082,7 +1150,7 @@ const MedicoConsultas = () => {
                             
                             {/* Info sobre tiempo disponible para reportar */}
                             {atencionActual.minutos_desde_inicio_atencion !== undefined && 
-                             atencionActual.minutos_desde_inicio_atencion <= 5 && (
+                            atencionActual.minutos_desde_inicio_atencion <= 5 && (
                               <Typography 
                                 variant="caption" 
                                 sx={{ 
@@ -1099,7 +1167,7 @@ const MedicoConsultas = () => {
                             
                             {/* Advertencia si ya pasaron 5 minutos */}
                             {atencionActual.minutos_desde_inicio_atencion !== undefined && 
-                             atencionActual.minutos_desde_inicio_atencion > 5 && (
+                            atencionActual.minutos_desde_inicio_atencion > 5 && (
                               <Typography 
                                 variant="caption" 
                                 sx={{ 
@@ -1113,9 +1181,29 @@ const MedicoConsultas = () => {
                                 ⚠️ Han pasado más de 5 min - El sistema puede rechazar el reporte
                               </Typography>
                             )}
-                          </Box>
+
+                            <Button
+                              variant="contained"
+                              size="large"
+                              fullWidth
+                              startIcon={<StopIcon />}
+                              onClick={() => setDialogFinalizar(true)}
+                              disabled={loading}
+                              sx={{ 
+                                py: 2,
+                                bgcolor: 'white',
+                                color: 'error.main',
+                                '&:hover': {
+                                  bgcolor: 'rgba(255,255,255,0.9)',
+                                }
+                              }}
+                            >
+                              FINALIZAR CONSULTA
+                            </Button>
+                          </>
                         )}
 
+<<<<<<< Updated upstream
                         {/* Alerta si hay atraso reportado */}
                         {atencionActual.atraso_reportado && (
                           <Alert severity="warning">
@@ -1146,6 +1234,9 @@ const MedicoConsultas = () => {
                         >
                           FINALIZAR CONSULTA
                         </Button>
+=======
+                        {/* Botón NO SE PRESENTÓ - Siempre disponible */}
+>>>>>>> Stashed changes
                         <Button
                           variant="outlined"
                           size="large"

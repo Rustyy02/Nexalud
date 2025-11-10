@@ -601,7 +601,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         # Buscar atenciones con atraso reportado que NO estén finalizadas
         atenciones = self.get_queryset().filter(
             atraso_reportado=True,
-            estado__in=['PROGRAMADA', 'EN_ESPERA'],
+            estado__in=['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO'],
             fecha_reporte_atraso__isnull=False
         ).select_related('paciente', 'medico', 'box')
         
@@ -621,7 +621,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         # Recargar las atenciones después de la actualización automática
         atenciones = self.get_queryset().filter(
             atraso_reportado=True,
-            estado__in=['PROGRAMADA', 'EN_ESPERA'],
+            estado__in=['PROGRAMADA', 'EN_ESPERA', 'EN_CURSO'],
             fecha_reporte_atraso__isnull=False
         ).select_related('paciente', 'medico', 'box')
         
@@ -713,38 +713,51 @@ class AtencionViewSet(viewsets.ModelViewSet):
     def iniciar_consulta(self, request, pk=None):
         
         # El paciente llegó después de reportar atraso.
-        # Cancela el timer de atraso y permite continuar la consulta normalmente.
+        # Cancela el timer de atraso y permite continuar/iniciar la consulta.
         
         atencion = self.get_object()
-        
-        if atencion.estado != 'EN_CURSO':
-            return Response(
-                {'error': 'La atención no está EN_CURSO'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+
+        # 1. Verificar si hay un atraso reportado. Si no, no es el flujo correcto.
         if not atencion.atraso_reportado:
             return Response(
-                {'error': 'No hay atraso reportado'},
+                {'error': 'No hay atraso reportado para esta atención.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Verificar que no hayan pasado 5 minutos
+
+        # 2. Verificar si el tiempo de espera ha expirado (5 minutos)
         if atencion.verificar_tiempo_atraso():
             return Response(
-                {'error': 'El tiempo de espera ha expirado. La atención debe marcarse como NO_PRESENTADO'},
+                {'error': 'El tiempo de espera ha expirado. La atención ya debería estar marcada como NO_PRESENTADO.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Limpiar el reporte de atraso
+        # Guardar estado actual antes de limpiar el flag
+        estado_previo = atencion.estado
+
+        # 3. Limpiar el reporte de atraso (siempre)
         atencion.atraso_reportado = False
         atencion.fecha_reporte_atraso = None
-        atencion.motivo_atraso = "Paciente llegó con retraso pero dentro del tiempo de tolerancia"
+        atencion.motivo_atraso = "Paciente llegó/regresó después de reportar atraso dentro del tiempo de tolerancia."
         atencion.save()
+        
+        mensaje = "Atención reanudada correctamente."
+
+        # 4. Si la atención estaba PROGRAMADA o EN_ESPERA, la INICIAMOS AHORA
+        if estado_previo in ['PROGRAMADA', 'EN_ESPERA']:
+            if atencion.iniciar_cronometro():
+                mensaje = "Consulta iniciada y atraso despejado correctamente."
+            else:
+                 # Esto solo debería ocurrir si ya existía otra en curso, etc.
+                return Response(
+                    {'error': 'No se pudo iniciar el cronómetro.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Si estaba EN_CURSO, solo se limpió el flag y el cronómetro sigue corriendo.
         
         serializer = AtencionSerializer(atencion)
         return Response({
             'success': True,
-            'message': 'Consulta iniciada correctamente',
+            'message': mensaje,
             'atencion': serializer.data
         }, status=status.HTTP_200_OK)
