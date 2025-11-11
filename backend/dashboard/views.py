@@ -1,4 +1,3 @@
-# backend/dashboard/views.py - VERSIÓN ACTUALIZADA CON ESPECIALIDADES
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -50,7 +49,7 @@ def dashboard_metricas_generales(request):
     ahora = timezone.now()
     hoy = ahora.date()
 
-    # ===== MÉTRICAS DE PACIENTES =====
+    #  MÉTRICAS DE PACIENTES 
     total_pacientes = Paciente.objects.filter(activo=True).count()
     pacientes_hoy = Paciente.objects.filter(
         fecha_ingreso__date=hoy,
@@ -79,7 +78,7 @@ def dashboard_metricas_generales(request):
             'count': count
         }
 
-    # ===== MÉTRICAS DE BOXES =====
+    #  MÉTRICAS DE BOXES 
     total_boxes = Box.objects.filter(activo=True).count()
     boxes_disponibles = Box.objects.filter(
         estado='DISPONIBLE',
@@ -95,7 +94,7 @@ def dashboard_metricas_generales(request):
         2
     )
 
-    # ===== MÉTRICAS DE ATENCIONES =====
+    #  MÉTRICAS DE ATENCIONES 
     atenciones_hoy = Atencion.objects.filter(
         fecha_hora_inicio__date=hoy
     ).count()
@@ -141,7 +140,7 @@ def dashboard_metricas_generales(request):
                 'retraso_minutos': atencion.calcular_retraso()
             })
 
-    # ===== MÉTRICAS DE RUTAS CLÍNICAS =====
+    #  MÉTRICAS DE RUTAS CLÍNICAS 
     rutas_activas = RutaClinica.objects.filter(
         estado__in=['INICIADA', 'EN_PROGRESO']
     ).count()
@@ -159,13 +158,13 @@ def dashboard_metricas_generales(request):
         estado__in=['INICIADA', 'EN_PROGRESO']
     ).aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
 
-    # ✅ ACTUALIZADO: Etapas con retraso (detectar rutas con retrasos)
+    #Etapas con retraso (detectar rutas con retrasos)
     rutas_con_retraso = 0
     for ruta in RutaClinica.objects.filter(estado='EN_PROGRESO'):
         if ruta.detectar_retrasos():
             rutas_con_retraso += 1
 
-    # ===== MÉTRICAS DE MÉDICOS =====
+    #  MÉTRICAS DE MÉDICOS 
     medicos_activos = User.objects.filter(
         rol='MEDICO',
         is_active=True
@@ -195,7 +194,7 @@ def dashboard_metricas_generales(request):
             'atenciones': medico.total_atenciones
         })
 
-    # ===== TENDENCIAS (ÚLTIMOS 7 DÍAS) =====
+    #  TENDENCIAS (ÚLTIMOS 7 DÍAS) 
     tendencias = []
     for i in range(7):
         dia = hoy - timedelta(days=6-i)

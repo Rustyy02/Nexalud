@@ -315,7 +315,7 @@ class Paciente(models.Model):
     )
     
     # ============================================
-    # ESTADO Y SEGUIMIENTO - ✅ ACTUALIZADO
+    # ESTADO Y SEGUIMIENTO - 
     # ============================================
     
     fecha_ingreso = models.DateTimeField(
@@ -323,7 +323,7 @@ class Paciente(models.Model):
         help_text="Fecha y hora de ingreso al sistema"
     )
     
-    # ✅ NUEVO: Estado general del sistema
+    # Estado general del sistema
     estado_actual = models.CharField(
         max_length=20, 
         choices=ESTADO_CHOICES,
@@ -331,7 +331,7 @@ class Paciente(models.Model):
         help_text="Estado general del paciente en el sistema"
     )
     
-    # ✅ NUEVO: Etapa del flujo clínico (sincronizada con RutaClinica)
+    # Etapa del flujo clínico (sincronizada con RutaClinica)
     etapa_actual = models.CharField(
         max_length=30,
         choices=ETAPA_CHOICES,
@@ -368,7 +368,7 @@ class Paciente(models.Model):
             models.Index(fields=['rut']),
             models.Index(fields=['identificador_hash']),
             models.Index(fields=['estado_actual']),
-            models.Index(fields=['etapa_actual']),  # ✅ NUEVO ÍNDICE
+            models.Index(fields=['etapa_actual']), 
             models.Index(fields=['fecha_ingreso']),
             models.Index(fields=['nivel_urgencia']),
             models.Index(fields=['apellido_paterno', 'apellido_materno']),
@@ -379,10 +379,10 @@ class Paciente(models.Model):
         return f"{self.nombre_completo} - RUT: {self.rut} - {self.get_estado_actual_display()}{etapa_str}"
     
     # ============================================
-    # ✅ NUEVOS MÉTODOS PARA GESTIÓN DE ETAPA
+    #  MÉTODOS PARA GESTIÓN DE ETAPA
     # ============================================
     
-    def actualizar_etapa(self, nueva_etapa, estado_ruta='ACTIVO'): # ✅ Nuevo argumento estado_ruta
+    def actualizar_etapa(self, nueva_etapa, estado_ruta='ACTIVO'): 
             """
             Actualiza la etapa actual del paciente y su estado general.
             Este método es llamado desde RutaClinica.
@@ -397,14 +397,14 @@ class Paciente(models.Model):
                     self.estado_actual = 'PROCESO_CANCELADO'
                 elif estado_ruta == 'PAUSADA':
                     self.estado_actual = 'PROCESO_PAUSADO'
-                else: # EN_PROGRESO o INICIADA
+                else: 
                     self.estado_actual = 'ACTIVO' 
                 
                 self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion'])
                 return True
             return False
     
-    def limpiar_etapa(self, estado_final='ALTA_COMPLETA'): # ✅ Nuevo argumento estado_final
+    def limpiar_etapa(self, estado_final='ALTA_COMPLETA'):
             """Limpia la etapa cuando se completa o cancela la ruta"""
             self.etapa_actual = None
             
@@ -418,7 +418,7 @@ class Paciente(models.Model):
             else:
                 self.estado_actual = 'EN_ESPERA' # Por defecto, si se limpia sin una ruta activa.
             
-            self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion']) # ✅ Agregar estado_actual
+            self.save(update_fields=['etapa_actual', 'estado_actual', 'fecha_actualizacion']) 
     
     def esta_en_proceso_clinico(self):
         """Verifica si el paciente está en un proceso clínico activo"""
@@ -508,7 +508,7 @@ class Paciente(models.Model):
             raise
     
     # ============================================
-    # MÉTODOS DE VALIDACIÓN RUT CHILENO (Creado con la fórmula correspondiente para el dígito verificador)
+    # MÉTODOS DE VALIDACIÓN RUT 
     # ============================================
     
     @staticmethod

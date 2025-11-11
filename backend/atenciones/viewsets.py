@@ -635,16 +635,8 @@ class AtencionViewSet(viewsets.ModelViewSet):
         
     @action(detail=True, methods=['post'], url_path='reportar-atraso')
     def reportar_atraso(self, request, pk=None):
-        """
-        Reporta un atraso del paciente.
-        
-        Disponible en:
-        - Atenciones PROGRAMADAS/EN_ESPERA (paciente no llega a tiempo)
-        - Atenciones EN_CURSO durante los primeros 5 minutos (paciente se ausenta)
-        
-        Inicia un timer de 5 minutos. Si el paciente no llega/regresa en ese tiempo,
-        se marcará automáticamente como NO_PRESENTADO.
-        """
+        # Reporta un atraso en la atención médica.
+        # El médico es quien indica que el paciente está retrasado.
         atencion = self.get_object()
         
         puede_reportar, mensaje_error = atencion.puede_reportar_atraso()
@@ -742,7 +734,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         
         mensaje = "Atención reanudada correctamente."
 
-        # 4. Si la atención estaba PROGRAMADA o EN_ESPERA, la INICIAMOS AHORA
+        # 4. Si la atención estaba PROGRAMADA o EN_ESPERA
         if estado_previo in ['PROGRAMADA', 'EN_ESPERA']:
             if atencion.iniciar_cronometro():
                 mensaje = "Consulta iniciada y atraso despejado correctamente."
@@ -789,7 +781,7 @@ class AtencionViewSet(viewsets.ModelViewSet):
         
         # Log para debugging
         if not tiene_ruta_antes and tiene_ruta_despues:
-            print(f"✅ Ruta clínica creada automáticamente para paciente {paciente.identificador_hash[:8]}")
+            print(f" Ruta clínica creada automáticamente para paciente {paciente.identificador_hash[:8]}")
         
         headers = self.get_success_headers(serializer.data)
         

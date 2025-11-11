@@ -1,4 +1,3 @@
-# backend/users/management/commands/update_medicos_especialidad.py
 from django.core.management.base import BaseCommand
 from users.models import User
 

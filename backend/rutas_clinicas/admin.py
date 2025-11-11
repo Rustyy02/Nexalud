@@ -109,7 +109,6 @@ class RutaClinicaAdmin(admin.ModelAdmin):
         )
     etapa_actual_badge.short_description = "Etapa Actual"
     
-    # --- MÉTODO CORREGIDO ---
     def progreso_bar(self, obj):
         progreso = obj.porcentaje_completado
         color = 'green' if progreso >= 75 else 'orange' if progreso >= 50 else 'red'

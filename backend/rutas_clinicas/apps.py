@@ -11,6 +11,6 @@ class RutasClinicasConfig(AppConfig):
         Aquí importamos los signals para que se registren.
         """
         import rutas_clinicas.signals
-        print("✅ Signals de la API registrados correctamente")
+        print("Signals de la API registrados correctamente")
 
 

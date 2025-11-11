@@ -495,7 +495,7 @@ class PacienteViewSet(viewsets.ModelViewSet):
         return recomendaciones.get(categoria, 'No disponible')
     
     # ============================================
-    # ENDPOINTS ORIGINALES MANTENIDOS
+    # ENDPOINTS
     # ============================================
     
     @action(detail=True, methods=['post'])

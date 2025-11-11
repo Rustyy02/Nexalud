@@ -289,8 +289,8 @@ const Home = () => {
               ============================================ */}
           <TableContainer                        
                     sx={{
-                          maxHeight: 400, // 🔹 altura máxima
-                          overflowY: 'auto', // 🔹 activa el scroll vertical
+                          maxHeight: 400, 
+                          overflowY: 'auto', // activa el scroll vertical
                           borderTop: '1px solid',
                           borderColor: 'divider',
                         }}>
@@ -525,7 +525,7 @@ const Home = () => {
         </Paper>
 
         {/* ============================================
-            DRAWER ACTUALIZADO CON ETAPA ACTUAL
+            DRAWER CON ETAPA ACTUAL
             ============================================ */}
         <Drawer
           anchor="right"
@@ -610,7 +610,7 @@ const Home = () => {
                       </Box>
                     </Box>
 
-                    {/* CHIPS ACTUALIZADOS CON ETAPA */}
+                    {/* CHIPS CON ETAPA */}
                     <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip
                         label={pacienteSeleccionado.estado_actual_display}

@@ -307,7 +307,7 @@ const MedicoConsultas = () => {
     return Math.max(0, diferencia);
   };
 
-  // ✅ NUEVA FUNCIÓN: Calcula el tiempo restante en segundos.
+  // Calcula el tiempo restante en segundos.
   const calcularSegundosHastaInicio = () => {
     if (!atencionActual?.fecha_hora_inicio) return 0;
     const ahora = new Date();
@@ -418,7 +418,7 @@ const MedicoConsultas = () => {
         { motivo: motivoAtraso }
       );
       // LOG DE LA RESPUESTA (Agregado para debug)
-      console.log('✅ Respuesta del servidor:', response.data);
+      console.log(' Respuesta del servidor:', response.data);
       if (response.data.success) {
         showSnackbar('Atraso reportado - Esperando 5 minutos', 'warning');
         // Actualizar la atención actual con los datos del servidor
@@ -723,7 +723,7 @@ const MedicoConsultas = () => {
                         {calcularSegundosHastaInicio() > 0 ? 'Inicia en' : 'Atención programada'}
                       </Typography>
                       <Typography variant="h3" fontWeight="700">
-                        {/* ✅ LÓGICA MODIFICADA PARA MOSTRAR SEGUNDOS */}
+                        {/* LÓGICA MODIFICADA PARA MOSTRAR SEGUNDOS */}
                         {calcularSegundosHastaInicio() > 60
                           ? `${calcularMinutosHastaInicio()} min`
                           : calcularSegundosHastaInicio() > 0

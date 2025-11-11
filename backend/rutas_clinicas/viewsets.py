@@ -227,9 +227,9 @@ class RutaClinicaViewSet(viewsets.ModelViewSet):
         motivo = request.data.get('motivo', 'Sin motivo especificado')
         
         # Log para debug
-        print(f"🔍 DEBUG Pausar - Datos recibidos: {request.data}")
-        print(f"🔍 DEBUG Pausar - Motivo: {motivo}")
-        print(f"🔍 DEBUG Pausar - Estado actual: {ruta.estado}")
+        print(f" DEBUG Pausar - Datos recibidos: {request.data}")
+        print(f" DEBUG Pausar - Motivo: {motivo}")
+        print(f" DEBUG Pausar - Estado actual: {ruta.estado}")
         
         if ruta.pausar_ruta(motivo=motivo, usuario=usuario):
             ruta.refresh_from_db()

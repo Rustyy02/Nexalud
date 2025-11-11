@@ -23,7 +23,7 @@ import {
   ExitToApp as ExitIcon,
   Menu as MenuIcon,
   Home as HomeIcon,
-  LocalHospital as HospitalIcon, // ✅ NUEVO
+  LocalHospital as HospitalIcon, 
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';

@@ -27,7 +27,7 @@ def limpiar_etapa_paciente_al_eliminar_ruta(sender, instance, **kwargs):
         instance.paciente.etapa_actual = None
         instance.paciente.save(update_fields=['etapa_actual'])
         
-        print(f"✅ Limpiado etapa_actual del paciente {instance.paciente.id} al eliminar ruta clínica {instance.id}")
+        print(f" Limpiado etapa_actual del paciente {instance.paciente.id} al eliminar ruta clínica {instance.id}")
 
 
 @receiver(post_save, sender=RutaClinica)
@@ -44,4 +44,4 @@ def verificar_consistencia_etapa(sender, instance, created, **kwargs):
             instance.paciente.etapa_actual = instance.etapa_actual
             instance.paciente.save(update_fields=['etapa_actual'])
             
-            print(f"✅ Sincronizado etapa_actual del paciente {instance.paciente.id} con ruta clínica {instance.id}")
+            print(f" Sincronizado etapa_actual del paciente {instance.paciente.id} con ruta clínica {instance.id}")

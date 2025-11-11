@@ -324,14 +324,14 @@ const EstadoBoxes = () => {
         console.log('📊 Estado de la atención:', atencion.estado);
         console.log('⏰ Atraso reportado:', atencion.atraso_reportado);
         
-        // ✅ MODIFICACIÓN CLAVE: Usar iniciarConsulta para ambos casos
+        //  Usar iniciarConsulta para ambos casos
         if (atencion.atraso_reportado) {
           // Usa la acción diseñada para despejar el atraso y, si es necesario, iniciar la consulta.
           // El viewset se encargará de si debe iniciar el cronómetro o solo limpiar el flag.
           console.log('✓ Usando iniciarConsulta para despejar atraso y/o iniciar');
           
-          // NOTA: Se llama al servicio del MÉDICO (medicoAtencionesService)
-          // ya que la acción iniciarConsulta está configurada allí.
+          //Se llama al servicio del MÉDICO (medicoAtencionesService)
+          // ya que la acción iniciarConsulta está configurada ahi.
           await medicoAtencionesService.iniciarConsulta(atraso.atencionId);
           
           const mensaje = atencion.estado === 'EN_CURSO'
@@ -645,7 +645,7 @@ const EstadoBoxes = () => {
           </Grid>
         </Paper>
 
-        {/* ✅ SECCIÓN DE ATRASOS REPORTADOS - ACTUALIZADA */}
+        {/* SECCIÓN DE ATRASOS REPORTADOS */}
         <Paper elevation={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

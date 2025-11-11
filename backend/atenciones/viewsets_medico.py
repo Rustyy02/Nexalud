@@ -75,7 +75,7 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
         ahora_local = timezone.localtime(timezone.now())
         hoy = ahora_local.date()
         
-        print(f"\n🔍 DEBUG HOY:")
+        print(f"\n DEBUG HOY:")
         print(f"   Ahora UTC: {timezone.now()}")
         print(f"   Ahora Local: {ahora_local}")
         print(f"   Fecha HOY: {hoy}")
@@ -358,7 +358,7 @@ class MedicoAtencionesViewSet(viewsets.ReadOnlyModelViewSet):
             'error': 'No se pudo reportar el atraso'
         }, status=status.HTTP_400_BAD_REQUEST)
         
-    # ✅ 2. VERIFICAR ATRASO (marcar como no presentado si pasaron 5 min)
+    # 2. VERIFICAR ATRASO (marcar como no presentado si pasaron 5 min)
     @action(detail=True, methods=['post'])
     def verificar_atraso(self, request, pk=None):
         

@@ -9,8 +9,6 @@ from boxes.models import Box
 class Medico(models.Model):
     
     # Modelo para gestionar médicos y prestadores de salud.
-    # NOTA: Este modelo se mantiene para compatibilidad con datos históricos.
-    # Las nuevas atenciones usan directamente el modelo User con rol MEDICO.
     
     ESPECIALIDAD_CHOICES = [
         ('MEDICINA_GENERAL', 'Medicina General'),
@@ -138,7 +136,6 @@ class Medico(models.Model):
 class Atencion(models.Model):
     
     # Modelo para gestionar las atenciones médicas.
-    # Incluye cronómetro para medir tiempos reales.
     
     ESTADO_CHOICES = [
         ('PROGRAMADA', 'Programada'),
@@ -274,8 +271,7 @@ class Atencion(models.Model):
         return f"{self.tipo_atencion} - {self.paciente} con {medico_nombre} ({self.estado})"
     
     # ========================================
-    # FUNCIONES DE CRONÓMETRO - NO MODIFICAR
-    # ========================================
+    # FUNCIONES DE CRONÓMETRO
     
     def iniciar_cronometro(self):
         
@@ -401,7 +397,7 @@ class Atencion(models.Model):
     # ==================== FUNCIÓN MODIFICADA ====================
     def reportar_atraso(self, motivo=""):
         # Reporta un atraso del paciente.
-        # Validación: No se puede reportar si ya hay un atraso reportado
+        # No se puede reportar si ya hay un atraso reportado
         if self.atraso_reportado:
             return False
         
@@ -485,9 +481,6 @@ class Atencion(models.Model):
         return None
     
     def puede_reportar_atraso(self):
-        
-        # Verifica si se puede reportar atraso en el momento actual.
-        # Retorna (bool, str) - (puede_reportar, mensaje_error)
         
         # Ya hay un atraso reportado
         if self.atraso_reportado:

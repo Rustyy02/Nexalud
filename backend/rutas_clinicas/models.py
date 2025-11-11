@@ -8,14 +8,6 @@ from pacientes.models import Paciente
 class RutaClinica(models.Model):
     """
     Modelo para gestionar rutas clínicas de pacientes con duraciones realistas.
-    
-    ✅ DURACIONES ACTUALIZADAS:
-    - CONSULTA_MEDICA: 1 día (primera evaluación médica)
-    - PROCESO_EXAMEN: 1 día (realización de exámenes)
-    - REVISION_EXAMEN: 1 semana (análisis de resultados)
-    - HOSPITALIZACION: 1 semana (internación si es necesario)
-    - OPERACION: 2 días (procedimiento quirúrgico y recuperación inmediata)
-    - ALTA: 2 días (preparación de documentos y seguimiento post-alta)
     """
     
     ESTADO_CHOICES = [
@@ -230,7 +222,7 @@ class RutaClinica(models.Model):
         return retrasos
     
     # ============================================
-    # MÉTODOS PRINCIPALES (sin cambios en lógica)
+    # MÉTODOS PRINCIPALES 
     # ============================================
     
     def iniciar_ruta(self, usuario=None, etapa_inicial=None):
@@ -497,11 +489,11 @@ class RutaClinica(models.Model):
     
     def pausar_ruta(self, motivo='', usuario=None):
         # Pausa la ruta y actualiza estado del paciente
-        print(f"🔍 DEBUG pausar_ruta - Estado actual: {self.estado}")
-        print(f"🔍 DEBUG pausar_ruta - Motivo: {motivo}")
+        print(f" DEBUG pausar_ruta - Estado actual: {self.estado}")
+        print(f" DEBUG pausar_ruta - Motivo: {motivo}")
         
         if self.estado not in ['EN_PROGRESO', 'INICIADA']:
-            print(f"❌ No se puede pausar - Estado: {self.estado}")
+            print(f" No se puede pausar - Estado: {self.estado}")
             return False
         
         self.estado = 'PAUSADA'
@@ -517,16 +509,16 @@ class RutaClinica(models.Model):
         })
         
         self.save()
-        print(f"✅ Ruta pausada correctamente - Estado: {self.estado}")
+        print(f" Ruta pausada correctamente - Estado: {self.estado}")
         return True
     
     def reanudar_ruta(self, usuario=None):
         # Reanuda la ruta y actualiza estado del paciente
-        print(f"🔍 DEBUG reanudar_ruta - Estado actual: {self.estado}")
-        print(f"🔍 DEBUG reanudar_ruta - Esta pausado: {self.esta_pausado}")
+        print(f" DEBUG reanudar_ruta - Estado actual: {self.estado}")
+        print(f" DEBUG reanudar_ruta - Esta pausado: {self.esta_pausado}")
         
         if self.estado != 'PAUSADA':
-            print(f"❌ No se puede reanudar - Estado: {self.estado}")
+            print(f" No se puede reanudar - Estado: {self.estado}")
             return False
         
         self.estado = 'EN_PROGRESO'
@@ -540,7 +532,7 @@ class RutaClinica(models.Model):
         self._agregar_al_historial('REANUDAR', self.etapa_actual, usuario)
         
         self.save()
-        print(f"✅ Ruta reanudada correctamente - Estado: {self.estado}")
+        print(f" Ruta reanudada correctamente - Estado: {self.estado}")
         return True
         
     # ============================================
@@ -656,7 +648,7 @@ class RutaClinica(models.Model):
         return None
     
     # ============================================
-    # MÉTODOS PRIVADOS (HELPERS)
+    # MÉTODOS PRIVADOS
     # ============================================
     
     def _agregar_al_historial(self, accion, etapa, usuario=None, data_extra=None):

@@ -5,7 +5,6 @@ from .viewsets import RutaClinicaViewSet, EtapaRutaViewSet
 router = DefaultRouter()
 router.register(r'rutas-clinicas', RutaClinicaViewSet, basename='ruta-clinica')
 
-# URLs generadas automáticamente:
 # 
 # RUTAS CLÍNICAS:
 # GET    /api/rutas-clinicas/                          - Lista todas las rutas

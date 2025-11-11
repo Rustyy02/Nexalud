@@ -25,7 +25,6 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
     if not created:
         return
     
-    # Importar aquí para evitar importaciones circulares
     from rutas_clinicas.models import RutaClinica
     
     # Verificar si el paciente ya tiene una ruta clínica activa
@@ -39,7 +38,7 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
         print(f"✨ Creando ruta clínica automática...")
         
         try:
-            # Crear la ruta clínica con todas las etapas
+            #ruta clínica con todas las etapas
             nueva_ruta = RutaClinica.objects.create(
                 paciente=instance.paciente,
                 etapas_seleccionadas=[
@@ -65,7 +64,7 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
                 etapa_inicial='CONSULTA_MEDICA'
             )
             
-            print(f"✅ Ruta clínica creada exitosamente para paciente {instance.paciente.identificador_hash[:8]}")
+            print(f"    Ruta clínica creada exitosamente para paciente {instance.paciente.identificador_hash[:8]}")
             print(f"   - ID Ruta: {nueva_ruta.id}")
             print(f"   - Estado: {nueva_ruta.estado}")
             print(f"   - Etapa inicial: {nueva_ruta.etapa_actual}")
@@ -76,6 +75,6 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
             instance.paciente.save(update_fields=['estado_actual', 'etapa_actual'])
             
         except Exception as e:
-            print(f"❌ Error al crear ruta clínica automática: {str(e)}")
+            print(f" Error al crear ruta clínica automática: {str(e)}")
             import traceback
             traceback.print_exc()

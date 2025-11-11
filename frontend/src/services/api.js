@@ -1,4 +1,3 @@
-// frontend/src/services/api.js - VERSIÓN MEJORADA
 import axios from 'axios';
 
 const api = axios.create({
@@ -125,7 +124,7 @@ export const boxesService = {
     });
     
     return api.post(`/boxes/${id}/ocupar/`, { 
-      duracion_minutos: Number(duracion_minutos), // Esto asegura de que sea numerico
+      duracion_minutos: Number(duracion_minutos), 
       motivo 
     });
   },
@@ -143,8 +142,6 @@ export const boxesService = {
   activar: (id) => api.post(`/boxes/${id}/activar/`),
   desactivar: (id) => api.post(`/boxes/${id}/desactivar/`),
   getHistorialOcupacion: (id) => api.get(`/boxes/${id}/historial_ocupacion/`),
-  
-  // NUEVO ENDPOINT
   sincronizarEstados: () => api.get('/boxes/sincronizar_estados/'),
   verificarYLiberar: () => api.get('/boxes/verificar_y_liberar/'),
   liberarOcupacionesManuales: () => 
@@ -255,15 +252,15 @@ export const medicoAtencionesService = {
   // Marcar como no presentado
   noPresentado: (id, data = {}) => api.post(`/medico/atenciones/${id}/no_se_presento/`, data),
   
-  // ✅ REPORTAR ATRASO (NUEVO - CORRECTO)
+  // REPORTAR ATRASO
   reportarAtraso: (id, data = {}) => 
     api.post(`/medico/atenciones/${id}/reportar_atraso/`, data),
   
-  // ✅ VERIFICAR ATRASO (NUEVO)
+  // VERIFICAR ATRASO
   verificarAtraso: (id) => 
     api.post(`/medico/atenciones/${id}/verificar_atraso/`),
   
-  // ✅ INICIAR CONSULTA DESPUÉS DE ATRASO (NUEVO)
+  // INICIAR CONSULTA DESPUÉS DE ATRASO
   iniciarConsulta: (id) => 
     api.post(`/medico/atenciones/${id}/iniciar_consulta/`),
   

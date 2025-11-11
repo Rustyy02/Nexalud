@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-# Importar modelos después de configurar Django
+# Importar modelos 
 from django.utils import timezone
 from boxes.models import Box
 from pacientes.models import Paciente
@@ -20,9 +20,7 @@ print("=" * 80)
 print("INICIANDO CREACIÓN DE DATOS DE PRUEBA - VERSIÓN ACTUALIZADA")
 print("=" * 80)
 
-# ============================================
-# 1. CREAR BOXES (SIN CAMBIOS - PERFECTO)
-# ============================================
+# 1. CREAR BOXES
 print("\n1. Creando Boxes...")
 
 boxes_data = [
@@ -89,17 +87,16 @@ for box_data in boxes_data:
         }
     )
     boxes_creados.append(box)
-    status = "✅ Creado" if created else "ℹ️  Ya existe"
+    status = " Creado" if created else "Ya existe"
     print(f"   {status}: {box.numero} - {box.nombre}")
 
-print(f"\n✅ Total de boxes: {len(boxes_creados)}")
+print(f"\n Total de boxes: {len(boxes_creados)}")
 
-# ============================================
-# 2. CREAR 30 PACIENTES DIVERSOS
-# ============================================
+
+# 2. CREAR 30 PACIENTES 
 print("\n2. Creando 30 Pacientes Diversos...")
 
-# Nombres variados SIN TILDES
+# Nombres variados
 nombres_masculinos = ['Juan', 'Pedro', 'Carlos', 'Jose', 'Luis', 'Francisco', 'Diego', 'Mateo', 
                       'Miguel', 'Gabriel', 'Daniel', 'Alejandro', 'Sebastian', 'Martin', 'Fernando']
 nombres_femeninos = ['Maria', 'Ana', 'Carmen', 'Lucia', 'Isabel', 'Sofia', 'Valentina', 'Camila',
@@ -152,20 +149,20 @@ for i in range(30):
     while Paciente.objects.filter(rut=rut).exists():
         rut = generar_rut_valido()
     
-    # Características diversas
+    # Características
     genero = random.choice(['M', 'F'])
     nombres = nombres_masculinos if genero == 'M' else nombres_femeninos
     nombre = random.choice(nombres)
     
-    # Edad variada (18-85 años)
+    # Edad variadas
     edad = random.randint(18, 85)
     fecha_nac = datetime.now().date() - timedelta(days=edad*365 + random.randint(0, 365))
     
-    # Estados variados PERO TODOS ACTIVOS (activo=True)
+    # Estados todos activos 
     estados_posibles = ['EN_ESPERA', 'ACTIVO', 'PROCESO_PAUSADO']
     estado_actual = random.choice(estados_posibles)
     
-    # Niveles de urgencia variados
+    # Niveles de urgencia variadas
     urgencias = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
     urgencia = random.choice(urgencias)
     
@@ -189,26 +186,24 @@ for i in range(30):
             altura=random.randint(150, 195),
             nivel_urgencia=urgencia,
             estado_actual=estado_actual,
-            activo=True,  # ✅ TODOS ACTIVOS
+            activo=True, 
             alergias=random.choice(['', 'Penicilina', 'Polen', 'Lactosa', '']) if random.random() > 0.7 else '',
         )
         pacientes_creados.append(paciente)
         
         urgencia_emoji = {'BAJA': '🟢', 'MEDIA': '🟡', 'ALTA': '🟠', 'CRITICA': '🔴'}
-        print(f"   ✅ [{i+1:2d}/30] {paciente.nombre_completo:35} | {genero} | {edad:2d} años | {urgencia_emoji[urgencia]} {urgencia:8} | {estado_actual}")
+        print(f"  [{i+1:2d}/30] {paciente.nombre_completo:35} | {genero} | {edad:2d} años | {urgencia_emoji[urgencia]} {urgencia:8} | {estado_actual}")
         
     except Exception as e:
-        print(f"   ❌ Error al crear paciente {i+1}: {e}")
+        print(f"  Error al crear paciente {i+1}: {e}")
 
-print(f"\n✅ Total de pacientes creados: {len(pacientes_creados)}")
-print(f"   📊 Todos los pacientes tienen activo=True")
-print(f"   📊 Estados: EN_ESPERA: {sum(1 for p in pacientes_creados if p.estado_actual == 'EN_ESPERA')}")
-print(f"   📊          ACTIVO: {sum(1 for p in pacientes_creados if p.estado_actual == 'ACTIVO')}")
-print(f"   📊          PROCESO_PAUSADO: {sum(1 for p in pacientes_creados if p.estado_actual == 'PROCESO_PAUSADO')}")
+print(f"\n Total de pacientes creados: {len(pacientes_creados)}")
+print(f"    Todos los pacientes tienen activo=True")
+print(f"    Estados: EN_ESPERA: {sum(1 for p in pacientes_creados if p.estado_actual == 'EN_ESPERA')}")
+print(f"    ACTIVO: {sum(1 for p in pacientes_creados if p.estado_actual == 'ACTIVO')}")
+print(f"    PROCESO_PAUSADO: {sum(1 for p in pacientes_creados if p.estado_actual == 'PROCESO_PAUSADO')}")
 
-# ============================================
 # 3. CREAR RUTAS CLÍNICAS PARA TODOS
-# ============================================
 print("\n3. Creando Rutas Clínicas para TODOS los pacientes...")
 
 ETAPAS_COMPLETAS = [
@@ -286,20 +281,19 @@ for i, paciente in enumerate(pacientes_creados):
         print(f"   {estado_emoji.get(ruta.estado, '•')} [{i+1:2d}/30] {paciente.nombre_completo:35} | {ruta.get_estado_display():12} | {etapa_display:20} | {ruta.porcentaje_completado:5.1f}%")
         
     except Exception as e:
-        print(f"   ❌ Error al crear ruta para {paciente.nombre_completo}: {e}")
+        print(f"   Error al crear ruta para {paciente.nombre_completo}: {e}")
         import traceback
         traceback.print_exc()
 
-print(f"\n✅ Total de rutas creadas: {len(rutas_creadas)}")
-print(f"   📊 Distribución por estado:")
+print(f"\n Total de rutas creadas: {len(rutas_creadas)}")
+print(f"  Distribución por estado:")
 for estado_key, estado_label in RutaClinica.ESTADO_CHOICES:
     count = sum(1 for r in rutas_creadas if r.estado == estado_key)
     if count > 0:
         print(f"      • {estado_label}: {count}")
 
-# ============================================
+
 # 4. CREAR 15 ATENCIONES EN NOVIEMBRE 2025
-# ============================================
 print("\n4. Creando 15 Atenciones distribuidas en Noviembre 2025...")
 
 tipos_atencion = ['CONSULTA_GENERAL', 'CONSULTA_ESPECIALIDAD', 'CONTROL', 'PROCEDIMIENTO', 'EXAMEN']
@@ -393,40 +387,36 @@ for i in range(15):
         print(f"   {estado_emoji.get(atencion.estado, '•')} [{i+1:2d}/15] {fecha_str} | {tipo:25} | {paciente.nombre_completo:30} | {atencion.get_estado_display()}")
         
     except Exception as e:
-        print(f"   ❌ Error al crear atención {i+1}: {e}")
+        print(f"    Error al crear atención {i+1}: {e}")
         import traceback
         traceback.print_exc()
 
-print(f"\n✅ Total de atenciones creadas: {len(atenciones_creadas)}")
-print(f"   📊 Distribución por estado:")
+print(f"\n Total de atenciones creadas: {len(atenciones_creadas)}")
+print(f"   Distribución por estado:")
 for estado_key, estado_label in Atencion.ESTADO_CHOICES:
     count = sum(1 for a in atenciones_creadas if a.estado == estado_key)
     if count > 0:
         print(f"      • {estado_label}: {count}")
 
-# ============================================
-# RESUMEN FINAL DETALLADO
-# ============================================
+
+# MOSTRAR DATOS CREADOS
 print("\n" + "=" * 80)
 print("RESUMEN FINAL DE DATOS CREADOS")
 print("=" * 80)
 
-print(f"\n📦 [BOXES] Total: {Box.objects.count()}")
+print(f"\n [BOXES] Total: {Box.objects.count()}")
 print(f"   • Disponibles: {Box.objects.filter(estado='DISPONIBLE').count()}")
 print(f"   • Ocupados: {Box.objects.filter(estado='OCUPADO').count()}")
 print(f"   • En mantenimiento: {Box.objects.filter(estado='MANTENIMIENTO').count()}")
 
-print(f"\n👨‍⚕️ [MÉDICOS] Total: {User.objects.filter(rol='MEDICO').count()}")
-print(f"   • Activos: {User.objects.filter(rol='MEDICO', is_active=True).count()}")
-
-print(f"\n👥 [PACIENTES] Total: {Paciente.objects.count()}")
-print(f"   ✅ TODOS con activo=True: {Paciente.objects.filter(activo=True).count()}")
+print(f"\n [PACIENTES] Total: {Paciente.objects.count()}")
+print(f"   TODOS con activo=True: {Paciente.objects.filter(activo=True).count()}")
 print(f"   • Estado EN_ESPERA: {Paciente.objects.filter(estado_actual='EN_ESPERA').count()}")
 print(f"   • Estado ACTIVO: {Paciente.objects.filter(estado_actual='ACTIVO').count()}")
 print(f"   • Estado PROCESO_PAUSADO: {Paciente.objects.filter(estado_actual='PROCESO_PAUSADO').count()}")
 print(f"   • Con etapa asignada: {Paciente.objects.exclude(etapa_actual=None).count()}")
 
-print(f"\n🗺️ [RUTAS CLÍNICAS] Total: {RutaClinica.objects.count()}")
+print(f"\n [RUTAS CLÍNICAS] Total: {RutaClinica.objects.count()}")
 print(f"   • Iniciadas: {RutaClinica.objects.filter(estado='INICIADA').count()}")
 print(f"   • En Progreso: {RutaClinica.objects.filter(estado='EN_PROGRESO').count()}")
 print(f"   • Pausadas: {RutaClinica.objects.filter(estado='PAUSADA').count()}")
@@ -439,7 +429,7 @@ for etapa_key, etapa_label in RutaClinica.ETAPAS_CHOICES:
     if count > 0:
         print(f"      • {etapa_label}: {count} pacientes")
 
-print(f"\n📋 [ATENCIONES] Total: {Atencion.objects.count()}")
+print(f"\n [ATENCIONES] Total: {Atencion.objects.count()}")
 print(f"   • Programadas: {Atencion.objects.filter(estado='PROGRAMADA').count()}")
 print(f"   • En Espera: {Atencion.objects.filter(estado='EN_ESPERA').count()}")
 print(f"   • En Curso: {Atencion.objects.filter(estado='EN_CURSO').count()}")
@@ -450,7 +440,7 @@ print(f"   • No Presentado: {Atencion.objects.filter(estado='NO_PRESENTADO').c
 print("\n" + "=" * 80)
 print(" SCRIPT COMPLETADO EXITOSAMENTE")
 print("=" * 80)
-print("\n📝 Datos generados:")
+print("\n Datos generados:")
 print(f"   • {len(boxes_creados)} boxes disponibles")
 print(f"   • {len(pacientes_creados)} pacientes diversos (TODOS activo=True)")
 print(f"   • {len(rutas_creadas)} rutas clínicas en diferentes etapas")

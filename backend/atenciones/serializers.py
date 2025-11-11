@@ -7,7 +7,7 @@ from boxes.serializers import BoxListSerializer
 # ==================== SERIALIZERS DE MÉDICO ====================
 
 class MedicoSerializer(serializers.ModelSerializer):
-    # Serializer completo para Medico (anterior, se deja igual)
+    # Serializer completo para Medico
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -49,7 +49,7 @@ class MedicoSerializer(serializers.ModelSerializer):
 
 
 class MedicoListSerializer(serializers.ModelSerializer):
-    # Serializer simplificado para listar médicos (anterior)
+    # Serializer simplificado para listar médicos
     especialidad_principal_display = serializers.CharField(
         source='get_especialidad_principal_display',
         read_only=True
@@ -69,7 +69,7 @@ class MedicoListSerializer(serializers.ModelSerializer):
 
 
 class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
-    # Serializer para crear y actualizar médicos (anterior)
+    # Serializer para crear y actualizar médicos
     
     class Meta:
         model = Medico
@@ -94,8 +94,6 @@ class MedicoCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Las especialidades secundarias deben ser una lista.")
         return value
 
-
-# Nuevo serializer para usuario medico
 class MedicoUserSerializer(serializers.Serializer):
     # Serializer para representar usuarios con rol MEDICO como médicos.
     id = serializers.UUIDField(read_only=True)

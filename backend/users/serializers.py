@@ -36,7 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
             data['especialidad'] = None
             data['especialidad_display'] = None
         
-        # Debug: Imprimir los datos serializados
+        #Imprimir los datos serializados
         print(f"Datos serializados para {instance.username}: {data}")
         
         return data

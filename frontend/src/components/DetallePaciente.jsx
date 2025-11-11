@@ -550,7 +550,7 @@ const DetallePaciente = () => {
                                 </Box>
                             </Box>
 
-                            {/* ✅ ALERTA DE PAUSA - MÚLTIPLES VERIFICACIONES */}
+                            {/* ALERTA DE PAUSA */}
                             {(rutaClinica.esta_pausado || 
                               rutaClinica.ruta_clinica?.esta_pausado || 
                               rutaClinica.estado_actual === 'PAUSADA') && (
@@ -702,7 +702,7 @@ const DetallePaciente = () => {
                                 </Stepper>
                             </Box>
 
-                            {/* ✅ BOTONES DE ACCIÓN CORREGIDOS */}
+                            {/* BOTONES DE ACCIÓN CORREGIDOS */}
                             {!rutaFinalizada && (
                                 <Box sx={{ mt: 3 }}>
                                     {/* Primera fila - Acciones principales */}
@@ -739,7 +739,7 @@ const DetallePaciente = () => {
 
                                     {/* Segunda fila - Controles de estado */}
                                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                        {/* ✅ Botón Pausar (solo visible si NO está pausada) */}
+                                        {/* Botón Pausar (solo visible si NO está pausada) */}
                                         {!rutaClinica.esta_pausado && (
                                             <Button
                                                 variant="outlined"
@@ -753,7 +753,7 @@ const DetallePaciente = () => {
                                             </Button>
                                         )}
 
-                                        {/* ✅ Botón Reanudar (solo visible si ESTÁ pausada) */}
+                                        {/*  Botón Reanudar (solo visible si ESTÁ pausada) */}
                                         {rutaClinica.esta_pausado && (
                                             <Button
                                                 variant="contained"
@@ -1088,7 +1088,7 @@ const DetallePaciente = () => {
                     </DialogActions>
                 </Dialog>
 
-                {/* ✅ Diálogo de Historial CORREGIDO */}
+                {/*  Diálogo de Historial */}
                 <Dialog
                     open={dialogHistorial}
                     onClose={() => setDialogHistorial(false)}
@@ -1134,7 +1134,7 @@ const DetallePaciente = () => {
                                                         <Typography variant="caption" color="text.secondary">
                                                             Usuario: {entrada.usuario}
                                                         </Typography>
-                                                        {/* ✅ CORREGIDO: Manejo seguro del motivo */}
+                                                        {/* Manejo seguro del motivo */}
                                                         {entrada.motivo && (
                                                             <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
                                                                 Motivo: {
@@ -1146,7 +1146,7 @@ const DetallePaciente = () => {
                                                                 }
                                                             </Typography>
                                                         )}
-                                                        {/* ✅ AGREGADO: Soporte para observaciones */}
+                                                        {/* Soporte para observaciones */}
                                                         {entrada.observaciones && (
                                                             <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
                                                                 Observaciones: {entrada.observaciones}

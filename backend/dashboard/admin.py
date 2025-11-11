@@ -113,7 +113,7 @@ class DashboardMetricasAdmin(admin.ModelAdmin):
             estado__in=['INICIADA', 'EN_PROGRESO']
         ).aggregate(promedio=Avg('porcentaje_completado'))['promedio'] or 0
         
-        # ✅ ACTUALIZADO: Médicos activos hoy (usando User con rol MEDICO)
+        # Médicos activos hoy (usando User con rol MEDICO)
         medicos_atendiendo = User.objects.filter(
             rol='MEDICO',
             atenciones_medico__fecha_hora_inicio__date=hoy,

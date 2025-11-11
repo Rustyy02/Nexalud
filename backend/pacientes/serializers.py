@@ -97,8 +97,8 @@ class PacienteSerializer(serializers.ModelSerializer):
             'fecha_ingreso',
             'estado_actual',
             'estado_actual_display',
-            'etapa_actual',  # ✅ NUEVO
-            'etapa_actual_display',  # ✅ NUEVO
+            'etapa_actual',  
+            'etapa_actual_display',  
             'nivel_urgencia',
             'nivel_urgencia_display',
             'fecha_actualizacion',
@@ -114,7 +114,7 @@ class PacienteSerializer(serializers.ModelSerializer):
             'tiene_alergias',
             'tiene_condiciones',
             'informacion_completa',
-            'esta_en_proceso_clinico',  # ✅ NUEVO
+            'esta_en_proceso_clinico',  
         ]
         read_only_fields = [
             'id',
@@ -122,7 +122,7 @@ class PacienteSerializer(serializers.ModelSerializer):
             'edad',
             'fecha_ingreso',
             'fecha_actualizacion',
-            'etapa_actual',  # ✅ Se actualiza automáticamente desde RutaClinica
+            'etapa_actual',  
         ]
     
     def get_tiempo_total(self, obj):
@@ -163,7 +163,7 @@ class PacienteSerializer(serializers.ModelSerializer):
 class PacienteListSerializer(serializers.ModelSerializer):
     """
     Serializer simplificado para listar pacientes.
-    ✅ Incluye etapa_actual para visualización rápida.
+    Incluye etapa_actual para visualización rápida.
     """
     estado_actual_display = serializers.CharField(
         source='get_estado_actual_display', 
@@ -204,8 +204,8 @@ class PacienteListSerializer(serializers.ModelSerializer):
             'seguro_medico_display',
             'estado_actual',
             'estado_actual_display',
-            'etapa_actual',  # ✅ NUEVO
-            'etapa_actual_display',  # ✅ NUEVO
+            'etapa_actual',  
+            'etapa_actual_display',  
             'nivel_urgencia',
             'nivel_urgencia_display',
             'fecha_ingreso',
@@ -213,7 +213,7 @@ class PacienteListSerializer(serializers.ModelSerializer):
             'tiene_alergias',
             'imc',
             'metadatos_adicionales',
-            'esta_en_proceso_clinico',  # ✅ NUEVO
+            'esta_en_proceso_clinico',  
         ]
     
     def get_tiene_alergias(self, obj):
@@ -256,7 +256,6 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
             'nivel_urgencia',
             'activo',
             'metadatos_adicionales',
-            # ✅ etapa_actual NO está aquí porque se actualiza automáticamente
         ]
     
     def validate_rut(self, value):
@@ -377,7 +376,7 @@ class PacienteCreateUpdateSerializer(serializers.ModelSerializer):
 class PacienteEstadoSerializer(serializers.Serializer):
     """
     Serializer para actualizar solo el estado del paciente.
-    ✅ NO incluye etapa_actual (se actualiza desde RutaClinica).
+    NO incluye etapa_actual (se actualiza desde RutaClinica).
     """
     estado_actual = serializers.ChoiceField(choices=Paciente.ESTADO_CHOICES)
     
@@ -484,6 +483,6 @@ class PacienteResumenSerializer(serializers.ModelSerializer):
             'edad',
             'telefono',
             'estado_actual',
-            'etapa_actual',  # ✅ NUEVO
-            'etapa_actual_display',  # ✅ NUEVO
+            'etapa_actual',  
+            'etapa_actual_display',  
         ]

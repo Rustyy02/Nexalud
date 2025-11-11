@@ -12,7 +12,7 @@ class PacienteAdmin(admin.ModelAdmin):
         'genero',
         'seguro_medico_display',
         'estado_actual_badge',
-        'etapa_actual_badge',  # ✅ NUEVO
+        'etapa_actual_badge',  
         'nivel_urgencia_badge',
         'telefono_display',
         'activo_badge'
@@ -20,7 +20,7 @@ class PacienteAdmin(admin.ModelAdmin):
     
     list_filter = [
         'estado_actual',
-        'etapa_actual',  # ✅ NUEVO
+        'etapa_actual', 
         'nivel_urgencia',
         'genero',
         'tipo_sangre',
@@ -50,18 +50,18 @@ class PacienteAdmin(admin.ModelAdmin):
         'categoria_imc_display',
         'direccion_completa_display',
         'informacion_completa_display',
-        'etapa_actual',  # ✅ NUEVO - Solo lectura porque se sincroniza automáticamente
+        'etapa_actual', 
     ]
     
     fieldsets = (
-        ('🆔 Identificación', {
+        (' Identificación', {
             'fields': (
                 'id',
                 'rut',
                 'identificador_hash',
             )
         }),
-        ('👤 Datos Personales', {
+        (' Datos Personales', {
             'fields': (
                 'nombre',
                 'apellido_paterno',
@@ -71,7 +71,7 @@ class PacienteAdmin(admin.ModelAdmin):
                 'genero',
             )
         }),
-        ('📞 Datos de Contacto', {
+        (' Datos de Contacto', {
             'fields': (
                 'correo',
                 'telefono',
@@ -79,7 +79,7 @@ class PacienteAdmin(admin.ModelAdmin):
                 'nombre_contacto_emergencia',
             )
         }),
-        ('🏠 Dirección', {
+        (' Dirección', {
             'fields': (
                 'direccion_calle',
                 'direccion_comuna',
@@ -89,13 +89,13 @@ class PacienteAdmin(admin.ModelAdmin):
                 'direccion_completa_display',
             )
         }),
-        ('🏥 Seguro Médico y Previsión', {
+        (' Seguro Médico y Previsión', {
             'fields': (
                 'seguro_medico',
                 'numero_beneficiario',
             )
         }),
-        ('🩺 Información Médica Básica', {
+        (' Información Médica Básica', {
             'fields': (
                 'tipo_sangre',
                 'peso',
@@ -104,17 +104,17 @@ class PacienteAdmin(admin.ModelAdmin):
                 'categoria_imc_display',
             )
         }),
-        ('⚕️ Información Médica Relevante', {
+        (' Información Médica Relevante', {
             'fields': (
                 'alergias',
                 'condiciones_preexistentes',
                 'medicamentos_actuales',
             )
         }),
-        ('📊 Estado Clínico', {
+        (' Estado Clínico', {
             'fields': (
                 'estado_actual',
-                'etapa_actual',  # ✅ NUEVO (readonly)
+                'etapa_actual', 
                 'nivel_urgencia',
                 'activo'
             ),
@@ -201,7 +201,6 @@ class PacienteAdmin(admin.ModelAdmin):
         )
     estado_actual_badge.short_description = "Estado Sistema"
     
-    # ✅ NUEVO MÉTODO
     def etapa_actual_badge(self, obj):
         """Badge con color según etapa del flujo clínico"""
         if not obj.etapa_actual:
@@ -287,7 +286,7 @@ class PacienteAdmin(admin.ModelAdmin):
         """Muestra la dirección completa formateada"""
         return format_html(
             '<div style="font-family: sans-serif;">'
-            '<strong>📍 Dirección Completa:</strong><br>'
+            '<strong> Dirección Completa:</strong><br>'
             '{}'
             '</div>',
             obj.direccion_completa
@@ -302,24 +301,21 @@ class PacienteAdmin(admin.ModelAdmin):
         html += '<h3 style="margin-top: 0;">📋 Información Completa del Paciente</h3>'
         
         # Identificación
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">🆔 Identificación</h4>'
+        html += '<h4 style="color: #1976D2; margin-bottom: 10px;"> Identificación</h4>'
         html += '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">'
         html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">RUT:</td><td style="padding: 8px;">{info["rut"]}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Hash ID:</td><td style="padding: 8px;">{info["identificador_hash"]}</td></tr>'
         html += '</table>'
         
         # Estado Actual
-        html += '<h4 style="color: #1976D2; margin-bottom: 10px;">📊 Estado Actual</h4>'
+        html += '<h4 style="color: #1976D2; margin-bottom: 10px;"> Estado Actual</h4>'
         html += '<table style="width: 100%; border-collapse: collapse;">'
         html += f'<tr><td style="padding: 8px; font-weight: bold; width: 30%;">Estado Sistema:</td><td style="padding: 8px;">{info["estado_actual"]}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Etapa Actual:</td><td style="padding: 8px; color: #2196F3; font-weight: bold;">{info["etapa_actual"]}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Nivel Urgencia:</td><td style="padding: 8px;">{info["nivel_urgencia"]}</td></tr>'
-        html += f'<tr><td style="padding: 8px; font-weight: bold;">En Proceso Clínico:</td><td style="padding: 8px;">{"✅ Sí" if info["esta_en_proceso_clinico"] else "❌ No"}</td></tr>'
+        html += f'<tr><td style="padding: 8px; font-weight: bold;">En Proceso Clínico:</td><td style="padding: 8px;">{" Sí" if info["esta_en_proceso_clinico"] else " No"}</td></tr>'
         html += f'<tr><td style="padding: 8px; font-weight: bold;">Fecha Ingreso:</td><td style="padding: 8px;">{info["fecha_ingreso"]}</td></tr>'
         html += '</table>'
-        
-        # (resto del HTML se mantiene igual...)
-        
         html += '</div>'
         
         return format_html(html)

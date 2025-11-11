@@ -329,7 +329,7 @@ class RutaClinicaSerializer(serializers.ModelSerializer):
                         retraso['duracion_maxima_permitida']
                     ),
 
-                    # Info adicional (mantienes si es útil)
+                    # Info adicional 
                     'margen_tolerancia': retraso.get('margen_tolerancia'),
                 })
 
