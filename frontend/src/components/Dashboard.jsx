@@ -460,6 +460,33 @@ const Dashboard = () => {
     },
   ];
 
+  // Custom tooltip para mejor visualización
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <Box sx={{ 
+          bgcolor: 'white', 
+          p: 2, 
+          border: '1px solid #ddd',
+          borderRadius: 1,
+          boxShadow: 2,
+        }}>
+          <Typography variant="subtitle2" fontWeight={600}>{label}</Typography>
+          {payload.map((entry, index) => (
+            <Typography 
+              key={index} 
+              variant="body2" 
+              sx={{ color: entry.color }}
+            >
+              {entry.name}: {entry.value}
+            </Typography>
+          ))}
+        </Box>
+      );
+    }
+    return null;
+  };
+
   return (
     <>
       <Navbar />
@@ -658,13 +685,14 @@ const Dashboard = () => {
 
             {/* Gráficos Principales */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              {/* Tendencias - Mejorado */}
+              {/* Tendencias*/}
               <Grid item xs={12} lg={8}>
                 <Paper 
                   elevation={0} 
                   sx={{ 
-                    p: 3, 
-                    height: '100%',
+                    p: 2.5, 
+                    minHeight: 520,
+                    minWidth:420,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -672,9 +700,12 @@ const Dashboard = () => {
                   <Typography variant="h6" fontWeight="700" gutterBottom>
                     📈 Tendencias - Últimos 7 Días
                   </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                  <ResponsiveContainer width="100%" height={400}>
-                    <ComposedChart data={datosTendencias}>
+                  <Divider sx={{ mb: 2 }} />
+                  <ResponsiveContainer width={460} height={460}>
+                    <ComposedChart 
+                      data={datosTendencias} 
+                      margin={{ top: 5, right: 15, left: 0, bottom: 5 }}
+                    >
                       <defs>
                         <linearGradient id="colorPacientes" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8}/>
@@ -688,40 +719,47 @@ const Dashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                       <XAxis 
                         dataKey="fecha" 
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 13 }}
                         stroke="#666"
+                        height={50}
                       />
                       <YAxis 
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 13 }}
                         stroke="#666"
+                        width={60}
                       />
                       <RechartsTooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #ddd',
-                          borderRadius: 8,
-                          padding: 12,
-                        }}
+                        content={<CustomTooltip />}
+                        cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                       />
-                      <Legend />
+                      <Legend 
+                        wrapperStyle={{ 
+                          fontSize: 13,
+                          paddingTop: '15px' 
+                        }}
+                        iconSize={18}
+                        iconType="rect"
+                      />
                       <Area 
                         type="monotone" 
                         dataKey="Pacientes" 
                         stroke={COLORS.primary}
                         fill="url(#colorPacientes)"
-                        strokeWidth={2}
+                        strokeWidth={3}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="Atenciones" 
                         stroke={COLORS.success}
                         strokeWidth={3}
-                        dot={{ r: 4 }}
+                        dot={{ r: 5, fill: COLORS.success }}
+                        activeDot={{ r: 7 }}
                       />
                       <Bar 
                         dataKey="Completadas" 
                         fill={COLORS.warning}
                         radius={[8, 8, 0, 0]}
+                        barSize={35}
                       />
                     </ComposedChart>
                   </ResponsiveContainer>
@@ -733,8 +771,9 @@ const Dashboard = () => {
                 <Paper 
                   elevation={0} 
                   sx={{ 
-                    p: 3, 
-                    height: '100%',
+                    p: 2.5, 
+                    minHeight: 520,
+                    minWidth:420,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -742,27 +781,45 @@ const Dashboard = () => {
                   <Typography variant="h6" fontWeight="700" gutterBottom>
                     ⚡ Eficiencia General
                   </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                  <ResponsiveContainer width="100%" height={400}>
-                    <RadarChart data={datosEficiencia}>
-                      <PolarGrid stroke="#e0e0e0" />
+                  <Divider sx={{ mb: 2 }} />
+                  <ResponsiveContainer width={460} height={460}>
+                    <RadarChart 
+                      data={datosEficiencia} 
+                      margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
+                    >
+                      <PolarGrid 
+                        stroke="#e0e0e0"
+                        radialLines={true}
+                      />
                       <PolarAngleAxis 
                         dataKey="categoria" 
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 14, fontWeight: 500 }}
                       />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                      <PolarRadiusAxis 
+                        angle={90} 
+                        domain={[0, 100]}
+                        tick={{ fontSize: 12 }}
+                        tickCount={6}
+                      />
                       <Radar 
-                        name="Eficiencia" 
+                        name="Eficiencia %" 
                         dataKey="valor" 
                         stroke={COLORS.primary}
                         fill={COLORS.primary}
                         fillOpacity={0.6}
+                        strokeWidth={2}
                       />
-                      <RechartsTooltip />
+                      <RechartsTooltip 
+                        content={<CustomTooltip />}
+                        formatter={(value) => `${value}%`}
+                      />
+                      <Legend 
+                        wrapperStyle={{ fontSize: 13 }}
+                      />
                     </RadarChart>
                   </ResponsiveContainer>
-                  <Box sx={{ mt: 2, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Box sx={{ mt: 1, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary" fontSize={12}>
                       Métricas de rendimiento del sistema
                     </Typography>
                   </Box>
@@ -772,12 +829,14 @@ const Dashboard = () => {
 
             {/* Segunda fila de gráficos */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              {/* Pacientes por Urgencia - Mejorado */}
+              {/* Pacientes por Urgencia */}
               <Grid item xs={12} md={4}>
                 <Paper 
                   elevation={0} 
                   sx={{ 
-                    p: 3,
+                    p: 2.5,
+                    minHeight: 420,
+                    minWidth:420,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -785,25 +844,30 @@ const Dashboard = () => {
                   <Typography variant="h6" fontWeight="700" gutterBottom>
                     🚨 Urgencias
                   </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
+                  <Divider sx={{ mb: 2 }} />
+                  <ResponsiveContainer width={460} height={460}>
+                    <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                       <Pie
                         data={datosUrgencia}
                         cx="50%"
                         cy="50%"
-                        labelLine={false}
+                        labelLine={true}
                         label={({ name, percent }) => 
                           `${name}: ${(percent * 100).toFixed(0)}%`
                         }
-                        outerRadius={100}
+                        outerRadius={110}
                         dataKey="value"
                       >
                         {datosUrgencia.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
                       </Pie>
-                      <RechartsTooltip />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={30}
+                        wrapperStyle={{ fontSize: 12 }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </Paper>
@@ -814,7 +878,9 @@ const Dashboard = () => {
                 <Paper 
                   elevation={0} 
                   sx={{ 
-                    p: 3,
+                    p: 2.5,
+                    minHeight: 420,
+                    minWidth:420,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -822,17 +888,17 @@ const Dashboard = () => {
                   <Typography variant="h6" fontWeight="700" gutterBottom>
                     👥 Estados de Pacientes
                   </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
+                  <Divider sx={{ mb: 2 }} />
+                  <ResponsiveContainer width={460} height={460}>
+                    <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                       <Pie
                         data={datosEstadoPacientes}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
-                        outerRadius={100}
-                        labelLine={false}
-                        label={({ value }) => value > 0 ? value : ''}
+                        outerRadius={110}
+                        labelLine={true}
+                        label={({ name, value }) => `${name}: ${value}`}
                         dataKey="value"
                       >
                         {datosEstadoPacientes.map((entry, index) => (
@@ -842,19 +908,25 @@ const Dashboard = () => {
                           />
                         ))}
                       </Pie>
-                      <RechartsTooltip />
-                      <Legend />
+                      <RechartsTooltip content={<CustomTooltip />} />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={30}
+                        wrapperStyle={{ fontSize: 12 }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </Paper>
               </Grid>
 
-              {/* Atenciones por Tipo */}
+              {/* Atenciones por Tipo - Mejorado */}
               <Grid item xs={12} md={4}>
                 <Paper 
                   elevation={0} 
                   sx={{ 
-                    p: 3,
+                    p: 2.5,
+                    minHeight: 420,
+                    minWidth:420,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -862,26 +934,32 @@ const Dashboard = () => {
                   <Typography variant="h6" fontWeight="700" gutterBottom>
                     📋 Tipos de Atención
                   </Typography>
-                  <Divider sx={{ mb: 3 }} />
+                  <Divider sx={{ mb: 2 }} />
                   {datosAtencionesEstado.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width={460} height={460}>
                       <BarChart 
                         data={datosAtencionesEstado}
                         layout="vertical"
+                        margin={{ top: 10, right: 30, left: 80, bottom: 10 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
+                        <XAxis 
+                          type="number"
+                          tick={{ fontSize: 13 }}
+                        />
                         <YAxis 
                           dataKey="name" 
                           type="category" 
-                          width={120}
-                          tick={{ fontSize: 11 }}
+                          width={75}
+                          tick={{ fontSize: 12 }}
                         />
-                        <RechartsTooltip />
+                        <RechartsTooltip content={<CustomTooltip />} />
                         <Bar 
                           dataKey="cantidad" 
                           fill={COLORS.primary}
                           radius={[0, 8, 8, 0]}
+                          barSize={25}
+                          label={{ position: 'right', fontSize: 11 }}
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -890,7 +968,7 @@ const Dashboard = () => {
                       display: 'flex', 
                       alignItems: 'center', 
                       justifyContent: 'center', 
-                      height: 300 
+                      height: 360 
                     }}>
                       <Typography variant="body2" color="text.secondary">
                         No hay atenciones registradas hoy
@@ -905,7 +983,7 @@ const Dashboard = () => {
             <Paper 
               elevation={0} 
               sx={{ 
-                p: 3, 
+                p: 4, 
                 mb: 4,
                 border: '1px solid',
                 borderColor: 'divider',
@@ -1016,15 +1094,20 @@ const Dashboard = () => {
                   <Grid item xs={6} md={3}>
                     <Box sx={{ 
                       textAlign: 'center', 
-                      p: 2, 
+                      p: 3, 
                       bgcolor: 'rgba(255,255,255,0.15)',
                       borderRadius: 2,
+                      transition: 'all 0.3s',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                        transform: 'scale(1.05)',
+                      }
                     }}>
-                      <BoxIcon sx={{ fontSize: 40, mb: 1 }} />
+                      <BoxIcon sx={{ fontSize: 48, mb: 1 }} />
                       <Typography variant="h3" fontWeight="700">
                         {tiempoReal.boxes_disponibles}
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant="body1">
                         Boxes Disponibles
                       </Typography>
                     </Box>
@@ -1033,15 +1116,20 @@ const Dashboard = () => {
                   <Grid item xs={6} md={3}>
                     <Box sx={{ 
                       textAlign: 'center', 
-                      p: 2, 
+                      p: 3, 
                       bgcolor: 'rgba(255,255,255,0.15)',
                       borderRadius: 2,
+                      transition: 'all 0.3s',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                        transform: 'scale(1.05)',
+                      }
                     }}>
-                      <AtencionIcon sx={{ fontSize: 40, mb: 1 }} />
+                      <AtencionIcon sx={{ fontSize: 48, mb: 1 }} />
                       <Typography variant="h3" fontWeight="700">
                         {tiempoReal.atenciones_en_curso}
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant="body1">
                         Atenciones en Curso
                       </Typography>
                     </Box>
@@ -1050,15 +1138,20 @@ const Dashboard = () => {
                   <Grid item xs={6} md={3}>
                     <Box sx={{ 
                       textAlign: 'center', 
-                      p: 2, 
+                      p: 3, 
                       bgcolor: 'rgba(255,255,255,0.15)',
                       borderRadius: 2,
+                      transition: 'all 0.3s',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                        transform: 'scale(1.05)',
+                      }
                     }}>
-                      <PersonIcon sx={{ fontSize: 40, mb: 1 }} />
+                      <PersonIcon sx={{ fontSize: 48, mb: 1 }} />
                       <Typography variant="h3" fontWeight="700">
                         {tiempoReal.pacientes_en_espera}
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant="body1">
                         Pacientes en Espera
                       </Typography>
                     </Box>
@@ -1067,15 +1160,20 @@ const Dashboard = () => {
                   <Grid item xs={6} md={3}>
                     <Box sx={{ 
                       textAlign: 'center', 
-                      p: 2, 
+                      p: 3, 
                       bgcolor: 'rgba(255,255,255,0.15)',
                       borderRadius: 2,
+                      transition: 'all 0.3s',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                        transform: 'scale(1.05)',
+                      }
                     }}>
-                      <RutaIcon sx={{ fontSize: 40, mb: 1 }} />
+                      <RutaIcon sx={{ fontSize: 48, mb: 1 }} />
                       <Typography variant="h3" fontWeight="700">
                         {tiempoReal.rutas_en_progreso}
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant="body1">
                         Rutas en Progreso
                       </Typography>
                     </Box>
