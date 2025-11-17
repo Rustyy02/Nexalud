@@ -15,7 +15,7 @@ SECRET_KEY = 'django-insecure-@9!)!-9s5grxwld3t%+kvdgbd2#@#(bojv@97h!acw)q*^5fgm
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "::1", "0.0.0.0", "backend", "frontend", "locust"]
 
 
 # Application definition
@@ -79,12 +79,28 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Configuración Dinámica: Usa Postgres si hay variables de entorno, si no, usa SQLite
+DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
+
+if 'postgresql' in DB_ENGINE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'nexalud_db'),
+            'USER': os.environ.get('DB_USER', 'nexalud_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'password123'),
+            'HOST': os.environ.get('DB_HOST', 'db'), # Nombre del servicio en docker-compose
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    # Fallback a SQLite para desarrollo local sin Docker
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation

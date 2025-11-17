@@ -1,24 +1,52 @@
-# docker-compose.yml - ESTA VERSIÓN FUNCIONA
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: nexalud_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=nexalud_db
+      - POSTGRES_USER=nexalud_user
+      - POSTGRES_PASSWORD=password123
+    ports:
+      - "5432:5432"
+
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    container_name: nexalud_backend
+    # Script robusto: Espera a que el puerto 5432 de 'db' responda antes de iniciar
+    command: >
+      sh -c "echo 'Esperando a PostgreSQL...' &&
+             while ! python -c 'import socket; s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.connect((\"db\", 5432))' 2>/dev/null; do
+               echo '...base de datos no lista, esperando 1s...'
+               sleep 1
+             done;
+             echo '¡PostgreSQL listo! Iniciando servidor...' &&
+             python manage.py migrate &&
+             python manage.py shell < /app/scripts/init_admin.py &&
+             python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
+    ports:
+      - "8000:8000"
     environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
       - DEBUG=True
-    # ✅ ESTE FORMATO SÍ FUNCIONA
-    command: [
-      "sh", 
-      "-c", 
-      "python manage.py migrate && python manage.py shell < /app/scripts/init_admin.py && python manage.py runserver 0.0.0.0:8000"
-    ]
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=nexalud_db
+      - DB_USER=nexalud_user
+      - DB_PASSWORD=password123
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
+    container_name: nexalud_frontend
     ports:
       - "3000:3000"
     volumes:
@@ -27,3 +55,19 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:8000/api
     command: ["npm", "start"]
+    depends_on:
+      - backend
+
+  locust:
+    build: ./backend
+    container_name: nexalud_locust
+    command: locust -f /app/locustfile.py --host http://backend:8000
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
