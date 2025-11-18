@@ -1,9 +1,9 @@
 ## Commits Clave del Proyecto Nexalud - Martin Casas
 
-### Septiembre 2024
+### Septiembre 2025
 * **29 de Septiembre:** Implementación del panel de administración (Admin) para las clases: Atenciones, Dashboard, Integraciones y Rutas Clínicas.
 
-### Octubre 2024
+### Octubre 2025
 * **6 de Octubre:** Creación de Serializers, Viewsets y URLs para Atenciones, Integraciones, Dashboards y Rutas Clínicas.
 * **11 de Octubre:** Desarrollo de Serializers y Viewsets para Rutas Clínicas y Boxes.
 * **11 de Octubre:** Implementación del Serializer y Viewset de Atenciones.
@@ -14,7 +14,7 @@
 * **28 de Octubre:** Implementación de la lógica "Pacientes por Etapa" para las rutas clínicas.
 * **30 de Octubre:** Desarrollo del frontend para la vista "Detalles del Paciente".
 
-### Noviembre 2024
+### Noviembre 2025
 * **1 de Noviembre:** Finalización y corrección de errores (debugging) de la funcionalidad de Rutas Clínicas (100% listas).
 * **4 de Noviembre:** Desarrollo del módulo de Atenciones Clínicas.
 * **4 de Noviembre:** Creación de la vista de "Consultas Médicas" destinada a doctores.
