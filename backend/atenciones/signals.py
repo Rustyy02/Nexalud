@@ -3,6 +3,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from .models import Atencion
 
+# --- TUS FUNCIONES ORIGINALES (MANTENIDAS) ---
+
 @receiver(post_save, sender=Atencion)
 def gestionar_estado_box_al_guardar(sender, instance, created, **kwargs):
     """
@@ -34,11 +36,11 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
     ).exists()
     
     if not rutas_activas:
-        print(f"🔍 Paciente {instance.paciente.identificador_hash[:8]} sin ruta clínica")
-        print(f"✨ Creando ruta clínica automática...")
+        # print(f"🔍 Paciente {instance.paciente.identificador_hash[:8]} sin ruta clínica")
+        # print(f"✨ Creando ruta clínica automática...")
         
         try:
-            #ruta clínica con todas las etapas
+            # Ruta clínica con todas las etapas
             nueva_ruta = RutaClinica.objects.create(
                 paciente=instance.paciente,
                 etapas_seleccionadas=[
@@ -64,11 +66,6 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
                 etapa_inicial='CONSULTA_MEDICA'
             )
             
-            print(f"    Ruta clínica creada exitosamente para paciente {instance.paciente.identificador_hash[:8]}")
-            print(f"   - ID Ruta: {nueva_ruta.id}")
-            print(f"   - Estado: {nueva_ruta.estado}")
-            print(f"   - Etapa inicial: {nueva_ruta.etapa_actual}")
-            
             # Actualizar el estado del paciente
             instance.paciente.estado_actual = 'ACTIVO'
             instance.paciente.etapa_actual = 'CONSULTA_MEDICA'
@@ -76,5 +73,42 @@ def crear_ruta_clinica_automatica(sender, instance, created, **kwargs):
             
         except Exception as e:
             print(f" Error al crear ruta clínica automática: {str(e)}")
-            import traceback
-            traceback.print_exc()
+
+# --- NUEVA FUNCIONALIDAD (AGREGADA) ---
+
+@receiver(post_save, sender=Atencion)
+def avanzar_ruta_al_completar_atencion(sender, instance, created, **kwargs):
+    """
+    Signal: Cuando una atención se marca como COMPLETADA,
+    avanza automáticamente la ruta clínica asociada a la siguiente etapa.
+    """
+    # Solo actuamos si es una actualización (no creación) y el estado es COMPLETADA
+    if not created and instance.estado == 'COMPLETADA':
+        
+        # Intentamos obtener la ruta asociada a la atención (si existe relación directa)
+        ruta = getattr(instance, 'ruta_clinica', None)
+        
+        # Si no tiene relación directa, buscamos la ruta activa del paciente
+        if not ruta:
+            from rutas_clinicas.models import RutaClinica
+            ruta = RutaClinica.objects.filter(
+                paciente=instance.paciente,
+                estado='EN_PROGRESO'
+            ).first()
+        
+        if ruta and ruta.estado == 'EN_PROGRESO':
+            # print(f"⚡ SIGNAL: Atención {instance.id} completada -> Avanzando Ruta {ruta.id}")
+            
+            medico_nombre = instance.medico.get_full_name() if instance.medico else "Sistema"
+            
+            # Avanzamos la etapa usando el método del modelo
+            exito = ruta.avanzar_etapa(
+                observaciones=f"Avance automático tras atención con {medico_nombre}",
+                usuario=instance.medico
+            )
+            
+            if exito:
+                print(f"   ✅ Paciente {instance.paciente.rut} avanzó a: {ruta.etapa_actual}")
+                # También actualizamos el paciente para reflejar el cambio en el frontend
+                instance.paciente.etapa_actual = ruta.etapa_actual
+                instance.paciente.save(update_fields=['etapa_actual'])

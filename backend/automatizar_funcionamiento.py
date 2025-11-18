@@ -32,20 +32,24 @@ def formatear_rut_chileno(rut_raw):
 
 def limpiar_datos():
     print("\n🧹 LIMPIEZA COMPLETA ----------------")
-    with transaction.atomic():
-        RutaClinica.objects.all().delete()
-        Atencion.objects.all().delete()
-        Paciente.objects.all().delete()
-        Token.objects.all().delete()
-        User.objects.filter(username__startswith='medico_').delete()
-        User.objects.filter(username__startswith='secretaria_').delete()
-        Box.objects.update(estado='DISPONIBLE')
-    print("✅ Base de datos limpia.")
+    try:
+        with transaction.atomic():
+            RutaClinica.objects.all().delete()
+            Atencion.objects.all().delete()
+            Paciente.objects.all().delete()
+            Token.objects.all().delete()
+            User.objects.filter(username__startswith='medico_').delete()
+            User.objects.filter(username__startswith='secretaria_').delete()
+            Box.objects.update(estado='DISPONIBLE')
+        print("✅ Base de datos limpia.")
+    except Exception as e:
+        print(f"⚠️ Error limpiando: {e}")
 
 def crear_infraestructura_y_personal(num_medicos, num_secretarias):
     print("\n🏗️  INFRAESTRUCTURA Y PERSONAL -------")
     boxes = []
-    for i in range(15): # Aumentamos a 15 boxes
+    # Creamos más boxes para soportar el flujo de varias etapas
+    for i in range(20): 
         b, _ = Box.objects.get_or_create(nombre=f"Box {i+1}", defaults={'estado': 'DISPONIBLE', 'numero': i+1})
         boxes.append(b)
 
@@ -60,8 +64,7 @@ def crear_infraestructura_y_personal(num_medicos, num_secretarias):
                 u = User.objects.create_user(username, email, 'password123', 
                                            first_name=fake.first_name(), last_name=fake.last_name(), 
                                            rol='MEDICO', especialidad='MEDICINA_GENERAL')
-                u.full_clean()
-                u.save()
+                u.full_clean(); u.save()
             else:
                 u = User.objects.get(username=username)
             
@@ -81,8 +84,10 @@ def crear_infraestructura_y_personal(num_medicos, num_secretarias):
     print(f"   -> {len(medicos)} Médicos listos.")
     return medicos, boxes
 
-def generar_paciente_y_ruta():
-    """Helper para crear un paciente base"""
+def generar_paciente_y_ruta(estado_inicial='CONSULTA_MEDICA'):
+    """
+    Crea un paciente y una ruta clínica COMPLETA con pasos intermedios.
+    """
     rut_fmt = formatear_rut_chileno(fake.unique.rut())
     p = Paciente(
         rut=rut_fmt,
@@ -98,77 +103,83 @@ def generar_paciente_y_ruta():
     )
     p.full_clean(); p.save()
     
+    # --- CORRECCIÓN CLAVE: Ruta más larga ---
+    etapas_full = ['CONSULTA_MEDICA', 'PROCESO_EXAMEN', 'REVISION_EXAMEN', 'ALTA']
+    
     ruta = RutaClinica.objects.create(
         paciente=p,
-        etapas_seleccionadas=['CONSULTA_MEDICA', 'ALTA'],
-        etapa_actual='CONSULTA_MEDICA',
+        etapas_seleccionadas=etapas_full, # Ahora tiene pasos intermedios
+        etapa_actual=estado_inicial,
         estado='INICIADA'
     )
-    ruta.iniciar_ruta()
+    
+    # Si pedimos iniciar en una etapa avanzada (para historial), 
+    # debemos marcar las anteriores como completadas
+    try:
+        idx_objetivo = etapas_full.index(estado_inicial)
+        ruta.indice_etapa_actual = idx_objetivo
+        ruta.etapas_completadas = etapas_full[:idx_objetivo]
+    except ValueError: pass
+    
+    ruta.iniciar_ruta(etapa_inicial=estado_inicial) # Usa el método del modelo para timestamps
     return p, ruta
 
-def generar_historial(medicos, boxes, dias_atras=7, atenciones_por_dia=30):
+def generar_historial(medicos, boxes, dias_atras=7, atenciones_por_dia=40):
     print(f"\n📜 GENERANDO HISTORIAL ({dias_atras} días) --")
     
-    estados_finales = ['COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'NO_PRESENTADO', 'CANCELADA']
+    # Para el historial, creamos rutas que ya terminaron o están avanzadas
+    estados_finales = ['COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'CANCELADA']
     count = 0
     
     with transaction.atomic():
         for d in range(1, dias_atras + 1):
             fecha_base = timezone.now() - timedelta(days=d)
-            print(f"   -> Simulando día {fecha_base.date()}...")
             
             for _ in range(atenciones_por_dia):
                 try:
-                    p, ruta = generar_paciente_y_ruta()
-                    estado_simulado = random.choice(estados_finales)
+                    # Historial: Variedad de etapas
+                    etapa_random = random.choice(['CONSULTA_MEDICA', 'PROCESO_EXAMEN', 'ALTA'])
+                    p, ruta = generar_paciente_y_ruta(estado_inicial=etapa_random)
                     
-                    # Hora aleatoria en horario laboral (08:00 - 18:00)
+                    estado_simulado = random.choice(estados_finales)
                     hora_inicio = fecha_base.replace(hour=random.randint(8, 18), minute=random.randint(0, 59))
                     
-                    atencion = Atencion.objects.create(
+                    Atencion.objects.create(
                         paciente=p,
                         medico=random.choice(medicos),
                         box=random.choice(boxes),
                         estado=estado_simulado,
                         fecha_hora_inicio=hora_inicio,
                         duracion_planificada=30,
-                        # Si completada, simular datos reales
                         inicio_cronometro=hora_inicio if estado_simulado == 'COMPLETADA' else None,
-                        fin_cronometro=hora_inicio + timedelta(minutes=random.randint(15, 45)) if estado_simulado == 'COMPLETADA' else None,
-                        duracion_real=random.randint(15, 45) if estado_simulado == 'COMPLETADA' else None
+                        fin_cronometro=hora_inicio + timedelta(minutes=30) if estado_simulado == 'COMPLETADA' else None,
+                        duracion_real=30 if estado_simulado == 'COMPLETADA' else None
                     )
                     
-                    # Actualizar estado del paciente según el resultado
                     if estado_simulado == 'COMPLETADA':
-                        p.estado_actual = 'ALTA_COMPLETA'
                         ruta.estado = 'COMPLETADA'
+                        ruta.porcentaje_completado = 100.0
+                        p.estado_actual = 'ALTA_COMPLETA'
                     else:
-                        p.estado_actual = 'PROCESO_CANCELADO'
                         ruta.estado = 'CANCELADA'
-                    p.save(); ruta.save()
+                        p.estado_actual = 'PROCESO_CANCELADO'
                     
+                    p.save(); ruta.save()
                     count += 1
                 except Exception: pass
-    print(f"✅ Historial generado: {count} atenciones pasadas.")
+    print(f"✅ Historial generado: {count} registros históricos.")
 
 def generar_carga_futura_gradual(medicos, boxes, num_pacientes=300):
-    print("\n🔮 GENERANDO AGENDA FUTURA (Live) ----")
-    # Generamos citas distribuidas en las próximas 3 HORAS
-    # Concentración: Más citas AHORA, menos después (para que el test parta movido)
-    
+    print("\n🔮 GENERANDO AGENDA FUTURA (Con Etapas) ----")
     count = 0
     with transaction.atomic():
         for i in range(num_pacientes):
             try:
-                p, ruta = generar_paciente_y_ruta()
+                # Creamos pacientes iniciando su ruta desde cero
+                p, ruta = generar_paciente_y_ruta(estado_inicial='CONSULTA_MEDICA')
                 
-                # Distribución: 40% en la primera hora, 60% en el resto
-                if i < (num_pacientes * 0.4):
-                    minutos_futuros = random.randint(2, 60) # Próxima hora
-                else:
-                    minutos_futuros = random.randint(60, 180) # Próximas 3 horas
-                
+                # Distribución temporal: 4 horas
+                minutos_futuros = random.randint(2, 240)
                 inicio = timezone.now() + timedelta(minutes=minutos_futuros)
                 
                 Atencion.objects.create(
@@ -182,17 +193,11 @@ def generar_carga_futura_gradual(medicos, boxes, num_pacientes=300):
                 count += 1
             except Exception: pass
             
-    print(f"✅ Agenda lista: {count} citas programadas para hoy.")
+    print(f"✅ Agenda lista: {count} citas programadas (Rutas de 4 etapas).")
 
 if __name__ == '__main__':
     limpiar_datos()
-    # 1. Creamos personal (50 médicos para soportar carga)
     medicos, boxes = crear_infraestructura_y_personal(num_medicos=50, num_secretarias=5)
-    
-    # 2. Generamos 7 días de historia (aprox 200 atenciones)
-    generar_historial(medicos, boxes, dias_atras=7, atenciones_por_dia=30)
-    
-    # 3. Generamos la agenda para el "Show en Vivo"
+    generar_historial(medicos, boxes, dias_atras=7, atenciones_por_dia=40)
     generar_carga_futura_gradual(medicos, boxes, num_pacientes=300)
-    
-    print("\n✨ LISTO: Base de datos preparada para la presentación.")
+    print("\n✨ LISTO PARA LOCUST.")
