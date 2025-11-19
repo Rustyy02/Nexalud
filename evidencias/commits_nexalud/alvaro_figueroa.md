@@ -1,3 +1,5 @@
+Commits Principales
+
 Septiembre 2025
 
 - Creación de perfiles de administradores - 25 de Septiembre 2025: Implementacion inicial para clases (Atenciones, Dashboard, Integraciones y Rutas clinicas)
@@ -13,4 +15,5 @@ Octubre 2025
 Noviembre 2025
 
 - Automatización de procesos - 17 de Noviembre 2025: Se creó la automatización de procesos para pruebas funcionales y de carga.
+
 
