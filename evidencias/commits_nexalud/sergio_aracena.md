@@ -1,0 +1,10 @@
+- **15 de octubre:** Se desarrolló el frontend para las bases de las vistas de:
+  - Lista de pacientes.
+  - Gestión de box.
+  - Detalle de pacientes.
+- **16 de octubre:** Se desarrolló el *navbar* para la navegación entre las vistas.
+- **24 de octubre:** Se desarrolló el frontend y el backend de la gestión de boxes.
+- **29 de octubre:** Se realizaron correcciones generales al frontend.
+- **30 de octubre:** Actualización de `requirements.txt`.
+- **1 de noviembre:** Creación y desarrollo de vistas dinámicas según el rol de usuario.
+- **3 de noviembre:** Corrección en las vistas de administrador.
